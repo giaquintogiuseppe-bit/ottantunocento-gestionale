@@ -1,0 +1,42 @@
+{
+  "name": "81|00 Gestionale",
+  "short_name": "81|00 Gestionale",
+  "description": "Gestionale aziendale — presenze, cantieri, mezzi, materiali, personale, flotta, consumi — Ottantunocento S.n.c.",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a1628",
+  "theme_color": "#0a1628",
+  "lang": "it",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Cantieri",
+      "short_name": "Cantieri",
+      "description": "Commesse e costi per cantiere",
+      "url": "./#cantieri",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Presenze",
+      "short_name": "Presenze",
+      "description": "Registro presenze giornaliere",
+      "url": "./#presenze",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
