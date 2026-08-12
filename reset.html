@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="robots" content="noindex">
+<title>Reimposta password — Ottantunocento S.r.l.</title>
+<style>
+  :root{ --navy:#152238; --navy2:#1e3350; --teal:#0e6b64; --teal2:#0b544f; --gold:#c69a3e; --ink:#152238; --ink2:#5a6272; --err:#a63b3b; --ok:#0e6b64; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{ font-family:-apple-system,Segoe UI,Roboto,sans-serif; background:linear-gradient(135deg,var(--navy),var(--navy2));
+    display:flex; align-items:center; justify-content:center; padding:20px; }
+  .box{ background:#fff; border-radius:16px; padding:28px 24px; width:100%; max-width:360px;
+    text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.4); }
+  .ey{ font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--gold); font-weight:700; }
+  h2{ margin:6px 0 2px; color:var(--ink); font-size:20px; }
+  .sub{ color:var(--ink2); font-size:13px; margin-bottom:18px; line-height:1.45; }
+  label{ display:block; text-align:left; font-size:12px; color:var(--ink2); font-weight:600; margin:0 2px 5px; }
+  input{ width:100%; padding:13px; border:1px solid #dcd6c8; border-radius:9px; font-size:16px; margin-bottom:12px; }
+  input:focus{ outline:2px solid var(--teal); border-color:var(--teal); }
+  button{ width:100%; padding:13px; border:none; border-radius:9px; background:var(--teal); color:#fff;
+    font-size:16px; font-weight:700; cursor:pointer; }
+  button:active{ background:var(--teal2); }
+  button:disabled{ opacity:.6; cursor:default; }
+  .msg{ font-size:13px; min-height:18px; margin-top:10px; }
+  .msg.err{ color:var(--err); }
+  .msg.ok{ color:var(--ok); font-weight:600; }
+  .row{ display:flex; align-items:center; gap:8px; justify-content:flex-start; margin:-4px 2px 12px; }
+  .row input{ width:auto; margin:0; }
+  .row label{ margin:0; font-weight:400; }
+  .links{ margin-top:16px; font-size:13px; }
+  .links a{ color:var(--teal); font-weight:600; text-decoration:underline; display:inline-block; margin:4px 8px; }
+</style>
+</head>
+<body>
+<div class="box" id="box">
+  <div class="ey">Ottantunocento S.r.l.</div>
+  <h2>Reimposta password</h2>
+  <div class="sub" id="intro">Scegli una nuova password per il tuo accesso.</div>
+  <div id="form">
+    <label for="p1">Nuova password</label>
+    <input id="p1" type="password" autocomplete="new-password" placeholder="almeno 8 caratteri">
+    <label for="p2">Ripeti la password</label>
+    <input id="p2" type="password" autocomplete="new-password" placeholder="ripeti">
+    <div class="row"><input type="checkbox" id="show"><label for="show">Mostra le password</label></div>
+    <button id="go">Salva la nuova password</button>
+    <div class="msg" id="msg"></div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  var SB_URL  = 'https://xqbhujcnjvwbwzpwjujf.supabase.co';
+  var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxYmh1amNuanZ3Ynd6cHdqdWpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MzM4ODUsImV4cCI6MjA5NzMwOTg4NX0.VstO3aII143jpPXjgKg0t3du-yc5rS9xs2hYko_2DRs';
+  // link di ritorno alle app (con ?v= per bypassare la cache)
+  var APPS = [
+    ['Gestionale','https://giaquintogiuseppe-bit.github.io/ottantunocento-gestionale/'],
+    ['Planning','https://giaquintogiuseppe-bit.github.io/ottantunocento-planning/'],
+    ['Preventivi','https://giaquintogiuseppe-bit.github.io/preventivi/']
+  ];
+
+  function el(id){ return document.getElementById(id); }
+  function parseHash(){
+    var h = (location.hash||'').replace(/^#/,''); var o = {};
+    h.split('&').forEach(function(kv){ if(!kv) return; var p=kv.split('='); o[decodeURIComponent(p[0])]=decodeURIComponent(p[1]||''); });
+    return o;
+  }
+  function schermata(titolo, testo, ok){
+    el('box').innerHTML =
+      '<div class="ey">Ottantunocento S.r.l.</div>'+
+      '<h2>'+titolo+'</h2>'+
+      '<div class="sub '+(ok?'':'')+'">'+testo+'</div>'+
+      '<div class="links">'+APPS.map(function(a){ return '<a href="'+a[1]+'">Apri '+a[0]+'</a>'; }).join('')+'</div>';
+  }
+
+  var q = parseHash();
+  var TOKEN = q.access_token || '';
+  // link scaduto / errore restituito da Supabase
+  if(q.error || q.error_description){
+    schermata('Link non più valido', (q.error_description||'Il link è scaduto o è già stato usato.')+'<br>Torna a un\'app e usa di nuovo "Password dimenticata?".', false);
+    return;
+  }
+  if(!TOKEN || q.type !== 'recovery'){
+    schermata('Link non valido', 'Questa pagina va aperta dal link ricevuto via email dopo aver usato "Password dimenticata?". Torna a un\'app e richiedi il reset.', false);
+    return;
+  }
+
+  var go=el('go'), msg=el('msg');
+  el('show').addEventListener('change', function(){
+    var t = this.checked ? 'text' : 'password'; el('p1').type=t; el('p2').type=t;
+  });
+  function fail(m){ msg.className='msg err'; msg.textContent=m; go.disabled=false; go.textContent='Salva la nuova password'; }
+
+  go.addEventListener('click', function(){
+    var a=el('p1').value||'', b=el('p2').value||'';
+    if(a.length<8) return fail('Troppo corta: almeno 8 caratteri.');
+    if(a!==b) return fail('Le due password non coincidono.');
+    msg.className='msg'; msg.textContent=''; go.disabled=true; go.textContent='Salvo…';
+    fetch(SB_URL + '/auth/v1/user', {
+      method:'PUT',
+      headers:{ 'Content-Type':'application/json', 'apikey':SB_ANON, 'Authorization':'Bearer '+TOKEN },
+      body: JSON.stringify({ password: a })
+    }).then(function(r){ return r.json().then(function(j){ return { ok:r.ok, j:j }; }); })
+      .then(function(res){
+        if(res.ok){
+          schermata('Password aggiornata ✓', 'Fatto. Ora puoi entrare nelle app con la nuova password.', true);
+        } else {
+          var m = (res.j && (res.j.msg || res.j.error_description || res.j.message)) || '';
+          if(/expired|invalid|token/i.test(m)) fail('Il link è scaduto: torna a un\'app e richiedi di nuovo il reset.');
+          else fail('Non riuscito'+(m?': '+m:'')+'. Riprova.');
+        }
+      })
+      .catch(function(){ fail('Errore di rete, riprova.'); });
+  });
+  el('p1').focus();
+})();
+</script>
+</body>
+</html>
