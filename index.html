@@ -9800,6 +9800,7 @@ function _pcCompute(){
     if(r<=0) return false;
     return (_fatture||[]).some(f=>{
       if(f.stato==='annullata' || (f.tipo!=='unica'&&f.tipo!=='acconto')) return false;
+      if(f.cantiere_id && f.cantiere_id!==c.id) return false;   // fattura gia' agganciata ad ALTRO cantiere: non puo' "coprire" questo per sola somiglianza d'importo
       if(_pcNorm(f.cliente)!==key) return false;
       const imp=+f.importo||0;
       return Math.abs(imp-r)<=Math.max(1,r*0.02) || Math.abs(imp-r*1.22)<=Math.max(1,r*1.22*0.02);
