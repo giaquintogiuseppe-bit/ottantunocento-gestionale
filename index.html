@@ -7,26 +7,28 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="81|00 Gestionale">
-<meta name="theme-color" content="#0a1628">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<meta name="theme-color" content="#5f4a15">
+<link rel="manifest" href="manifest.json?v=2">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=2">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=2">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=2">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=2">
 <title>81|00 Gestionale</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--navy:#0a1628;--navy2:#0f1f3d;--teal:#00b4a6;--teal2:#00d4c4;--td:rgba(0,180,166,.13);--td2:rgba(0,180,166,.06);--gold:#e8b84b;--red:#e84b4b;--green:#4be87a;--text:#e8eaf0;--text2:#8a95a8;--brd:rgba(255,255,255,.07);--card:rgba(255,255,255,.04);--r:12px;--r2:8px}
+:root{--navy:#f1eee7;--navy2:#ffffff;--teal:#9a7a1f;--teal2:#7f6417;--td:rgba(154,122,31,.13);--td2:rgba(154,122,31,.06);--gold:#c07d16;--red:#b23a2e;--green:#2f7d4f;--text:#201a12;--text2:#6a6154;--brd:#e4dfd4;--card:#ffffff;--r:12px;--r2:8px}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;background:var(--navy);color:var(--text);font-family:'Inter',sans-serif;overflow-x:hidden}
+html,body{height:100%;background:var(--navy);color:var(--text);font-family:'IBM Plex Sans',sans-serif;overflow-x:hidden}
 #app{display:flex;flex-direction:column;height:100dvh}
 /* HEADER */
 #hdr{background:var(--navy2);border-bottom:1px solid var(--brd);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:10}
 #hdr-logo{font-size:21px;font-weight:800;color:var(--teal)}
 #hdr-logo span{color:var(--text2);font-weight:400;font-size:12px;display:block;margin-top:1px}
 #hdr-r{display:flex;align-items:center;gap:12px}
-#hdr-date{font-family:'DM Mono',monospace;font-size:12px;color:var(--text2);text-align:right}
+#hdr-date{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text2);text-align:right}
 #hdr-date b{display:block;color:var(--teal);font-size:13px}
 /* LAYOUT */
 #main{display:flex;flex:1;overflow:hidden}
@@ -34,13 +36,13 @@ html,body{height:100%;background:var(--navy);color:var(--text);font-family:'Inte
 .ns{padding:18px 12px 7px;font-size:11px;letter-spacing:1.5px;color:var(--text2);text-transform:uppercase}
 .ni{display:flex;align-items:center;gap:10px;padding:10px 15px;margin:2px 7px;border-radius:var(--r2);cursor:pointer;font-size:13px;font-weight:600;color:var(--text2);transition:all .15s;border:1px solid transparent}
 .ni:hover{background:var(--td2);color:var(--text)}
-.ni.active{background:var(--td);color:var(--teal);border-color:rgba(0,180,166,.2)}
+.ni.active{background:var(--td);color:var(--teal);border-color:rgba(154,122,31,.2)}
 #sbf{margin-top:auto;padding:14px;border-top:1px solid var(--brd);display:flex;flex-direction:column;gap:7px}
-.btn-sb{width:100%;padding:8px;border-radius:var(--r2);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
-.btn-teal{background:var(--td);color:var(--teal);border:1px solid rgba(0,180,166,.3)}
-.btn-teal:hover{background:var(--teal);color:var(--navy)}
+.btn-sb{width:100%;padding:8px;border-radius:var(--r2);font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+.btn-teal{background:var(--td);color:var(--teal);border:1px solid rgba(154,122,31,.3)}
+.btn-teal:hover{background:var(--teal);color:#fff}
 .btn-gold{background:rgba(232,184,75,.12);color:var(--gold);border:1px solid rgba(232,184,75,.3)}
-.btn-gold:hover{background:var(--gold);color:var(--navy)}
+.btn-gold:hover{background:var(--gold);color:#fff}
 .btn-gray{background:transparent;color:var(--text2);border:1px solid var(--brd)}
 .btn-gray:hover{border-color:var(--text2);color:var(--text)}
 /* CONTENT */
@@ -48,49 +50,49 @@ html,body{height:100%;background:var(--navy);color:var(--text);font-family:'Inte
 .pg{display:none}.pg.active{display:block;animation:fi .18s ease}
 @keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 .pt{font-size:25px;font-weight:800;margin-bottom:3px}
-.ps{font-size:13px;color:var(--text2);margin-bottom:20px;font-family:'DM Mono',monospace}
+.ps{font-size:13px;color:var(--text2);margin-bottom:20px;font-family:'IBM Plex Mono',monospace}
 /* STAT CARDS */
 .sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:11px;margin-bottom:20px}
 .sc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:15px}
 .sc .lb{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);margin-bottom:7px}
-.sc .vl{font-size:24px;font-weight:800;color:var(--teal);font-family:'DM Mono',monospace}
+.sc .vl{font-size:24px;font-weight:800;color:var(--teal);font-family:'IBM Plex Mono',monospace}
 .sc .sb2{font-size:12px;color:var(--text2);margin-top:3px}
 /* FORM */
 .fc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:18px;margin-bottom:18px}
 .fc h3{font-size:13px;font-weight:700;margin-bottom:14px;color:var(--teal);text-transform:uppercase;letter-spacing:.5px}
 .fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
 .fg label{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px}
-.fg input,.fg select,.fg textarea{background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:9px 11px;outline:none;width:100%;transition:border-color .15s}
+.fg input,.fg select,.fg textarea{background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 11px;outline:none;width:100%;transition:border-color .15s}
 .fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--teal)}
 .fg textarea{resize:vertical;min-height:60px}
 .fg select option{background:var(--navy2)}
 .fa{display:flex;gap:9px;margin-top:14px;flex-wrap:wrap}
-.bp{padding:9px 18px;background:var(--teal);color:var(--navy);border:none;border-radius:var(--r2);font-family:'Inter',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all .15s}
+.bp{padding:9px 18px;background:var(--teal);color:#fff;border:none;border-radius:var(--r2);font-family:'IBM Plex Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all .15s}
 .bp:hover{background:var(--teal2)}
-.bs{padding:9px 18px;background:transparent;color:var(--text2);border:1px solid var(--brd);border-radius:var(--r2);font-family:'Inter',sans-serif;font-weight:600;font-size:13px;cursor:pointer}
-.pf-flt.on{background:var(--teal);color:var(--navy);border-color:var(--teal)}
-.bd{padding:5px 10px;background:transparent;color:var(--red);border:1px solid rgba(232,75,75,.3);border-radius:var(--r2);font-family:'Inter',sans-serif;font-weight:600;font-size:11px;cursor:pointer}
+.bs{padding:9px 18px;background:transparent;color:var(--text2);border:1px solid var(--brd);border-radius:var(--r2);font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:13px;cursor:pointer}
+.pf-flt.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+.bd{padding:5px 10px;background:transparent;color:var(--red);border:1px solid rgba(232,75,75,.3);border-radius:var(--r2);font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;cursor:pointer}
 .bd:hover{background:rgba(232,75,75,.1)}
 /* TABLE */
 .tc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden;margin-bottom:18px}
 .th{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid var(--brd)}
 .th h3{font-size:13px;font-weight:700}
-.ts{background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'Inter',sans-serif;font-size:12px;padding:6px 10px;outline:none;width:180px}
+.ts{background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:12px;padding:6px 10px;outline:none;width:180px}
 .ts:focus{border-color:var(--teal)}
 .turno-row{transition:background .15s}
 .turno-row:hover{filter:brightness(1.05)}
 grid-template-columns:repeat(3,1fr);gap:16px;align-items:start}
 .kb-col{background:var(--navy2);border-radius:12px;padding:12px}
 .kb-col-hdr{font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;padding:4px 8px;border-radius:6px;display:inline-block}
-.kb-card{background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.09);border-radius:10px;padding:15px;margin-bottom:10px;cursor:pointer;transition:all .15s}
-.kb-card:hover{border-color:var(--teal);background:rgba(0,180,166,.06)}
+.kb-card{background:var(--brd);border:1.5px solid var(--brd);border-radius:10px;padding:15px;margin-bottom:10px;cursor:pointer;transition:all .15s}
+.kb-card:hover{border-color:var(--teal);background:rgba(154,122,31,.06)}
 .kb-card.archiviato{opacity:.55}
-.kb-card:nth-child(odd){background:rgba(255,255,255,.04)}
-.kb-card:nth-child(even){background:rgba(15,31,61,.8);border-color:rgba(255,255,255,.12)}
-.kb-name{font-size:16px;font-weight:800;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#e8eaf0;letter-spacing:-.2px}
-.kb-card:nth-child(odd) .kb-name{color:#e8eaf0}
-.kb-card:nth-child(even) .kb-name{color:#c8d4f0}
-.kb-periodo{font-size:12px;color:var(--text2);font-family:'DM Mono',monospace;margin-bottom:10px}
+.kb-card:nth-child(odd){background:var(--brd)}
+.kb-card:nth-child(even){background:var(--navy);border-color:var(--brd)}
+.kb-name{font-size:16px;font-weight:800;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);letter-spacing:-.2px}
+.kb-card:nth-child(odd) .kb-name{color:var(--text)}
+.kb-card:nth-child(even) .kb-name{color:var(--text)}
+.kb-periodo{font-size:12px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin-bottom:10px}
 .kb-bar-wrap{height:6px;background:var(--brd);border-radius:3px;margin-bottom:8px;overflow:hidden}
 .kb-bar{height:100%;border-radius:3px;transition:width .3s}
 .kb-costs{display:flex;gap:6px;font-size:11px;margin-bottom:10px;flex-wrap:wrap}
@@ -103,13 +105,13 @@ grid-template-columns:repeat(3,1fr);gap:16px;align-items:start}
 .kb-warn{font-size:11px;color:var(--red);font-weight:700;margin-bottom:6px}
 .costiCache{}
 
-thead th{padding:9px 14px;text-align:left;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);background:rgba(255,255,255,.02);border-bottom:1px solid var(--brd);font-weight:700}
+thead th{padding:9px 14px;text-align:left;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);background:var(--brd);border-bottom:1px solid var(--brd);font-weight:700}
 tbody tr{border-bottom:1px solid var(--brd);transition:background .1s}
 tbody tr:last-child{border-bottom:none}
 tbody tr:hover{background:var(--td2)}
 tbody td{padding:10px 14px;vertical-align:middle}
 /* inline edit */
-.ie{background:var(--navy);border:1px solid var(--brd);border-radius:5px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:4px 7px;outline:none;width:100%;min-width:60px}
+.ie{background:var(--navy);border:1px solid var(--brd);border-radius:5px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;padding:4px 7px;outline:none;width:100%;min-width:60px}
 .ie:focus{border-color:var(--teal)}
 /* BADGE */
 .bx{display:inline-block;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700}
@@ -118,39 +120,39 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .bo{background:rgba(232,184,75,.15);color:var(--gold)}
 .bt{background:var(--td);color:var(--teal)}
 .bz{background:rgba(138,149,168,.15);color:var(--text2)}
-.mn{font-family:'DM Mono',monospace}
+.mn{font-family:'IBM Plex Mono',monospace}
 /* PRESENZE GRID */
 .pg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:9px;margin-bottom:16px}
 .ptog{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:12px 9px;text-align:center;transition:all .15s;border:1px solid var(--brd)}
-.ptog.present{background:var(--td);border-color:rgba(0,180,166,.35)}
+.ptog.present{background:var(--td);border-color:rgba(154,122,31,.35)}
 .pav{width:34px;height:34px;border-radius:50%;margin:0 auto 7px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;background:var(--navy2);color:var(--text2);cursor:pointer;transition:all .15s}
-.ptog.present .pav{background:var(--teal);color:var(--navy)}
+.ptog.present .pav{background:var(--teal);color:#fff}
 .pav:hover{opacity:.8}
 .pnm{font-size:11px;font-weight:700;margin-bottom:5px}
 .p-fields{display:flex;flex-direction:column;gap:3px;margin-top:5px}
-.p-fields input,.p-fields select{background:var(--navy2);border:1px solid var(--brd);border-radius:4px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:3px 5px;outline:none;width:100%;text-align:center}
+.p-fields input,.p-fields select{background:var(--navy2);border:1px solid var(--brd);border-radius:4px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:3px 5px;outline:none;width:100%;text-align:center}
 .p-fields input:focus,.p-fields select:focus{border-color:var(--teal)}
-.p-tot{font-family:'DM Mono',monospace;font-size:11px;color:var(--teal);margin-top:4px;font-weight:700}
+.p-tot{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--teal);margin-top:4px;font-weight:700}
 /* DASHBOARD */
 .dg{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
 @media(min-width:860px){.dg{grid-template-columns:repeat(4,1fr)}}
 .dc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:16px}
 .dc .dl{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin-bottom:7px}
-.dc .dv{font-size:28px;font-weight:800;color:var(--teal);font-family:'DM Mono',monospace;line-height:1}
-.dc .ds{font-size:11px;color:var(--text2);margin-top:5px;font-family:'DM Mono',monospace}
+.dc .dv{font-size:28px;font-weight:800;color:var(--teal);font-family:'IBM Plex Mono',monospace;line-height:1}
+.dc .ds{font-size:11px;color:var(--text2);margin-top:5px;font-family:'IBM Plex Mono',monospace}
 .rl{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden}
 .ri{display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-bottom:1px solid var(--brd)}
 .ri:last-child{border-bottom:none}
 .ri .rlt{font-size:13px;font-weight:600}
-.ri .rls{font-size:11px;color:var(--text2);margin-top:2px;font-family:'DM Mono',monospace}
+.ri .rls{font-size:11px;color:var(--text2);margin-top:2px;font-family:'IBM Plex Mono',monospace}
 .sl{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin-bottom:9px;font-weight:700}
 /* SALDO CARDS */
 .sal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:10px;margin-bottom:18px}
 .sal-c{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:14px}
 .sal-c .sn{font-size:13px;font-weight:700;color:var(--teal);margin-bottom:9px}
-.sal-c .sr{display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;font-family:'DM Mono',monospace}
+.sal-c .sr{display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;font-family:'IBM Plex Mono',monospace}
 .sal-c .sr .lb{color:var(--text2)}
-.sal-c .ss{display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-top:9px;padding-top:9px;border-top:1px solid var(--brd);font-family:'DM Mono',monospace}
+.sal-c .ss{display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-top:9px;padding-top:9px;border-top:1px solid var(--brd);font-family:'IBM Plex Mono',monospace}
 /* MOBILE NAV */
 #mnav{display:none;background:var(--navy2);border-top:1px solid var(--brd);flex-shrink:0}
 .mni{display:flex;overflow-x:auto;scrollbar-width:none;padding:0 2px}
@@ -171,7 +173,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 #modal-export .mb{display:flex;flex-direction:column;gap:12px}
 .exp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .exp-row label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);font-weight:600;min-width:80px}
-.exp-row input[type=date]{background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:8px 12px;outline:none;flex:1}
+.exp-row input[type=date]{background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:8px 12px;outline:none;flex:1}
 .exp-row input[type=date]:focus{border-color:var(--teal)}
 .exp-cb-group{display:flex;flex-direction:column;gap:6px}
 .exp-cb{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
@@ -184,28 +186,28 @@ tbody td{padding:10px 14px;vertical-align:middle}
   thead th:nth-child(n+5),tbody td:nth-child(n+5){display:none}
   .pg-grid{grid-template-columns:repeat(2,1fr)}
 }
-::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
-#toast{position:fixed;bottom:68px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--teal);color:var(--navy);padding:9px 20px;border-radius:8px;font-weight:700;font-size:13px;opacity:0;transition:all .3s;z-index:200;pointer-events:none}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18);border-radius:2px}
+#toast{position:fixed;bottom:68px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--teal);color:#fff;padding:9px 20px;border-radius:8px;font-weight:700;font-size:13px;opacity:0;transition:all .3s;z-index:200;pointer-events:none}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* BARRA TEMPORALE GLOBALE */
 #timebar{background:var(--navy2);border-bottom:1px solid var(--brd);padding:8px 20px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;z-index:9}
 .tb-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);font-weight:700;margin-right:4px;white-space:nowrap}
-.tb-preset{padding:5px 10px;border-radius:6px;border:1px solid var(--brd);background:transparent;color:var(--text2);font-family:'Inter',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap}
+.tb-preset{padding:5px 10px;border-radius:6px;border:1px solid var(--brd);background:transparent;color:var(--text2);font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap}
 .tb-preset:hover{border-color:var(--teal);color:var(--teal)}
-.tb-preset.active{background:var(--teal);color:var(--navy);border-color:var(--teal)}
+.tb-preset.active{background:var(--teal);color:#fff;border-color:var(--teal)}
 .tb-sep{width:1px;height:20px;background:var(--brd);margin:0 4px;flex-shrink:0}
-.tb-date{background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:5px 8px;outline:none;width:120px}
+.tb-date{background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 8px;outline:none;width:120px}
 .tb-date:focus{border-color:var(--teal)}
-#tb-range-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--teal);white-space:nowrap;margin-left:4px}
+#tb-range-label{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--teal);white-space:nowrap;margin-left:4px}
 @media(max-width:700px){#timebar{padding:6px 10px;gap:5px}.tb-date{width:100px}}
 
 /* PAGAMENTI */
 .pag-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:6px}
 .pag-card .pnm{font-size:13px;font-weight:700}
-.pag-card .prow{display:flex;justify-content:space-between;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2)}
+.pag-card .prow{display:flex;justify-content:space-between;font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text2)}
 .pag-card .prow.tot{color:var(--text);font-weight:700;font-size:13px;border-top:1px solid var(--brd);padding-top:6px;margin-top:2px}
-.pag-card .pinput{background:var(--navy);border:1px solid rgba(0,180,166,.4);border-radius:6px;color:var(--teal);font-family:'DM Mono',monospace;font-size:14px;font-weight:700;padding:6px 10px;width:100%;outline:none;text-align:right}
+.pag-card .pinput{background:var(--navy);border:1px solid rgba(154,122,31,.4);border-radius:6px;color:var(--teal);font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;padding:6px 10px;width:100%;outline:none;text-align:right}
 .pag-card .pnote{font-size:11px;color:var(--gold);font-style:italic;margin-top:2px}
 .pag-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:18px}
 /* GRAFICI */
@@ -213,10 +215,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .chart-wrap h3{font-size:13px;font-weight:700;color:var(--teal);margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px}
 .bar-chart{display:flex;align-items:flex-end;gap:6px;height:140px;padding-bottom:24px;position:relative;border-bottom:1px solid var(--brd)}
 .bar-col{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;min-width:0}
-.bar-lbl{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-align:center}
-.bar-val{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace}
+.bar-lbl{font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-align:center}
+.bar-val{font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace}
 .bar{width:100%;border-radius:4px 4px 0 0;transition:height .3s;min-height:2px;cursor:pointer;position:relative}
-.bar:hover::after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--navy2);border:1px solid var(--brd);border-radius:6px;padding:4px 8px;font-size:11px;white-space:nowrap;font-family:'DM Mono',monospace;color:var(--text);z-index:10;margin-bottom:4px}
+.bar:hover::after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--navy2);border:1px solid var(--brd);border-radius:6px;padding:4px 8px;font-size:11px;white-space:nowrap;font-family:'IBM Plex Mono',monospace;color:var(--text);z-index:10;margin-bottom:4px}
 .bar-mat{background:var(--teal)}
 .bar-ant{background:var(--gold)}
 .bar-carb{background:var(--red)}
@@ -227,7 +229,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .doc-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:14px;position:relative}
 .doc-card .dc-nome{font-size:13px;font-weight:700;margin-bottom:4px}
 .doc-card .dc-tipo{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);margin-bottom:8px}
-.doc-card .dc-scad{font-family:'DM Mono',monospace;font-size:12px}
+.doc-card .dc-scad{font-family:'IBM Plex Mono',monospace;font-size:12px}
 .doc-card .dc-giorni{font-size:12px;margin-top:4px;font-weight:700}
 .doc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:18px}
 .scad-ok{color:var(--green)}.scad-warn{color:var(--gold)}.scad-alert{color:var(--red)}
@@ -244,18 +246,18 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .sync-status .ss-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--brd);font-size:13px}
 .sync-status .ss-row:last-child{border-bottom:none}
 .sync-status .ss-lbl{color:var(--text2);font-size:12px;text-transform:uppercase;letter-spacing:.8px;font-weight:600}
-.sync-status .ss-val{font-family:'DM Mono',monospace;font-size:13px}
-.sync-log{background:var(--navy);border-radius:var(--r2);padding:12px;font-family:'DM Mono',monospace;font-size:11px;max-height:160px;overflow-y:auto;margin-top:10px}
+.sync-status .ss-val{font-family:'IBM Plex Mono',monospace;font-size:13px}
+.sync-log{background:var(--navy);border-radius:var(--r2);padding:12px;font-family:'IBM Plex Mono',monospace;font-size:11px;max-height:160px;overflow-y:auto;margin-top:10px}
 .sync-log .sl-ok{color:var(--green)}.sync-log .sl-warn{color:var(--gold)}.sync-log .sl-info{color:var(--text2)}
 .step-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:16px;margin-bottom:10px;display:flex;gap:14px;align-items:flex-start}
-.step-num{width:28px;height:28px;border-radius:50%;background:var(--teal);color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;margin-top:2px}
+.step-num{width:28px;height:28px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;margin-top:2px}
 .step-body h4{font-size:13px;font-weight:700;margin-bottom:4px}
 .step-body p{font-size:12px;color:var(--text2);line-height:1.6}
-.step-body code{background:var(--navy);border:1px solid var(--brd);border-radius:4px;padding:2px 6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--teal)}
+.step-body code{background:var(--navy);border:1px solid var(--brd);border-radius:4px;padding:2px 6px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--teal)}
 
 /* DKV */
 .dkv-match{color:var(--green)}.dkv-new{color:var(--teal)}.dkv-dup{color:var(--text2)}.dkv-dec{color:var(--red)}
-.dkv-row-new{background:rgba(0,180,166,.06)}.dkv-row-dup{opacity:.5}.dkv-row-dec{background:rgba(232,75,75,.05)}
+.dkv-row-new{background:rgba(154,122,31,.06)}.dkv-row-dup{opacity:.5}.dkv-row-dec{background:rgba(232,75,75,.05)}
 .dkv-legend{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px}
 .dkv-legend span{font-size:11px;display:flex;align-items:center;gap:5px}
 .dkv-legend b{width:10px;height:10px;border-radius:2px;display:inline-block}
@@ -263,25 +265,25 @@ tbody td{padding:10px 14px;vertical-align:middle}
 /* SCONTRINI */
 .scon-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:14px;position:relative}
 .scon-card .sc-img{width:100%;max-height:120px;object-fit:cover;border-radius:6px;margin-bottom:10px;cursor:pointer}
-.scon-card .sc-imp{font-size:20px;font-weight:800;font-family:'DM Mono',monospace;color:var(--teal);margin-bottom:4px}
+.scon-card .sc-imp{font-size:20px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:var(--teal);margin-bottom:4px}
 .scon-card .sc-meta{font-size:11px;color:var(--text2);line-height:1.6}
 .scon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:18px}
 .scon-badge{position:absolute;top:10px;right:10px}
 .tr{color:var(--teal)}.rr{color:var(--red)}.gr{color:var(--green)}.or{color:var(--gold)}.mt{margin-top:16px}.fs{grid-column:1/-1}
 /* SCHEDA DIPENDENTE */
 .dip-header{display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap}
-.dip-avatar{width:56px;height:56px;border-radius:50%;background:var(--teal);color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;flex-shrink:0}
+.dip-avatar{width:56px;height:56px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;flex-shrink:0}
 .dip-info h2{font-size:20px;font-weight:800;margin-bottom:2px}
-.dip-info p{font-size:12px;color:var(--text2);font-family:'DM Mono',monospace}
-.dip-sel{background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;outline:none;min-width:220px}
+.dip-info p{font-size:12px;color:var(--text2);font-family:'IBM Plex Mono',monospace}
+.dip-sel{background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;outline:none;min-width:220px}
 .dip-sel:focus{border-color:var(--teal)}
 .timeline-day{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
-.timeline-day-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--brd)}
-.timeline-day-hdr .td-date{font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--teal)}
+.timeline-day-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--brd);border-bottom:1px solid var(--brd)}
+.timeline-day-hdr .td-date{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:var(--teal)}
 .timeline-day-hdr .td-cant{font-size:12px;color:var(--text2)}
-.timeline-day-hdr .td-tot{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--gold)}
+.timeline-day-hdr .td-tot{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:var(--gold)}
 .timeline-day-body{display:flex;gap:24px;padding:10px 16px;flex-wrap:wrap}
-.timeline-day-body .tdb-item{font-size:12px;font-family:'DM Mono',monospace}
+.timeline-day-body .tdb-item{font-size:12px;font-family:'IBM Plex Mono',monospace}
 .timeline-day-body .tdb-item .tl{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px}
 /* IMPORTA EXCEL */
 .imp-zone{border:2px dashed var(--brd);border-radius:var(--r);padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s}
@@ -289,8 +291,28 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .imp-zone .iz-icon{font-size:36px;margin-bottom:10px}
 .imp-zone p{font-size:13px;color:var(--text2)}
 .imp-zone b{color:var(--teal)}
-.imp-log{background:var(--navy);border-radius:var(--r2);padding:14px;font-family:'DM Mono',monospace;font-size:12px;max-height:200px;overflow-y:auto;margin-top:12px;display:none}
+.imp-log{background:var(--navy);border-radius:var(--r2);padding:14px;font-family:'IBM Plex Mono',monospace;font-size:12px;max-height:200px;overflow-y:auto;margin-top:12px;display:none}
 .imp-log .ok{color:var(--green)}.imp-log .warn{color:var(--gold)}.imp-log .err{color:var(--red)}
+
+/* ===== override tema chiaro / firma ORO Gestionale ===== */
+::placeholder{color:#9c948a}
+#sb{background:linear-gradient(180deg,#5f4a15,#46360f);border-right:1px solid #3a2d0c}
+#sb .ns{color:rgba(255,255,255,.55)}
+#sb .ni{color:rgba(255,255,255,.82)}
+#sb .ni:hover{background:rgba(255,255,255,.09);color:#fff}
+#sb .ni.active{background:rgba(255,255,255,.17);color:#fff;border-color:transparent}
+#sb .btn-teal{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.25)}
+#sb .btn-teal:hover{background:rgba(255,255,255,.24);color:#fff}
+#sb .btn-gold{background:rgba(255,255,255,.1);color:#e6cd8f;border:1px solid rgba(255,255,255,.25)}
+#sb .btn-gold:hover{background:rgba(255,255,255,.2);color:#fff}
+#sb .btn-gray{background:transparent;color:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.2)}
+#sb .btn-gray:hover{color:#fff;border-color:rgba(255,255,255,.4)}
+#hdr-logo{color:#8a6a12}
+.kb-col{background:#f5f1e8}
+.kb-card,.kb-card:nth-child(odd),.kb-card:nth-child(even){background:#fff;border:1.5px solid var(--brd)}
+.kb-card:hover{border-color:var(--teal);background:#faf7ef}
+.bar-mat{background:#3f6ea8}
+.bt{background:rgba(63,110,168,.14);color:#2f5788}
 </style>
 <!-- ═══════════════════════════════════════════════════════════════════════
      81|00 — Modulo di LOGIN unico per le app (da incollare nell'<head>,
@@ -592,7 +614,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <button onclick="presNav(-1)" style="background:var(--card);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-size:18px;width:36px;height:36px;cursor:pointer;margin-top:20px;flex-shrink:0" title="Giorno precedente">◀</button>
         <div>
           <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Data (qualsiasi data passata o futura)</label>
-          <input type="date" id="pres-date" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:8px 12px;outline:none" onchange="loadPres()">
+          <input type="date" id="pres-date" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:8px 12px;outline:none" onchange="loadPres()">
         </div>
         <button onclick="presNav(1)" style="background:var(--card);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-size:18px;width:36px;height:36px;cursor:pointer;margin-top:20px;flex-shrink:0" title="Giorno successivo">▶</button>
         <div style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap">
@@ -603,7 +625,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
           <button class="bs" onclick="openModalExportPresenze()" style="background:var(--green);color:#000" title="Esporta un Excel completo con più fogli di analisi">📊 Export Excel</button>
         </div>
       </div>
-      <div id="pres-info" style="font-size:12px;color:var(--text2);margin-bottom:12px;font-family:'DM Mono',monospace"></div>
+      <div id="pres-info" style="font-size:12px;color:var(--text2);margin-bottom:12px;font-family:'IBM Plex Mono',monospace"></div>
       <!-- GRIGLIA PERSONE con edit inline -->
       <div class="pg-grid" id="pres-grid"></div>
     </div>
@@ -622,7 +644,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <h3>Dati giornata</h3>
       <div class="fg">
         <div><label>Data</label><input type="date" id="ng-data" onchange="ngDataChanged()"></div>
-        <div><label>Cantiere principale</label><select id="ng-cantiere" class="cantiere-select" onchange="ngCantierePrincipale(this)" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"><option value="">— Nessun cantiere —</option></select></div>
+        <div><label>Cantiere principale</label><select id="ng-cantiere" class="cantiere-select" onchange="ngCantierePrincipale(this)" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"><option value="">— Nessun cantiere —</option></select></div>
       </div>
       <div style="margin-top:14px;padding:14px;background:rgba(240,180,41,.06);border:1px solid rgba(240,180,41,.25);border-radius:10px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
@@ -631,7 +653,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
         </div>
         <div style="font-size:11px;color:var(--text2);margin-top:6px">Legge ingressi e uscite registrati con /timbra e li trasforma in turni con gli orari veri (importo da compilare). Mai distruttivo: i turni esistenti restano.</div>
       </div>
-      <div style="margin-top:14px;padding:14px;background:rgba(0,180,166,.06);border:1px solid rgba(0,180,166,.2);border-radius:10px">
+      <div style="margin-top:14px;padding:14px;background:rgba(154,122,31,.06);border:1px solid rgba(154,122,31,.2);border-radius:10px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <div style="font-size:13px;font-weight:700;color:var(--teal)">📅 Importa turni dal Planning</div>
           <button class="bp" onclick="apriModalImportaPlanning()" style="font-size:12px;padding:7px 14px">Seleziona giorni →</button>
@@ -687,7 +709,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">Materiali di consumo, noleggi, acquisti attrezzature, servizi esterni — costi diretti non legati al personale.</p>
       <div class="fg">
         <div><label>Cantiere</label>
-          <select id="sc-cantiere" class="cantiere-select" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none">
+          <select id="sc-cantiere" class="cantiere-select" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none">
             <option value="">— Seleziona —</option>
           </select>
         </div>
@@ -706,10 +728,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <div><label>Fornitore</label><input type="text" id="sc-fornitore" placeholder="es. Brico Caserta"></div>
         <div class="fs"><label>Descrizione</label><input type="text" id="sc-desc" placeholder="es. Nastro adesivo, viti, cavi..."></div>
       </div>
-      <div class="fa"><button class="bp" style="background:var(--gold);color:var(--navy)" onclick="addSpesaCantiere()">💾 Registra spesa</button></div>
+      <div class="fa"><button class="bp" style="background:var(--gold);color:#fff" onclick="addSpesaCantiere()">💾 Registra spesa</button></div>
     </div>
 
-    <div class="fc" id="sb-import-card" style="border-color:rgba(0,180,166,.25)">
+    <div class="fc" id="sb-import-card" style="border-color:rgba(154,122,31,.25)">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
         <div style="font-size:13px;font-weight:700;color:var(--teal)">🤖 Importa spese dal bot</div>
         <button class="bp" onclick="rImportSpeseBot()" style="font-size:12px;padding:7px 14px">🔄 Controlla</button>
@@ -730,12 +752,12 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div id="pg-dettaglio-cant" class="pg">
     <!-- Header con titolo e tasto indietro -->
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-      <button onclick="nav('cantieri')" style="background:var(--navy2);border:1px solid var(--brd);border-radius:8px;padding:7px 12px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer">← Cantieri</button>
+      <button onclick="nav('cantieri')" style="background:var(--navy2);border:1px solid var(--brd);border-radius:8px;padding:7px 12px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer">← Cantieri</button>
       <div class="pt" id="dett-title" style="margin-bottom:0;font-size:20px"></div>
     </div>
 
     <!-- Budget / Ricavo previsto — modifica inline -->
-    <div style="background:rgba(0,180,166,.06);border:1px solid rgba(0,180,166,.25);border-radius:12px;padding:14px;margin-bottom:14px">
+    <div style="background:rgba(154,122,31,.06);border:1px solid rgba(154,122,31,.25);border-radius:12px;padding:14px;margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
         <div>
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--teal);margin-bottom:4px">💰 Ricavo previsto / Budget</div>
@@ -743,7 +765,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
         </div>
         <div style="display:flex;gap:6px;align-items:center">
           <input type="number" id="dett-budget-input" placeholder="Importo €" step="100"
-            style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:14px;padding:8px 10px;width:130px;outline:none;display:none">
+            style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:14px;padding:8px 10px;width:130px;outline:none;display:none">
           <button id="dett-budget-btn" onclick="toggleBudgetEdit()" class="bs" style="font-size:12px;padding:7px 12px">✏️ Modifica</button>
           <button id="dett-budget-save" onclick="salvaBudgetDett()" class="bp" style="font-size:12px;padding:7px 12px;display:none">💾 Salva</button>
         </div>
@@ -760,9 +782,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <!-- Selettore periodo -->
     <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
       <div><label style="font-size:11px;color:var(--text2);font-weight:700;letter-spacing:.5px;text-transform:uppercase;display:block;margin-bottom:4px">Da</label>
-        <input type="date" id="dett-da" onchange="rDettCant()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:7px 10px;outline:none"></div>
+        <input type="date" id="dett-da" onchange="rDettCant()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:7px 10px;outline:none"></div>
       <div><label style="font-size:11px;color:var(--text2);font-weight:700;letter-spacing:.5px;text-transform:uppercase;display:block;margin-bottom:4px">A</label>
-        <input type="date" id="dett-al" onchange="rDettCant()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:7px 10px;outline:none"></div>
+        <input type="date" id="dett-al" onchange="rDettCant()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:7px 10px;outline:none"></div>
       <button class="bs" style="font-size:12px;padding:7px 12px" onclick="document.getElementById('dett-da').value='';document.getElementById('dett-al').value='';rDettCant()">Tutto</button>
     </div>
 
@@ -776,20 +798,20 @@ tbody td{padding:10px 14px;vertical-align:middle}
       </button>
       <div id="dett-spesa-form" style="display:none;background:var(--navy2);border:1px solid var(--brd);border-radius:10px;padding:14px;margin-top:6px">
         <div class="fg">
-          <div><label>Data</label><input type="date" id="ds-data" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:8px 10px;width:100%;outline:none"></div>
-          <div><label>Importo (€)</label><input type="number" id="ds-importo" step="0.01" placeholder="0.00" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:8px 10px;width:100%;outline:none"></div>
+          <div><label>Data</label><input type="date" id="ds-data" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:8px 10px;width:100%;outline:none"></div>
+          <div><label>Importo (€)</label><input type="number" id="ds-importo" step="0.01" placeholder="0.00" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:8px 10px;width:100%;outline:none"></div>
           <div><label>Categoria</label>
-            <select id="ds-categoria" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:8px 10px;width:100%;outline:none">
+            <select id="ds-categoria" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:8px 10px;width:100%;outline:none">
               <option>Materiali di consumo</option><option>Attrezzatura</option><option>Noleggio</option>
               <option>Servizi esterni</option><option>Trasporti</option><option>Altro</option>
             </select>
           </div>
-          <div><label>Fornitore</label><input type="text" id="ds-fornitore" placeholder="es. Brico Caserta" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:8px 10px;width:100%;outline:none"></div>
-          <div class="fs"><label>Descrizione</label><input type="text" id="ds-desc" placeholder="es. Nastro, viti, cavi..." style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:8px 10px;width:100%;outline:none"></div>
+          <div><label>Fornitore</label><input type="text" id="ds-fornitore" placeholder="es. Brico Caserta" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:8px 10px;width:100%;outline:none"></div>
+          <div class="fs"><label>Descrizione</label><input type="text" id="ds-desc" placeholder="es. Nastro, viti, cavi..." style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:8px 10px;width:100%;outline:none"></div>
         </div>
         <div class="fa" style="margin-top:10px">
           <button class="bs" onclick="toggleDettSpesaForm()">Annulla</button>
-          <button class="bp" style="background:var(--gold);color:var(--navy)" onclick="addSpesaDaCantiere()">💾 Registra spesa</button>
+          <button class="bp" style="background:var(--gold);color:#fff" onclick="addSpesaDaCantiere()">💾 Registra spesa</button>
         </div>
       </div>
     </div>
@@ -822,7 +844,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <div><label>Totale (€)</label><input type="number" id="rf-tot" placeholder="0.00"></div>
         <div><label>Fornitore / Mezzo</label><input type="text" id="rf-note" placeholder="es. ENI DKV"></div>
         <div><label>Cantiere (opzionale)</label>
-          <select id="rf-cantiere" class="cantiere-select" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none">
+          <select id="rf-cantiere" class="cantiere-select" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none">
             <option value="">— Nessun cantiere —</option>
           </select>
         </div>
@@ -982,14 +1004,14 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <h3>➕ Registra incasso</h3>
       <div class="fg">
         <div><label>Cantiere</label>
-          <select id="inc-cant" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:9px 11px;width:100%;outline:none">
+          <select id="inc-cant" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 11px;width:100%;outline:none">
             <option value="">— Seleziona cantiere —</option>
           </select>
         </div>
         <div><label>Data</label><input type="date" id="inc-data"></div>
         <div><label>Importo (€)</label><input type="number" id="inc-importo" step="0.01" placeholder="0.00"></div>
         <div><label>Metodo</label>
-          <select id="inc-metodo" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:9px 11px;width:100%;outline:none">
+          <select id="inc-metodo" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 11px;width:100%;outline:none">
             <option>Bonifico</option><option>Contanti</option><option>Assegno</option><option>RID/SEPA</option><option>Altro</option>
           </select>
         </div>
@@ -1071,7 +1093,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
     </div>
 
     <!-- RIEPILOGO FINALE -->
-    <div class="fc mt" id="sd-riepilogo" style="border-color:rgba(0,180,166,.25)">
+    <div class="fc mt" id="sd-riepilogo" style="border-color:rgba(154,122,31,.25)">
       <h3>Riepilogo finale</h3>
       <div id="sd-riepilogo-body"></div>
     </div>
@@ -1195,13 +1217,13 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div class="ps">Sincronizzazione in tempo reale tra tutti i tuoi dispositivi — nessun file da spostare</div>
 
     <!-- CLOUD STATUS -->
-    <div class="fc" style="border-color:rgba(0,180,166,.3);background:rgba(0,180,166,.04)">
+    <div class="fc" style="border-color:rgba(154,122,31,.3);background:rgba(154,122,31,.04)">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px">
         <div style="display:flex;align-items:center;gap:10px">
           <span id="cloud-status-dot" style="width:10px;height:10px;border-radius:50%;background:var(--text2);display:inline-block"></span>
           <h3 style="margin:0">🌐 Stato connessione cloud</h3>
         </div>
-        <span id="cloud-status-text" style="font-size:12px;color:var(--text2);font-family:'DM Mono',monospace">Verifica in corso...</span>
+        <span id="cloud-status-text" style="font-size:12px;color:var(--text2);font-family:'IBM Plex Mono',monospace">Verifica in corso...</span>
       </div>
       <div class="sync-status" style="margin-bottom:14px">
         <div class="ss-row"><span class="ss-lbl">Ultima sync cloud</span><span class="ss-val" id="cloud-last-sync">—</span></div>
@@ -1290,7 +1312,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
     </div>
 
     <!-- MERGE INTELLIGENTE -->
-    <div class="fc mt" style="border-color:rgba(0,180,166,.2)">
+    <div class="fc mt" style="border-color:rgba(154,122,31,.2)">
       <h3>⚡ Merge intelligente</h3>
       <p style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
         Se hai lavorato su <b style="color:var(--text)">entrambi i Mac contemporaneamente</b>, usa il merge invece del caricamento semplice — unisce i dati senza perdere nulla.
@@ -1491,13 +1513,13 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
         <div>
           <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:4px">Cantiere</label>
-          <select id="scon-filter-cant" onchange="rScontrini()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:7px 10px;outline:none">
+          <select id="scon-filter-cant" onchange="rScontrini()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:7px 10px;outline:none">
             <option value="">Tutti i cantieri</option>
           </select>
         </div>
         <div>
           <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:4px">Categoria</label>
-          <select id="scon-filter-cat" onchange="rScontrini()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:7px 10px;outline:none">
+          <select id="scon-filter-cat" onchange="rScontrini()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:7px 10px;outline:none">
             <option value="">Tutte le categorie</option>
             <option>Carburante</option><option>Materiali</option><option>Trasferta / Vitto</option>
             <option>Attrezzatura</option><option>Manutenzione</option><option>Altro</option>
@@ -1808,11 +1830,11 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <input type="hidden" id="anag-edit-id">
       <div>
         <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Nome completo</label>
-        <input type="text" id="anag-edit-nome" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;padding:9px 12px;width:100%;outline:none">
+        <input type="text" id="anag-edit-nome" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:9px 12px;width:100%;outline:none">
       </div>
       <div>
         <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Ruolo</label>
-        <input type="text" id="anag-edit-ruolo" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;padding:9px 12px;width:100%;outline:none">
+        <input type="text" id="anag-edit-ruolo" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:9px 12px;width:100%;outline:none">
       </div>
       <div id="anag-edit-warning" style="display:none;background:rgba(232,184,75,.1);border:1px solid rgba(232,184,75,.3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--gold)"></div>
     </div>
@@ -1849,18 +1871,18 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <input type="hidden" id="se-id">
       <div class="fg">
         <div><label>Cantiere</label>
-          <select id="se-cantiere" class="cantiere-select" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"></select>
+          <select id="se-cantiere" class="cantiere-select" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"></select>
         </div>
-        <div><label>Data</label><input type="date" id="se-data" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
-        <div><label>Importo (€)</label><input type="number" id="se-importo" step="0.01" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
+        <div><label>Data</label><input type="date" id="se-data" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
+        <div><label>Importo (€)</label><input type="number" id="se-importo" step="0.01" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
         <div><label>Categoria</label>
-          <select id="se-categoria" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none">
+          <select id="se-categoria" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none">
             <option>Materiali di consumo</option><option>Attrezzatura</option><option>Noleggio</option>
             <option>Servizi esterni</option><option>Trasporti</option><option>Altro</option>
           </select>
         </div>
-        <div><label>Fornitore</label><input type="text" id="se-fornitore" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
-        <div class="fs"><label>Descrizione</label><input type="text" id="se-desc" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
+        <div><label>Fornitore</label><input type="text" id="se-fornitore" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
+        <div class="fs"><label>Descrizione</label><input type="text" id="se-desc" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
       </div>
       <div id="se-warn" style="display:none;font-size:12px;color:var(--gold);margin-top:8px;padding:8px;background:rgba(232,184,75,.08);border-radius:6px"></div>
     </div>
@@ -1911,26 +1933,26 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <input type="hidden" id="ce-id">
       <div>
         <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Nome cantiere</label>
-        <input type="text" id="ce-nome" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;padding:9px 12px;width:100%;outline:none">
+        <input type="text" id="ce-nome" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:9px 12px;width:100%;outline:none">
       </div>
       <div>
         <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Cliente</label>
-        <select id="ce-cliente" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;padding:9px 12px;width:100%;outline:none">
+        <select id="ce-cliente" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:9px 12px;width:100%;outline:none">
           <option value="">— Nessun cliente —</option>
         </select>
         <div style="font-size:10px;color:var(--text2);margin-top:4px">Il cliente è condiviso col Planning: qui lo cambi e resta allineato ovunque.</div>
       </div>
       <div>
         <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Periodo</label>
-        <input type="text" id="ce-periodo" placeholder="es. 1-6/06/26" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;padding:9px 12px;width:100%;outline:none">
+        <input type="text" id="ce-periodo" placeholder="es. 1-6/06/26" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:9px 12px;width:100%;outline:none">
       </div>
       <div>
         <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Ricavo previsto / preventivo (€)</label>
-        <input type="number" id="ce-ricavo" step="0.01" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:14px;padding:9px 12px;width:100%;outline:none">
+        <input type="number" id="ce-ricavo" step="0.01" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:14px;padding:9px 12px;width:100%;outline:none">
       </div>
       <div>
         <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Stato</label>
-        <select id="ce-stato" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;padding:9px 12px;width:100%;outline:none">
+        <select id="ce-stato" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:9px 12px;width:100%;outline:none">
           <option value="da confermare">📋 Da confermare</option>
           <option value="in corso">🔨 In corso</option>
           <option value="fermo">⏸ Fermo in attesa</option>
@@ -1940,7 +1962,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       </div>
       <div>
         <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Note</label>
-        <input type="text" id="ce-note" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;padding:9px 12px;width:100%;outline:none">
+        <input type="text" id="ce-note" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:9px 12px;width:100%;outline:none">
       </div>
       <div id="ce-warning" style="display:none;background:rgba(232,184,75,.1);border:1px solid rgba(232,184,75,.3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--gold)"></div>
     </div>
@@ -1963,12 +1985,12 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div style="margin-bottom:16px">
         <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:6px">Quota da scalare ora (€)</label>
         <input type="number" id="scala-danno-importo" step="0.01" placeholder="0.00"
-          style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--red);font-family:'DM Mono',monospace;font-size:18px;font-weight:700;padding:10px 14px;width:100%;outline:none">
+          style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--red);font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:700;padding:10px 14px;width:100%;outline:none">
       </div>
       <div style="margin-bottom:16px">
         <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:6px">Data</label>
         <input type="date" id="scala-danno-data"
-          style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:10px 14px;width:100%;outline:none">
+          style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:10px 14px;width:100%;outline:none">
       </div>
 
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;margin-bottom:10px">Storico quote già scalate</div>
@@ -1992,13 +2014,13 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <input type="hidden" id="dkv-carta-id">
       <div><label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Numero PAN carta (completo)</label>
         <input type="text" id="dkv-carta-pan" placeholder="es. 007043100111768215"
-          style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
+          style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
       <div><label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Veicolo associato</label>
         <input type="text" id="dkv-carta-veicolo" placeholder="es. CT068NE"
-          style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
+          style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
       <div><label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Note (es. conducente, sostituzione)</label>
         <input type="text" id="dkv-carta-note" placeholder="es. Pietro D.V. — sostituzione maggio 2026"
-          style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
+          style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
       <div style="display:flex;align-items:center;gap:10px">
         <input type="checkbox" id="dkv-carta-attiva" checked style="width:16px;height:16px;accent-color:var(--teal)">
         <label style="font-size:13px;cursor:pointer" for="dkv-carta-attiva">Carta attiva</label>
@@ -2105,8 +2127,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="md">
     <div class="mh"><h3>Aggiungi persona</h3><button class="mc" onclick="closeModal('modal-pers')">✕</button></div>
     <div class="mb">
-      <div style="margin-bottom:10px"><label style="font-size:11px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Nome</label><input type="text" id="np-nome" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
-      <div><label style="font-size:11px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Ruolo</label><input type="text" id="np-ruolo" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
+      <div style="margin-bottom:10px"><label style="font-size:11px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Nome</label><input type="text" id="np-nome" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
+      <div><label style="font-size:11px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Ruolo</label><input type="text" id="np-ruolo" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
     </div>
     <div class="mf"><button class="bs" onclick="closeModal('modal-pers')">Annulla</button><button class="bp" onclick="addPersona()">Aggiungi</button></div>
   </div>
@@ -2413,7 +2435,7 @@ function generaReport(){
   ctx.fillRect(0,0,W,HEAD_H);
 
   // Logo / titolo
-  ctx.fillStyle = '#00b4a6';
+  ctx.fillStyle = '#9a7a1f';
   ctx.font = 'bold 28px -apple-system, Helvetica, Arial, sans-serif';
   ctx.fillText('81|00  Ottantunocento S.r.l.', 32, 44);
 
@@ -2433,7 +2455,7 @@ function generaReport(){
   const totMat  = righe.reduce((a,r)=>a+r.maturato,0);
 
   function kpiBox(x,y,w,lbl,val,color){
-    ctx.fillStyle = 'rgba(255,255,255,.05)';
+    ctx.fillStyle = 'var(--brd)';
     roundRect(ctx,x,y,w,36,8); ctx.fill();
     ctx.fillStyle = '#8a95a8';
     ctx.font = '10px -apple-system,Helvetica,Arial,sans-serif';
@@ -2442,7 +2464,7 @@ function generaReport(){
     ctx.font = 'bold 15px -apple-system,Helvetica,Arial,sans-serif';
     ctx.fillText(val, x+10, y+29);
   }
-  kpiBox(32,  108, 200, 'Maturato settimana', fm(totMat), '#00b4a6');
+  kpiBox(32,  108, 200, 'Maturato settimana', fm(totMat), '#9a7a1f');
   kpiBox(242, 108, 200, 'Da pagare',          fm(totDeb), '#e8b84b');
   if(totCred>0) kpiBox(452, 108, 200, '⊕ Crediti', fm(totCred), '#4be87a');
 
@@ -2450,7 +2472,7 @@ function generaReport(){
   const cols = {nome:32, gg:400, mat:510, ant:620, pag:710, sal:800};
   const y0 = HEAD_H;
 
-  ctx.fillStyle = 'rgba(0,180,166,.15)';
+  ctx.fillStyle = 'rgba(154,122,31,.15)';
   ctx.fillRect(0, y0, W, 32);
   ctx.fillStyle = '#8a95a8';
   ctx.font = 'bold 11px -apple-system,Helvetica,Arial,sans-serif';
@@ -2482,14 +2504,14 @@ function generaReport(){
     ctx.textAlign='left';
 
     // Nome
-    ctx.fillStyle = '#e8eaf0';
+    ctx.fillStyle = 'var(--text)';
     ctx.font = 'bold 14px -apple-system,Helvetica,Arial,sans-serif';
     ctx.fillText(r.nome.split(' ').slice(0,2).join(' '), cols.nome+34, cy);
 
     // GG lavorati — pallini
     let gx = cols.gg;
     for(let g=0;g<7;g++){
-      ctx.fillStyle = g<r.gg ? '#00b4a6' : 'rgba(255,255,255,.1)';
+      ctx.fillStyle = g<r.gg ? '#9a7a1f' : 'rgba(0,0,0,.18)';
       ctx.beginPath(); ctx.arc(gx+6, y+ROW_H/2, 5, 0, Math.PI*2); ctx.fill();
       gx += 14;
     }
@@ -2499,7 +2521,7 @@ function generaReport(){
 
     // Valori
     function numCol(val, x){
-      ctx.fillStyle = val<0 ? '#4be87a' : val>0.01 ? '#e8eaf0' : '#8a95a8';
+      ctx.fillStyle = val<0 ? '#4be87a' : val>0.01 ? 'var(--text)' : '#8a95a8';
       ctx.font = '13px -apple-system,Helvetica,Arial,sans-serif';
       ctx.fillText(fm(val), x, cy);
     }
@@ -2510,14 +2532,14 @@ function generaReport(){
     else { ctx.fillStyle='#8a95a8'; ctx.font='13px -apple-system,Helvetica,Arial,sans-serif'; ctx.fillText('—', cols.pag, cy); }
 
     // Saldo
-    const sColor = r.saldo<-0.01?'#4be87a':r.saldo>0.01?'#e8b84b':'#00b4a6';
+    const sColor = r.saldo<-0.01?'#4be87a':r.saldo>0.01?'#e8b84b':'#9a7a1f';
     ctx.fillStyle = sColor;
     ctx.font = 'bold 14px -apple-system,Helvetica,Arial,sans-serif';
     const saldoTxt = r.saldo<-0.01?'⊕ '+fm(Math.abs(r.saldo)):r.saldo>0.01?fm(r.saldo):'✓';
     ctx.fillText(saldoTxt, cols.sal-40, cy);
 
     // linea separatore
-    ctx.strokeStyle = 'rgba(255,255,255,.06)';
+    ctx.strokeStyle = 'var(--brd)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, y+ROW_H); ctx.lineTo(W, y+ROW_H); ctx.stroke();
   });
@@ -2529,7 +2551,7 @@ function generaReport(){
   ctx.fillStyle = '#8a95a8';
   ctx.font = '12px -apple-system,Helvetica,Arial,sans-serif';
   ctx.fillText('Ottantunocento S.r.l. — P.IVA 02187720616 — Caserta', 32, yf+22);
-  ctx.fillStyle = '#00b4a6';
+  ctx.fillStyle = '#9a7a1f';
   ctx.font = 'bold 12px -apple-system,Helvetica,Arial,sans-serif';
   ctx.fillText('DA PAGARE: '+fm(totDeb)+(totCred>0?'   |   ⊕ CREDITI: '+fm(totCred):''), 32, yf+42);
 
@@ -3320,7 +3342,7 @@ function _fattMostraImport(nuove, doppie, errori, scartatiMT){
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:8px">
         <div><span style="background:${d.tipo==='cliente'?'#4a8fd0':'#c9862a'}22;color:${d.tipo==='cliente'?'#4a8fd0':'#c9862a'};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">${d.tipo==='cliente'?'CLIENTE':'FORNITORE'}</span>
         <b style="margin-left:8px">${esc(d.controparte||'—')}</b> · ${esc(d.numero)} · ${d.data?d.data.split('-').reverse().join('/'):''}</div>
-        <b style="font-family:'DM Mono',monospace">${fmtE(d.importo)}</b>
+        <b style="font-family:'IBM Plex Mono',monospace">${fmtE(d.importo)}</b>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 90px;gap:8px">
         <div><label style="font-size:10px;color:var(--text2)">Cantiere</label>
@@ -3410,7 +3432,7 @@ function fattRenderAlert(){
     h+=`<div onclick="fattApri(${f.id})" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--brd);cursor:pointer">
       <div><div style="font-size:13px;font-weight:600">${esc(f.cliente||'—')}${f.cantiere_nome?' · '+esc(f.cantiere_nome):''}</div>
       <div style="font-size:11px;color:${col}">⚠ ${s.txt} · scad. ${f.scadenza?f.scadenza.split('-').reverse().join('/'):'—'}</div></div>
-      <div style="font-size:14px;font-weight:700;font-family:'DM Mono',monospace">${_fattAccTot(f)>0?fmtE(Math.max(0,f.importo-_fattAccTot(f)))+' <span style="font-size:10px;color:var(--gold)">residuo</span>':fmtE(f.importo)}</div>
+      <div style="font-size:14px;font-weight:700;font-family:'IBM Plex Mono',monospace">${_fattAccTot(f)>0?fmtE(Math.max(0,f.importo-_fattAccTot(f)))+' <span style="font-size:10px;color:var(--gold)">residuo</span>':fmtE(f.importo)}</div>
     </div>`;
   });
   if(scadute.length){ const tot=scadute.reduce((s,x)=>s+Math.max(0,(+x.f.importo||0)-_fattAccTot(x.f)),0); h+=`<div style="margin-top:10px;font-size:12px;color:var(--red)">Totale scaduto: <b>${fmtE(tot)}</b></div>`; }
@@ -3441,10 +3463,10 @@ function fattRenderLista(){
     else if(f.stato==='da_emettere'){ T.nDaEm++; T.impDaEm+=im; }
   });
   const totBar=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;font-size:11px">
-    <span style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;padding:6px 10px">📄 <b>${T.n}</b> fatture · <b style="font-family:'DM Mono',monospace">${fmtE(T.imp)}</b></span>
-    <span style="background:rgba(74,143,208,.10);border:1px solid rgba(74,143,208,.3);border-radius:8px;padding:6px 10px;color:#4a8fd0">Emesse ${T.nEme} · resta <b style="font-family:'DM Mono',monospace">${fmtE(T.resid)}</b></span>
-    <span style="background:rgba(58,160,140,.10);border:1px solid rgba(58,160,140,.3);border-radius:8px;padding:6px 10px;color:#3aa08c">Pagate ${T.nPag} · <b style="font-family:'DM Mono',monospace">${fmtE(T.impPag)}</b></span>
-    ${T.nDaEm?`<span style="background:rgba(138,148,166,.10);border:1px solid rgba(138,148,166,.3);border-radius:8px;padding:6px 10px;color:#8a94a6">Da emettere ${T.nDaEm} · <b style="font-family:'DM Mono',monospace">${fmtE(T.impDaEm)}</b></span>`:''}
+    <span style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;padding:6px 10px">📄 <b>${T.n}</b> fatture · <b style="font-family:'IBM Plex Mono',monospace">${fmtE(T.imp)}</b></span>
+    <span style="background:rgba(74,143,208,.10);border:1px solid rgba(74,143,208,.3);border-radius:8px;padding:6px 10px;color:#4a8fd0">Emesse ${T.nEme} · resta <b style="font-family:'IBM Plex Mono',monospace">${fmtE(T.resid)}</b></span>
+    <span style="background:rgba(58,160,140,.10);border:1px solid rgba(58,160,140,.3);border-radius:8px;padding:6px 10px;color:#3aa08c">Pagate ${T.nPag} · <b style="font-family:'IBM Plex Mono',monospace">${fmtE(T.impPag)}</b></span>
+    ${T.nDaEm?`<span style="background:rgba(138,148,166,.10);border:1px solid rgba(138,148,166,.3);border-radius:8px;padding:6px 10px;color:#8a94a6">Da emettere ${T.nDaEm} · <b style="font-family:'IBM Plex Mono',monospace">${fmtE(T.impDaEm)}</b></span>`:''}
   </div>`;
   if(!lista.length){ cont.innerHTML=totBar+'<div style="color:var(--text2);font-size:13px;padding:16px;text-align:center">Nessuna fattura in questa vista.</div>'; return; }
   lista.sort(_fattCmp);
@@ -3466,7 +3488,7 @@ function fattRenderLista(){
         <td style="padding:8px;color:var(--text2)">${f.data_fattura?f.data_fattura.split('-').reverse().join('/'):'—'}</td>
         <td style="padding:8px;color:${scadCol}">${scadTxt}${s?`<div style="font-size:10px">${s.txt}</div>`:''}</td>
         <td style="padding:8px"><span style="background:${bc}22;color:${bc};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">${bt}</span>${f.stato==='pagata'&&f.data_pagamento?`<div style="font-size:10px;color:var(--text2)">il ${f.data_pagamento.split('-').reverse().join('/')}</div>`:''}${f.note?`<div style="font-size:10px;color:var(--text2)" title="${esc(f.note)}">${esc(f.note.length>28?f.note.slice(0,26)+'…':f.note)}</div>`:''}</td>
-        <td style="padding:8px;text-align:right;font-family:'DM Mono',monospace;font-weight:600">${fmtE(f.importo)}${_fattResiduoRiga(f)}</td>
+        <td style="padding:8px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600">${fmtE(f.importo)}${_fattResiduoRiga(f)}</td>
       </tr>`;
     }).join('')}</tbody></table></div>`;
 }
@@ -3946,10 +3968,10 @@ function loadPres(){
           </div>`).join('')}
         </div>
         <!-- Aggiungi turno -->
-        <button onclick="aggiungiTurno('${p.id}')" style="width:100%;padding:5px;background:rgba(0,180,166,.06);border:1px dashed rgba(0,180,166,.4);border-radius:6px;color:var(--teal);font-size:11px;font-weight:700;cursor:pointer;margin-bottom:6px">➕ Aggiungi turno</button>
+        <button onclick="aggiungiTurno('${p.id}')" style="width:100%;padding:5px;background:rgba(154,122,31,.06);border:1px dashed rgba(154,122,31,.4);border-radius:6px;color:var(--teal);font-size:11px;font-weight:700;cursor:pointer;margin-bottom:6px">➕ Aggiungi turno</button>
       </div>
       <div class="p-tot">${fmt(totDip)}</div>
-      <button onclick="toggleP('${p.id}')" style="margin-top:4px;width:100%;padding:4px;background:rgba(232,75,75,.12);border:1px solid rgba(232,75,75,.3);border-radius:5px;color:var(--red);font-family:'Inter',sans-serif;font-size:11px;font-weight:700;cursor:pointer">✕ Rimuovi</button>
+      <button onclick="toggleP('${p.id}')" style="margin-top:4px;width:100%;padding:4px;background:rgba(232,75,75,.12);border:1px solid rgba(232,75,75,.3);border-radius:5px;color:var(--red);font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer">✕ Rimuovi</button>
       `:'<div style="font-size:11px;color:var(--text2);margin-top:6px">—</div>'}
     </div>`;
   }).join('');
@@ -4313,7 +4335,7 @@ function aggiornaAntepimaImport(){
       <div style="display:flex;flex-wrap:wrap;gap:5px">
         ${turniDelGiorno.map(t=>`
           <div style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:600;
-            background:${t.esiste?'rgba(100,120,140,.15)':t.trovato?'rgba(0,180,166,.12)':'rgba(232,184,75,.12)'};
+            background:${t.esiste?'rgba(100,120,140,.15)':t.trovato?'rgba(154,122,31,.12)':'rgba(232,184,75,.12)'};
             color:${t.esiste?'var(--text2)':t.trovato?'var(--teal)':'var(--gold)'}">
             ${t.trovato?'':'⚠ '}${t.nome} · ${t.cantiere} ${t.oraI}–${t.oraF}${t.esiste?' (già presente)':''}
           </div>`).join('')}
@@ -4490,7 +4512,7 @@ function rNuovaGiornata(){
         </tr>`).join('')}
       </tbody>
     </table>
-    <div style="margin-top:12px;font-family:'DM Mono',monospace;font-size:13px;color:var(--text2)">Totale giornata: <span id="ng-tot" style="color:var(--teal);font-weight:700">€ 0,00</span></div>`;
+    <div style="margin-top:12px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text2)">Totale giornata: <span id="ng-tot" style="color:var(--teal);font-weight:700">€ 0,00</span></div>`;
 }
 
 // Gestisce il cambio cantiere principale, con creazione al volo
@@ -4759,7 +4781,7 @@ function rCant(){
   const archIds = new Set(DB._cantieriArchiviati||[]);
 
   const STATI = [
-    {key:'in corso',      label:'🔨 In corso',       colore:'var(--teal)',  bg:'rgba(0,180,166,.12)'},
+    {key:'in corso',      label:'🔨 In corso',       colore:'var(--teal)',  bg:'rgba(154,122,31,.12)'},
     {key:'da conf',       label:'📋 Da confermare',   colore:'var(--gold)',  bg:'rgba(232,184,75,.12)'},
     {key:'lungo_periodo', label:'📦 Lungo periodo',   colore:'#7aa0ff',      bg:'rgba(100,120,200,.10)'},
   ];
@@ -4964,7 +4986,7 @@ function rDettEco(cant, nome){
   const totale=costi.totale;
   const margine=ricavo-totale;
   const margPct=ricavo>0?(margine/ricavo*100):null;
-  const riga=(lbl,val,extra)=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed rgba(255,255,255,.06);font-size:13px">
+  const riga=(lbl,val,extra)=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--brd);font-size:13px">
     <span style="color:var(--text2)">${lbl}</span><span class="mn" style="font-weight:700${extra||''}">${fmt(val)}</span></div>`;
   box.innerHTML=`<div style="background:var(--card);border:1px solid var(--brd);border-radius:12px;padding:14px 16px">
     <div style="font-size:14px;font-weight:800;margin-bottom:10px">📊 Conto del cantiere <span style="font-size:11px;color:var(--text2);font-weight:400">· dai dati reali registrati</span></div>
@@ -4975,7 +4997,7 @@ function rDettEco(cant, nome){
     ${riga('Costi diretti (spese, materiali, scontrini)', -costi.spese)}
     <div style="display:flex;justify-content:space-between;padding:7px 0 3px;font-size:13px">
       <span style="font-weight:700">Totale costi</span><span class="mn" style="font-weight:800;color:var(--gold)">${fmt(totale)}</span></div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding:10px 12px;border-radius:10px;background:${ricavo>0?(margine>=0?'rgba(63,185,80,.12)':'rgba(232,84,84,.12)'):'rgba(255,255,255,.04)'}">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding:10px 12px;border-radius:10px;background:${ricavo>0?(margine>=0?'rgba(63,185,80,.12)':'rgba(232,84,84,.12)'):'var(--brd)'}">
       <span style="font-weight:800">Margine netto</span>
       <span class="mn" style="font-size:20px;font-weight:800;color:${ricavo>0?(margine>=0?'var(--green)':'var(--red)'):'var(--text2)'}">
         ${ricavo>0?(margine>=0?'+':'')+fmt(margine)+(margPct!=null?' <span style="font-size:12px">('+margPct.toFixed(1).replace('.',',')+'%)</span>':''):'imposta il ricavo per calcolarlo'}</span>
@@ -4997,13 +5019,13 @@ function rDettOre(cant, nome){
     <div style="font-size:14px;font-weight:800;margin-bottom:10px">⏱ Manodopera effettiva <span style="font-size:11px;color:var(--text2);font-weight:400">· dalle presenze reali</span></div>
     <div style="display:flex;gap:24px;flex-wrap:wrap">
       <div><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">Ore lavorate</div>
-        <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace">${fmtOre(rec.ore)}</div></div>
+        <div style="font-size:22px;font-weight:800;font-family:'IBM Plex Mono',monospace">${fmtOre(rec.ore)}</div></div>
       <div><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">Netto giornate</div>
-        <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace">${fmtE(rec.costo)}</div></div>
+        <div style="font-size:22px;font-weight:800;font-family:'IBM Plex Mono',monospace">${fmtE(rec.costo)}</div></div>
       <div><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">Oneri giornalieri</div>
-        <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace">${fmtE(rec.oneri||0)}</div></div>
+        <div style="font-size:22px;font-weight:800;font-family:'IBM Plex Mono',monospace">${fmtE(rec.oneri||0)}</div></div>
       <div><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">Costo pieno</div>
-        <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:var(--gold)">${fmtE(rec.pieno!=null?rec.pieno:rec.costo)}</div></div>
+        <div style="font-size:22px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:var(--gold)">${fmtE(rec.pieno!=null?rec.pieno:rec.costo)}</div></div>
     </div>
     ${rec.oreMancanti?'<div style="font-size:11px;color:var(--text2);margin-top:8px">⚠ Alcune presenze sono in formato vecchio (senza orari): il costo è completo, le ore potrebbero essere parziali.</div>':''}
   </div>`;
@@ -5043,7 +5065,7 @@ async function rDettFatture(cant, nome){
       <div><div style="font-size:13px;font-weight:600">${esc(f.numero||'(da emettere)')} · ${f.tipo||''}</div>
       <div style="font-size:11px;color:${scadCol}">${f.scadenza?'scad. '+f.scadenza.split('-').reverse().join('/'):''}${s?' · ⚠ '+s.txt:''}</div></div>
       <div style="text-align:right"><span style="background:${bc}22;color:${bc};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">${bt}</span>
-      <div style="font-size:13px;font-weight:700;font-family:'DM Mono',monospace;margin-top:2px">${fmtE(f.importo)}</div></div>
+      <div style="font-size:13px;font-weight:700;font-family:'IBM Plex Mono',monospace;margin-top:2px">${fmtE(f.importo)}</div></div>
     </div>`;
   });
   h+=`<div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--brd);font-size:12px">
@@ -6154,9 +6176,9 @@ function rSaldi(){
       ${s.scalature>0?`<div class="sr" style="color:var(--red)"><span class="lb">⚠ Danni scalati</span><span class="rr">${fmt(s.scalature)}</span></div>`:''}
       ${s.addebiti>0?`<div class="sr" style="color:var(--gold)"><span class="lb">⚠ Danni residui</span><span>${fmt(s.addebiti)}</span></div>`:''}
       <div class="ss"><span>${s.saldo<-0.009?'⊕ CREDITO':s.saldo>0.009?'DA PAGARE':'✓ SALDATO'}</span><span class="${classSaldo(s.saldo)}">${fmtSaldo(s.saldo)}</span></div>
-      ${s.saldo>0.009?`<button onclick="saldaOra('${s.id}')" style="margin-top:8px;width:100%;background:rgba(0,180,166,.1);border:1px solid var(--teal);border-radius:8px;padding:8px;color:var(--teal);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer">💰 Salda ora (${fmtSaldo(s.saldo)})</button>`:''}
+      ${s.saldo>0.009?`<button onclick="saldaOra('${s.id}')" style="margin-top:8px;width:100%;background:rgba(154,122,31,.1);border:1px solid var(--teal);border-radius:8px;padding:8px;color:var(--teal);font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer">💰 Salda ora (${fmtSaldo(s.saldo)})</button>`:''}
       ${s.saldo<-0.009?`<div style="margin-top:6px;font-size:11px;color:var(--green)">⊕ Hai pagato ${fmt(Math.abs(s.saldo))} in più — verrà scalato dalla prossima settimana</div>`:''}
-      <button onclick="apriEstrattoConto('${s.id}')" style="margin-top:8px;width:100%;background:transparent;border:1px solid var(--brd);border-radius:8px;padding:7px;color:var(--text2);font-family:'Inter',sans-serif;font-size:11.5px;font-weight:600;cursor:pointer">📒 Estratto conto — tutti i movimenti</button>
+      <button onclick="apriEstrattoConto('${s.id}')" style="margin-top:8px;width:100%;background:transparent;border:1px solid var(--brd);border-radius:8px;padding:7px;color:var(--text2);font-family:'IBM Plex Sans',sans-serif;font-size:11.5px;font-weight:600;cursor:pointer">📒 Estratto conto — tutti i movimenti</button>
       ${(s.matPeriodo||s.antPeriodo||s.pagPeriodo)?`
       <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--brd);font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;margin-bottom:6px">── Solo periodo selezionato</div>
       <div class="sr"><span class="lb">Maturato</span><span>${fmt(s.matPeriodo)}</span></div>
@@ -6249,7 +6271,7 @@ function openAddDipModal(){
   const list=document.getElementById('modal-add-dip-list');
   list.innerHTML=DB.personale.map(p=>{
     const isPresent=!!presenti[p.id];
-    return`<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--card);border:1px solid ${isPresent?'rgba(0,180,166,.3)':'var(--brd)'};border-radius:var(--r2);cursor:${isPresent?'default':'pointer'}">
+    return`<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--card);border:1px solid ${isPresent?'rgba(154,122,31,.3)':'var(--brd)'};border-radius:var(--r2);cursor:${isPresent?'default':'pointer'}">
       <input type="checkbox" ${isPresent?'checked disabled':''} data-pid="${p.id}" style="width:15px;height:15px;accent-color:var(--teal)">
       <span style="font-size:13px;font-weight:600">${p.nome}</span>
       ${isPresent?'<span style="font-size:11px;color:var(--teal);margin-left:auto">già presente</span>':'<span style="font-size:11px;color:var(--text2);margin-left:auto">'+p.ruolo+'</span>'}
@@ -7038,7 +7060,7 @@ function loadSchedaDip(){
 
   // RIEPILOGO FINALE
   document.getElementById('sd-riepilogo-body').innerHTML=`
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-family:'DM Mono',monospace;font-size:13px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:13px">
       <div style="color:var(--text2)">Totale maturato</div><div style="text-align:right">${fmt(totTot)}</div>
       <div style="color:var(--text2)">di cui straordinari</div><div style="text-align:right;color:var(--gold)">${fmt(totStr)}</div>
       <div style="color:var(--text2)">Anticipi ricevuti</div><div style="text-align:right;color:var(--red)">${fmt(totAnt)}</div>
@@ -7391,7 +7413,7 @@ function rDocumenti(){
       <span class="${bclass}">${stato}</span>
       <div class="dc-nome">${d.dipNome}</div>
       <div class="dc-tipo">${d.tipo}</div>
-      ${d.numero?`<div style="font-size:11px;color:var(--text2);margin-bottom:4px;font-family:'DM Mono',monospace">${d.numero}</div>`:''}
+      ${d.numero?`<div style="font-size:11px;color:var(--text2);margin-bottom:4px;font-family:'IBM Plex Mono',monospace">${d.numero}</div>`:''}
       ${d.emissione?`<div style="font-size:11px;color:var(--text2)">Emissione: ${fdate(d.emissione)}</div>`:''}
       <div class="dc-scad ${cls}">${d.scadenza?'Scade: '+fdate(d.scadenza):'Nessuna scadenza'}</div>
       ${d.note?`<div style="font-size:11px;color:var(--text2);margin-top:4px;font-style:italic">${d.note}</div>`:''}
@@ -7551,7 +7573,7 @@ function rScontrini(){
   const grid = document.getElementById('scon-grid');
   grid.innerHTML = filtered.length
     ? [...filtered].sort((a,b)=>(a.data||"").localeCompare(b.data||"")).slice(0,12).map(s=>`
-      <div class="scon-card" style="${s.contabilizzato?'border-color:rgba(0,180,166,.4)':'!s.cantiere?\'\':\' border-color:rgba(232,184,75,.4)\''}">
+      <div class="scon-card" style="${s.contabilizzato?'border-color:rgba(154,122,31,.4)':'!s.cantiere?\'\':\' border-color:rgba(232,184,75,.4)\''}">
         ${s.foto?`<img class="sc-img" src="${s.foto}" onclick="sconZoom('${s.id}')" alt="scontrino">`:''}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <span class="bx bz scon-badge">${s.categoria||'—'}</span>
@@ -8174,7 +8196,7 @@ function rIncassi(){
         </div>
         <div style="text-align:right">
           <div style="font-size:11px;color:var(--text2);margin-bottom:3px">${stato}</div>
-          <div style="font-size:13px;font-weight:700;color:${residuo>0?'var(--gold)':'var(--green)'};font-family:'DM Mono',monospace">
+          <div style="font-size:13px;font-weight:700;color:${residuo>0?'var(--gold)':'var(--green)'};font-family:'IBM Plex Mono',monospace">
             ${ricavo>0?`${fmt(totaleInc)} / ${fmt(ricavo)}`:`${fmt(totaleInc)} incassati`}
           </div>
         </div>
@@ -8197,7 +8219,7 @@ function rIncassi(){
             </tr>`).join('')
             : `<tr><td colspan="6" style="color:var(--text2);font-size:12px;padding:12px 14px;font-style:italic">Nessun incasso registrato</td></tr>`}
           ${ricavo>0&&residuo>0?`<tr style="border-top:2px solid var(--brd)">
-            <td colspan="2" style="padding:10px 14px;font-weight:700;color:var(--gold);font-family:'DM Mono',monospace">Residuo da riscuotere: ${fmt(residuo)}</td>
+            <td colspan="2" style="padding:10px 14px;font-weight:700;color:var(--gold);font-family:'IBM Plex Mono',monospace">Residuo da riscuotere: ${fmt(residuo)}</td>
             <td colspan="4" style="padding:10px 14px">
               <button class="bs" style="font-size:11px;padding:5px 10px" onclick="precompilaNuovoIncasso('${c.id}','${residuo}')">
                 + Registra saldo (${fmt(residuo)})
@@ -8381,7 +8403,7 @@ function apriScalaDanno(id){
   document.getElementById('scala-danno-riepilogo').innerHTML=`
     <div style="font-size:13px;font-weight:700;margin-bottom:4px">${a.descrizione}${a.mezzo?' — '+a.mezzo:''}</div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Evento del ${fdate(a.data)}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-family:'DM Mono',monospace;font-size:13px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:13px">
       <div style="color:var(--text2)">Danno totale</div><div style="text-align:right">${fmt(a.importo)}</div>
       <div style="color:var(--text2)">Totale scalato</div><div style="text-align:right;color:var(--red)">${fmt(totScalato)}</div>
       <div style="padding-top:8px;border-top:1px solid var(--brd);font-weight:700">${a.chiuso?'✓ SALDATO':'Residuo'}</div>
@@ -8456,7 +8478,7 @@ function rCarteDkv(){
     return;
   }
   grid.innerHTML = carte.map(c=>`
-    <div style="background:var(--card);border:1px solid ${c.attiva?'rgba(0,180,166,.3)':'var(--brd)'};border-radius:var(--r);padding:14px;position:relative">
+    <div style="background:var(--card);border:1px solid ${c.attiva?'rgba(154,122,31,.3)':'var(--brd)'};border-radius:var(--r);padding:14px;position:relative">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <span class="bx ${c.attiva?'bt':'bz'}">${c.attiva?'ATTIVA':'DISATTIVA'}</span>
         <div style="display:flex;gap:6px">
@@ -8465,7 +8487,7 @@ function rCarteDkv(){
         </div>
       </div>
       <div style="font-weight:700;font-size:14px;color:var(--teal);margin-bottom:4px">${c.veicolo}</div>
-      <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);margin-bottom:4px">...${c.pan.slice(-8)}</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);margin-bottom:4px">...${c.pan.slice(-8)}</div>
       <div style="font-size:11px;color:var(--text2)">${c.note||'—'}</div>
     </div>`).join('');
 }
@@ -8523,7 +8545,7 @@ function dkvFixRecord(carbId, nuovoImporto, nuoviLitri){
   }
   // aggiorna solo la riga nella tabella
   const tr=document.getElementById('dkv-disc-'+carbId);
-  if(tr) tr.innerHTML=`<td colspan="8" style="color:var(--green);font-family:'DM Mono',monospace;padding:10px 14px">✓ Corretto — importo aggiornato a ${fmt(nuovoImporto)}</td>`;
+  if(tr) tr.innerHTML=`<td colspan="8" style="color:var(--green);font-family:'IBM Plex Mono',monospace;padding:10px 14px">✓ Corretto — importo aggiornato a ${fmt(nuovoImporto)}</td>`;
   toast('Registro aggiornato con dati DKV ✓');
 }
 
@@ -8916,7 +8938,7 @@ function _dkvRiconcilia(){
         ✅ <b>${discordanze.length} discordanze corrette automaticamente</b> con i valori DKV — nessuna azione richiesta.
       </td></tr>`
       + discordanze.map(t=>`
-      <tr style="background:rgba(0,180,166,.04)">
+      <tr style="background:rgba(154,122,31,.04)">
         <td class="mn">${fdate(t.data)}</td>
         <td style="font-size:11px"><b>${t.targa}</b><br><span style="color:var(--text2)">${(t.dupNote||'').slice(0,28)}</span></td>
         <td><span class="bx bz">${t.prodotto}</span></td>
@@ -10029,13 +10051,13 @@ function incApriCantiere(cid){
 }
 function _incApri(ctx){
   _incCtx=Object.assign({metodo:'bonifico'}, ctx);
-  const IN='width:100%;padding:11px;border:1px solid rgba(255,255,255,.16);border-radius:9px;font-size:16px;background:rgba(255,255,255,.06);color:var(--text);box-sizing:border-box';
+  const IN='width:100%;padding:11px;border:1px solid rgba(255,255,255,.16);border-radius:9px;font-size:16px;background:var(--brd);color:var(--text);box-sizing:border-box';
   const LB='font-size:11px;color:var(--text2);font-weight:700';
   const ov=document.createElement('div'); ov.id='inc-ov';
   ov.setAttribute('style','position:fixed;inset:0;z-index:2147483600;background:rgba(2,8,20,.72);display:flex;align-items:center;justify-content:center;padding:16px;font-family:Inter,sans-serif');
   ov.innerHTML=
-    '<div style="background:#0f1f3d;color:var(--text);border:1px solid rgba(255,255,255,.10);border-radius:16px;max-width:390px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.6);overflow:hidden">'+
-      '<div style="padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.08)">'+
+    '<div style="background:#ffffff;color:var(--text);border:1px solid var(--brd);border-radius:16px;max-width:390px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.6);overflow:hidden">'+
+      '<div style="padding:16px 18px;border-bottom:1px solid var(--brd)">'+
         '<div style="font-size:15px;font-weight:800">💶 Registra incasso</div>'+
         '<div style="font-size:12px;color:var(--text2);margin-top:3px">'+esc(ctx.nome)+(ctx.sub?' · '+esc(ctx.sub):'')+'</div>'+
       '</div>'+
@@ -10055,7 +10077,7 @@ function _incApri(ctx){
           '<input id="inc-ds" type="text" placeholder="" style="'+IN+';font-size:15px"></div>'+
         (ctx.anticipo?'<div style="font-size:11px;color:var(--text2)">ℹ️ Fattura non ancora emessa: registro un <b>anticipo</b>, non la segno pagata.</div>':'')+
       '</div>'+
-      '<div style="padding:12px 18px;border-top:1px solid rgba(255,255,255,.08);display:flex;gap:8px">'+
+      '<div style="padding:12px 18px;border-top:1px solid var(--brd);display:flex;gap:8px">'+
         '<button type="button" onclick="incChiudi()" style="flex:1;padding:12px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:transparent;color:var(--text);font-weight:600;font-size:14px;cursor:pointer">Annulla</button>'+
         '<button type="button" onclick="incSalva()" style="flex:2;padding:12px;border:none;border-radius:10px;background:var(--teal);color:#04231f;font-weight:800;font-size:14px;cursor:pointer">Registra</button>'+
       '</div>'+
@@ -10246,7 +10268,7 @@ function _bankMostra(){
   const card=movs.map((m,i)=>{
     const tag = m.gia?'<span style="color:var(--text2)">già importato</span>' : m.dupSoft?'<span style="color:var(--gold)">⚠ forse già registrato</span>' : m.best&&m.best.s>=90?'<span style="color:var(--green)">✓ match sicuro</span>' : m.best?'<span style="color:#6fb3e0">match probabile</span>':'<span style="color:var(--text2)">da assegnare</span>';
     const why=m.best?(' · '+m.best.why.join(', ')):'';
-    return '<div style="border:1px solid rgba(255,255,255,.09);border-radius:11px;padding:11px 12px;margin-bottom:9px;background:rgba(255,255,255,.02)'+(m.gia?';opacity:.55':'')+'">'+
+    return '<div style="border:1px solid var(--brd);border-radius:11px;padding:11px 12px;margin-bottom:9px;background:var(--brd)'+(m.gia?';opacity:.55':'')+'">'+
       '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">'+
         '<div style="font-weight:700">'+fmtE(m.imp)+' <span style="font-size:11px;color:var(--text2);font-weight:400">'+esc(m.data)+'</span></div>'+
         '<div style="font-size:11px">'+tag+why+'</div>'+
@@ -10260,11 +10282,11 @@ function _bankMostra(){
   }).join('');
   const ov=document.createElement('div'); ov.id='bank-ov';
   ov.setAttribute('style','position:fixed;inset:0;z-index:2147483600;background:rgba(2,8,20,.75);display:flex;align-items:center;justify-content:center;padding:12px;font-family:Inter,sans-serif');
-  ov.innerHTML='<div style="background:#0f1f3d;color:var(--text);border:1px solid rgba(255,255,255,.10);border-radius:16px;max-width:640px;width:100%;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(0,0,0,.6)">'+
-    '<div style="padding:15px 18px;border-bottom:1px solid rgba(255,255,255,.08)"><div style="font-size:15px;font-weight:800">🏦 Import estratto conto — '+movs.length+' entrate</div>'+
+  ov.innerHTML='<div style="background:#ffffff;color:var(--text);border:1px solid var(--brd);border-radius:16px;max-width:640px;width:100%;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(0,0,0,.6)">'+
+    '<div style="padding:15px 18px;border-bottom:1px solid var(--brd)"><div style="font-size:15px;font-weight:800">🏦 Import estratto conto — '+movs.length+' entrate</div>'+
       '<div style="font-size:12px;color:var(--text2);margin-top:3px">Controlla gli abbinamenti, spunta cosa registrare. Ogni incasso viene salvato sulla fattura come bonifico, con anti-doppione.</div></div>'+
     '<div style="padding:14px 16px;overflow:auto;flex:1">'+card+'</div>'+
-    '<div style="padding:12px 18px;border-top:1px solid rgba(255,255,255,.08);display:flex;gap:8px;align-items:center">'+
+    '<div style="padding:12px 18px;border-top:1px solid var(--brd);display:flex;gap:8px;align-items:center">'+
       '<div id="bank-count" style="flex:1;font-size:12px;color:var(--text2)">'+nProp+' da registrare</div>'+
       '<button onclick="bankChiudi()" style="padding:11px 14px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:transparent;color:var(--text);font-weight:600;font-size:14px;cursor:pointer">Annulla</button>'+
       '<button onclick="bankApplica()" style="padding:11px 18px;border:none;border-radius:10px;background:var(--teal);color:#04231f;font-weight:800;font-size:14px;cursor:pointer">Registra selezionati</button>'+
