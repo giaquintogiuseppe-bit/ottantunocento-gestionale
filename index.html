@@ -3031,12 +3031,15 @@ async function parcoLoad(){
     fetch(`${SUPABASE_URL}/rest/v1/allocazioni?select=*`,H).then(r=>r.ok?r.json():[]),
     fetch(`${SUPABASE_URL}/rest/v1/depositi?select=*`,H).then(r=>r.ok?r.json():[])
   ]);
-  PARCO.ris=ris;PARCO.mov=mov;PARCO.dep=dep;PARCO.loaded=true;
+  PARCO.ris=ris;PARCO.mov=mov;PARCO.dep=dep;
+  PARCO.mov.forEach(m=>{ if(!m.a_tipo){ if(m.cantiere_id){ m.a_tipo='cantiere'; m.a_id=m.a_id||m.cantiere_id; m.a_nome=m.a_nome||m.cantiere_nome; } else { m.a_tipo='deposito'; m.a_id=m.a_id||m.deposito_id; m.a_nome=m.a_nome||parcoDepNome(m.deposito_id); } } });
+  PARCO.loaded=true;
 }
+function parcoAperto(m){ return !['rientrata','trasferita','annullata'].includes(m.stato) && !m.data_rientro_effettiva; }
 function parcoTodayISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function parcoEuro(n){n=Number(n)||0;return '€ '+n.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function parcoDepNome(id){const d=PARCO.dep.find(x=>x.id===id);return d?d.nome:(id||'Deposito');}
-function parcoFuoriDi(id){const t=parcoTodayISO();return PARCO.mov.filter(m=>m.risorsa_id===id&&m.stato!=='rientrata'&&!m.data_rientro_effettiva&&m.a_tipo&&m.a_tipo!=='deposito'&&m.data_uscita<=t&&(!m.data_rientro||m.data_rientro>=t));}
+function parcoFuoriDi(id){const t=parcoTodayISO();return PARCO.mov.filter(m=>m.risorsa_id===id&&parcoAperto(m)&&m.a_tipo&&m.a_tipo!=='deposito'&&m.data_uscita<=t&&(!m.data_rientro||m.data_rientro>=t));}
 async function renderParco(){
   const kpi=document.getElementById('parco-kpi'), tb=document.getElementById('parco-tb');
   if(!kpi||!tb) return;
@@ -3044,8 +3047,8 @@ async function renderParco(){
     try{ await parcoLoad(); }catch(e){ tb.innerHTML='<tr><td colspan="6">Errore di caricamento.</td></tr>'; return; } }
   const t=parcoTodayISO();
   const valore=PARCO.ris.reduce((s,r)=>s+(Number(r.valore)||0)*(r.gestione==='univoca'?1:(Number(r.qty_totale)||0)),0);
-  const fuori=PARCO.mov.filter(m=>m.stato!=='rientrata'&&!m.data_rientro_effettiva&&m.a_tipo&&m.a_tipo!=='deposito'&&m.data_uscita<=t&&(!m.data_rientro||m.data_rientro>=t));
-  const ritardo=PARCO.mov.filter(m=>m.stato!=='rientrata'&&!m.data_rientro_effettiva&&m.a_tipo&&m.a_tipo!=='deposito'&&m.data_rientro&&m.data_rientro<t);
+  const fuori=PARCO.mov.filter(m=>parcoAperto(m)&&m.a_tipo&&m.a_tipo!=='deposito'&&m.data_uscita<=t&&(!m.data_rientro||m.data_rientro>=t));
+  const ritardo=PARCO.mov.filter(m=>parcoAperto(m)&&m.a_tipo&&m.a_tipo!=='deposito'&&m.data_rientro&&m.data_rientro<t);
   const nUniv=PARCO.ris.filter(r=>r.gestione==='univoca').length;
   kpi.innerHTML=`
     <div class="sc"><div class="scv">${PARCO.ris.length}</div><div class="scl">Risorse (${nUniv} attrezzi)</div></div>
