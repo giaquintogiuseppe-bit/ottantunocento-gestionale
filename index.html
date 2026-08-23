@@ -551,6 +551,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="ni" onclick="nav('anagrafica')">🧑‍🤝‍🧑 Anagrafica Personale</div>
   <div class="ni" onclick="nav('flotta')">🚐 Flotta & Carburante</div>
   <div class="ni" onclick="nav('attrezzeria')">🔧 Attrezzeria</div>
+  <div class="ni" onclick="nav('parco');renderParco()">📦 Parco Risorse</div>
   <div class="ni" onclick="nav('dkv')">⛽ Importa DKV</div>
   <div class="ns">Finanze</div>
   <div class="ni" onclick="nav('fatture');renderFatture()">🧾 Fatture & Scadenze</div>
@@ -823,6 +824,17 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
     <!-- Accordion giornaliero -->
     <div id="dett-body"></div>
+  </div>
+
+  <!-- PARCO RISORSE (sola lettura — master: app Risorse & Depositi) -->
+  <div id="pg-parco" class="pg">
+    <div class="pt">Parco Risorse</div>
+    <div class="ps">Valore e posizione del parco attrezzature — sola lettura. La gestione operativa (uscite, rientri, viaggio) è nell'app <b>Risorse &amp; Depositi</b>.</div>
+    <div class="sg" id="parco-kpi"></div>
+    <div class="tc mt">
+      <div class="th"><h3>Risorse</h3><a href="https://giaquintogiuseppe-bit.github.io/ottantunocento-risorse/" target="_blank" style="font-size:12px;color:var(--acc,#0e7c66);font-weight:700;text-decoration:none">Apri app Risorse ↗</a></div>
+      <div style="overflow-x:auto"><table><thead><tr><th>Risorsa</th><th>Categoria</th><th>Gestione</th><th>Q.tà</th><th>Valore</th><th>Posizione ora</th></tr></thead><tbody id="parco-tb"></tbody></table></div>
+    </div>
   </div>
 
   <!-- FLOTTA / CARBURANTE -->
@@ -3006,6 +3018,55 @@ function nav(pg){
 function render(p){
   if(p==='cantieri'||p==='clienti-gest'){ caricaRifornimentiCloud().then(()=>{ if(p==='cantieri') rCant(); }); }
   ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:rAttrezzeria,saldi:rSaldi,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,coerenza:rCoerenza}[p]||(() =>{}))();
+}
+
+// ============================================================
+// PARCO RISORSE — vista di sola lettura (master: app Risorse & Depositi)
+// ============================================================
+const PARCO={ris:[],mov:[],dep:[],loaded:false};
+async function parcoLoad(){
+  const H={headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`},cache:'no-cache'};
+  const [ris,mov,dep]=await Promise.all([
+    fetch(`${SUPABASE_URL}/rest/v1/risorse?select=*`,H).then(r=>r.ok?r.json():[]),
+    fetch(`${SUPABASE_URL}/rest/v1/allocazioni?select=*`,H).then(r=>r.ok?r.json():[]),
+    fetch(`${SUPABASE_URL}/rest/v1/depositi?select=*`,H).then(r=>r.ok?r.json():[])
+  ]);
+  PARCO.ris=ris;PARCO.mov=mov;PARCO.dep=dep;
+  PARCO.mov.forEach(m=>{ if(!m.a_tipo){ if(m.cantiere_id){ m.a_tipo='cantiere'; m.a_id=m.a_id||m.cantiere_id; m.a_nome=m.a_nome||m.cantiere_nome; } else { m.a_tipo='deposito'; m.a_id=m.a_id||m.deposito_id; m.a_nome=m.a_nome||parcoDepNome(m.deposito_id); } } });
+  PARCO.loaded=true;
+}
+function parcoAperto(m){ return !['rientrata','trasferita','annullata'].includes(m.stato) && !m.data_rientro_effettiva; }
+function parcoTodayISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function parcoEuro(n){n=Number(n)||0;return '€ '+n.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function parcoDepNome(id){const d=PARCO.dep.find(x=>x.id===id);return d?d.nome:(id||'Deposito');}
+function parcoFuoriDi(id){const t=parcoTodayISO();return PARCO.mov.filter(m=>m.risorsa_id===id&&parcoAperto(m)&&m.a_tipo&&m.a_tipo!=='deposito'&&m.data_uscita<=t&&(!m.data_rientro||m.data_rientro>=t));}
+async function renderParco(){
+  const kpi=document.getElementById('parco-kpi'), tb=document.getElementById('parco-tb');
+  if(!kpi||!tb) return;
+  if(!PARCO.loaded){ kpi.innerHTML='<div class="sc"><div class="scv">…</div><div class="scl">Carico</div></div>';
+    try{ await parcoLoad(); }catch(e){ tb.innerHTML='<tr><td colspan="6">Errore di caricamento.</td></tr>'; return; } }
+  const t=parcoTodayISO();
+  const valore=PARCO.ris.reduce((s,r)=>s+(Number(r.valore)||0)*(r.gestione==='univoca'?1:(Number(r.qty_totale)||0)),0);
+  const fuori=PARCO.mov.filter(m=>parcoAperto(m)&&m.a_tipo&&m.a_tipo!=='deposito'&&m.data_uscita<=t&&(!m.data_rientro||m.data_rientro>=t));
+  const ritardo=PARCO.mov.filter(m=>parcoAperto(m)&&m.a_tipo&&m.a_tipo!=='deposito'&&m.data_rientro&&m.data_rientro<t);
+  const nUniv=PARCO.ris.filter(r=>r.gestione==='univoca').length;
+  kpi.innerHTML=`
+    <div class="sc"><div class="scv">${PARCO.ris.length}</div><div class="scl">Risorse (${nUniv} attrezzi)</div></div>
+    <div class="sc"><div class="scv">${parcoEuro(valore)}</div><div class="scl">Valore parco</div></div>
+    <div class="sc"><div class="scv">${fuori.length}</div><div class="scl">Fuori adesso</div></div>
+    <div class="sc" ${ritardo.length?'style="border-color:rgba(232,75,75,.4)"':''}><div class="scv" ${ritardo.length?'style="color:var(--red)"':''}>${ritardo.length}</div><div class="scl">Rientri scaduti</div></div>`;
+  const rows=PARCO.ris.slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'')).map(r=>{
+    const fu=parcoFuoriDi(r.id);
+    const inDep=(Number(r.qty_totale)||0)-fu.reduce((s,m)=>s+(Number(m.qty)||0),0);
+    let pos=[]; if(inDep>0.0001||!fu.length) pos.push('🏠 '+esc(parcoDepNome(r.deposito_base))+(r.gestione!=='univoca'?' ('+inDep+')':''));
+    fu.forEach(m=>pos.push((m.a_tipo==='mezzo'?'🚐':'🏗️')+' '+esc(m.a_nome||'')+(r.gestione!=='univoca'?' ('+m.qty+')':'')));
+    const glab=r.gestione==='univoca'?'attrezzo':(r.gestione==='consumabile'?'consumabile':'quantità');
+    const val=(Number(r.valore)||0)*(r.gestione==='univoca'?1:(Number(r.qty_totale)||0));
+    return `<tr><td><b>${esc(r.nome)}</b></td><td>${esc(r.categoria||'—')}</td><td>${glab}</td>
+      <td>${r.gestione==='univoca'?'1':(Number(r.qty_totale)||0)} ${esc(r.unita||'pz')}</td>
+      <td>${r.valore?parcoEuro(val):'—'}</td><td style="font-size:12px">${pos.join(' · ')||'—'}</td></tr>`;
+  }).join('');
+  tb.innerHTML=rows||'<tr><td colspan="6">Nessuna risorsa.</td></tr>';
 }
 
 // ============================================================
