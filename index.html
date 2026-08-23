@@ -4846,6 +4846,9 @@ function rCant(){
             <div class="kb-actions" onclick="event.stopPropagation()">
               <button class="bs" onclick="aprDett(${gi})">📋</button>
               <button class="bs" onclick="apriModificaCantiere('${c.id}')">✏️</button>
+              ${c.preventivoRef
+                ? `<button class="bs" title="Preventivo ${c.preventivoRef}" onclick="toast('Preventivo collegato: ${c.preventivoRef}')">🧾✓</button>`
+                : `<button class="bs" title="Crea preventivo (bozza)" onclick="creaPreventivoCantiere('${c.id}',{after:rCant})">🧾</button>`}
               <button class="bs" style="font-size:11px" onclick="archiviaCantiere('${c.id}')">🗄</button>
               <button class="bd" onclick="elimCantiere('${c.id}')">✕</button>
             </div>
@@ -8088,17 +8091,14 @@ function renderCePrevBox(c){
   } else box.innerHTML='';
 }
 
-async function creaPreventivoDaGestionale(){
-  const id=document.getElementById('ce-id').value;
+// Core: crea la bozza preventivo per un cantiere (id) e la aggancia. opts.after() a fine.
+async function creaPreventivoCantiere(id, opts){
+  opts=opts||{};
   const c=DB.cantieri.find(x=>x.id===id);
   if(!c){ toast('Cantiere non trovato'); return; }
   if(c.preventivoRef){ toast('Preventivo già collegato: '+c.preventivoRef); return; }
-  const box=document.getElementById('ce-prev-box');
-  if(box) box.innerHTML='<div style="text-align:center;color:var(--text2);font-size:13px;padding:8px">Creazione preventivo…</div>';
   try{
-    let committente=c.committente||'';
-    const sel=document.getElementById('ce-cliente');
-    if(sel && sel.value){ const cl=(DB.clienti||[]).find(x=>x.id===sel.value); if(cl) committente=cl.ragioneSociale||committente; }
+    const committente = opts.committente || c.committente || c.clienteNome || '';
     const anno=new Date().getFullYear(); let nn=1;
     try{
       const r=await fetch(SUPABASE_URL+'/rest/v1/preventivi?select=numero&numero=like.PREV-'+anno+'-*&order=numero.desc&limit=1',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}});
@@ -8110,9 +8110,19 @@ async function creaPreventivoDaGestionale(){
     if(!res.ok){ let tx=''; try{tx=await res.text();}catch(_){} throw new Error(res.status+(tx?' '+tx.slice(0,80):'')); }
     c.preventivoRef=numero;
     save(); // il Gestionale è proprietario del blob: preventivoRef viene persistito
-    renderCePrevBox(c);
     toast('✓ '+numero+' creato in Preventivi');
-  }catch(e){ renderCePrevBox(c); toast('⚠ Preventivo non creato: '+e.message); }
+  }catch(e){ toast('⚠ Preventivo non creato: '+e.message); }
+  if(typeof opts.after==='function') opts.after();
+}
+// Dalla finestra Modifica cantiere
+async function creaPreventivoDaGestionale(){
+  const id=document.getElementById('ce-id').value;
+  const c=DB.cantieri.find(x=>x.id===id);
+  let committente = c ? (c.committente||c.clienteNome||'') : '';
+  const sel=document.getElementById('ce-cliente');
+  if(sel && sel.value){ const cl=(DB.clienti||[]).find(x=>x.id===sel.value); if(cl) committente=cl.ragioneSociale||committente; }
+  const box=document.getElementById('ce-prev-box'); if(box) box.innerHTML='<div style="text-align:center;color:var(--text2);font-size:13px;padding:8px">Creazione preventivo…</div>';
+  await creaPreventivoCantiere(id, { committente, after:()=>renderCePrevBox(DB.cantieri.find(x=>x.id===id)) });
 }
 
 function salvaModificaCantiere(){
