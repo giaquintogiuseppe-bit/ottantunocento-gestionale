@@ -1965,6 +1965,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <input type="text" id="ce-note" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:9px 12px;width:100%;outline:none">
       </div>
       <div id="ce-warning" style="display:none;background:rgba(232,184,75,.1);border:1px solid rgba(232,184,75,.3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--gold)"></div>
+      <div id="ce-prev-box"></div>
     </div>
     <div class="mf">
       <button class="bs" onclick="closeModal('modal-cant-edit')">Annulla</button>
@@ -8070,7 +8071,48 @@ function apriModificaCantiere(id){
   const s = (c.stato||'da confermare').toLowerCase();
   statoEl.value = s.includes('corso')?'in corso':s.includes('conclus')?'concluso':s.includes('perso')||s.includes('rifiut')?'perso':'da confermare';
   document.getElementById('ce-warning').style.display='none';
+  renderCePrevBox(c);
   openModal('modal-cant-edit');
+}
+
+// ── Preventivo collegato al cantiere / crea bozza (allineato in Preventivi) ──
+function renderCePrevBox(c){
+  const box=document.getElementById('ce-prev-box'); if(!box) return;
+  if(c && c.preventivoRef){
+    box.innerHTML='<div style="background:rgba(122,160,255,.08);border:1px solid rgba(122,160,255,.3);border-radius:8px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px">'
+      +'<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#3a52c4">🧾 Preventivo collegato</div>'
+      +'<div style="font-size:15px;font-weight:800;margin-top:2px">'+esc(c.preventivoRef)+'</div></div>'
+      +'<span style="font-size:11px;color:var(--text2);text-align:right">completa<br>in Preventivi</span></div>';
+  } else if(c){
+    box.innerHTML='<button type="button" onclick="creaPreventivoDaGestionale()" style="width:100%;background:rgba(122,160,255,.08);border:1.5px dashed rgba(122,160,255,.5);border-radius:8px;padding:11px;color:#3a52c4;font-size:14px;font-weight:700;cursor:pointer">🧾 Crea preventivo (bozza)</button>';
+  } else box.innerHTML='';
+}
+
+async function creaPreventivoDaGestionale(){
+  const id=document.getElementById('ce-id').value;
+  const c=DB.cantieri.find(x=>x.id===id);
+  if(!c){ toast('Cantiere non trovato'); return; }
+  if(c.preventivoRef){ toast('Preventivo già collegato: '+c.preventivoRef); return; }
+  const box=document.getElementById('ce-prev-box');
+  if(box) box.innerHTML='<div style="text-align:center;color:var(--text2);font-size:13px;padding:8px">Creazione preventivo…</div>';
+  try{
+    let committente=c.committente||'';
+    const sel=document.getElementById('ce-cliente');
+    if(sel && sel.value){ const cl=(DB.clienti||[]).find(x=>x.id===sel.value); if(cl) committente=cl.ragioneSociale||committente; }
+    const anno=new Date().getFullYear(); let nn=1;
+    try{
+      const r=await fetch(SUPABASE_URL+'/rest/v1/preventivi?select=numero&numero=like.PREV-'+anno+'-*&order=numero.desc&limit=1',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}});
+      if(r.ok){ const rows=await r.json(); const m=rows&&rows[0]&&rows[0].numero&&rows[0].numero.match(/(\d+)\s*$/); if(m) nn=parseInt(m[1])+1; }
+    }catch(_){}
+    const numero='PREV-'+anno+'-'+String(nn).padStart(3,'0');
+    const body={ numero, data:today(), cliente_nome:committente, oggetto:(c.nome||'Cantiere')+' — da completare (creato dal Gestionale)', stato:'bozza', modalita:'dettagliata', righe:[], elenco_materiali:[], imponibile:0, iva_perc:22, iva_importo:0, totale:0, cantiere_ref:c.id, cantiere_id:c.id };
+    const res=await fetch(SUPABASE_URL+'/rest/v1/preventivi',{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(body)});
+    if(!res.ok){ let tx=''; try{tx=await res.text();}catch(_){} throw new Error(res.status+(tx?' '+tx.slice(0,80):'')); }
+    c.preventivoRef=numero;
+    save(); // il Gestionale è proprietario del blob: preventivoRef viene persistito
+    renderCePrevBox(c);
+    toast('✓ '+numero+' creato in Preventivi');
+  }catch(e){ renderCePrevBox(c); toast('⚠ Preventivo non creato: '+e.message); }
 }
 
 function salvaModificaCantiere(){
