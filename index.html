@@ -704,6 +704,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <button class="tf-chip" data-t="servizio"  onclick="setCantTipoFiltro('servizio',this)">🚚 Servizi</button>
       <button class="tf-chip" data-t="interno"   onclick="setCantTipoFiltro('interno',this)">🏠 Interni</button>
     </div>
+    <button id="btn-riepilogo" onclick="toggleCantRiepilogo()" style="background:rgba(100,120,140,.10);border:1px solid rgba(100,120,140,.25);border-radius:8px;padding:9px 16px;color:var(--text2);font-family:'Syne',sans-serif;font-size:13px;font-weight:600;cursor:pointer;width:100%;margin-bottom:12px;text-align:left">📊 Riepilogo per cliente / tipo ▸</button>
+    <div id="cant-riepilogo" style="display:none;margin-bottom:14px"></div>
 
     <!-- Kanban board -->
     <div id="cant-kanban"></div>
@@ -4905,7 +4907,59 @@ function setCantTipoFiltro(t, el){
 }
 function _cantMatchTipo(c){ return _cantTipoFiltro==='tutti' || cantTipi(c).includes(_cantTipoFiltro); }
 
+// ── Chiusura automatica delle commesse LEGGERE concluse ──
+// Solo tipi leggeri (niente evento/interno), non continuative, stato "in corso"
+// e con data fine passata → concluso (marcato _autoChiuso, riapribile a mano).
+function _autoChiudiLeggere(){
+  const oggi = today();
+  let n=0;
+  (DB.cantieri||[]).forEach(c=>{
+    const tipi = cantTipi(c);
+    const soloLeggeri = tipi.length && !tipi.includes('evento') && !tipi.includes('interno');
+    if(!soloLeggeri || c.continuativa) return;
+    if(!(c.stato||'').toLowerCase().includes('corso')) return;
+    const fine = (/^\d{4}-\d{2}-\d{2}$/.test(c.periodoFine||'')) ? c.periodoFine
+               : (/^\d{4}-\d{2}-\d{2}$/.test(c.periodoInizio||'') ? c.periodoInizio : null);
+    if(fine && fine < oggi){ c.stato='concluso'; c._autoChiuso=true; n++; }
+  });
+  if(n){ save(); toast(`✓ ${n} commess${n===1?'a leggera chiusa':'e leggere chiuse'} in automatico (le trovi in Storico)`); }
+  return n;
+}
+
+// ── Riepilogo per cliente / tipo (sola lettura) ──
+let _cantRiepilogoAperto=false;
+function toggleCantRiepilogo(){ _cantRiepilogoAperto=!_cantRiepilogoAperto; renderCantRiepilogo(); }
+function renderCantRiepilogo(){
+  const box=document.getElementById('cant-riepilogo'); if(!box) return;
+  const btn=document.getElementById('btn-riepilogo');
+  if(!_cantRiepilogoAperto){ box.style.display='none'; if(btn) btn.textContent='📊 Riepilogo per cliente / tipo ▸'; return; }
+  if(!_costiCache) _buildCostiCache();
+  const archIds=new Set(DB._cantieriArchiviati||[]);
+  const attivi=(DB.cantieri||[]).filter(c=>!archIds.has(c.id));
+  const perTipo={}; TIPI_ORDINE.forEach(t=>perTipo[t]={n:0,ric:0,cost:0});
+  const perCli={};
+  attivi.forEach(c=>{
+    const ric=getBudget(c.id,c.nome)||0, cost=_getCostiCantiere(c.nome).totale||0;
+    const tipi=cantTipi(c); const eff=tipi.length?tipi:['evento']; const q=eff.length;
+    eff.forEach(t=>{ if(perTipo[t]){ perTipo[t].n++; perTipo[t].ric+=ric/q; perTipo[t].cost+=cost/q; } });
+    const cli=((c.committente||c.clienteNome||'—').trim())||'—';
+    (perCli[cli]=perCli[cli]||{n:0,ric:0,cost:0}); perCli[cli].n++; perCli[cli].ric+=ric; perCli[cli].cost+=cost;
+  });
+  const rowTipo=TIPI_ORDINE.filter(t=>perTipo[t].n>0).map(t=>{const m=TIPO_META[t],d=perTipo[t],mg=d.ric-d.cost;
+    return `<tr><td>${m.ic} ${m.lbl}</td><td class="mn">${d.n}</td><td class="mn">${fmt(d.ric)}</td><td class="mn" style="color:${mg>=0?'var(--green)':'var(--red)'}">${fmt(mg)}</td></tr>`;}).join('');
+  const cliArr=Object.entries(perCli).sort((a,b)=>b[1].ric-a[1].ric).slice(0,15);
+  const rowCli=cliArr.map(([cli,d])=>{const mg=d.ric-d.cost;
+    return `<tr><td>${esc(cli)}</td><td class="mn">${d.n}</td><td class="mn">${fmt(d.ric)}</td><td class="mn" style="color:${mg>=0?'var(--green)':'var(--red)'}">${fmt(mg)}</td></tr>`;}).join('');
+  box.style.display='block';
+  if(btn) btn.textContent='📊 Riepilogo per cliente / tipo ▾';
+  box.innerHTML=`<div class="fc" style="margin-bottom:14px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+    <div><h3 style="margin:0 0 8px">Per tipo</h3><div style="overflow-x:auto"><table style="width:100%"><thead><tr><th>Tipo</th><th>N.</th><th>Ricavo</th><th>Margine</th></tr></thead><tbody>${rowTipo||'<tr><td colspan=4>—</td></tr>'}</tbody></table></div></div>
+    <div><h3 style="margin:0 0 8px">Per cliente (top 15)</h3><div style="overflow-x:auto"><table style="width:100%"><thead><tr><th>Cliente</th><th>N.</th><th>Ricavo</th><th>Margine</th></tr></thead><tbody>${rowCli||'<tr><td colspan=4>—</td></tr>'}</tbody></table></div></div>
+  </div></div>`;
+}
+
 function rCant(){
+  _autoChiudiLeggere();
   if(!_costiCache) _buildCostiCache();
   window._cantieri = DB.cantieri;
 
