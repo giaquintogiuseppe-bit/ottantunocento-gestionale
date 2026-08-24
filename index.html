@@ -100,6 +100,13 @@ grid-template-columns:repeat(3,1fr);gap:16px;align-items:start}
 .kb-margin{font-size:12px;font-weight:800;margin-bottom:10px}
 .kb-actions{display:flex;gap:5px}
 .kb-actions button{font-size:11px;padding:5px 10px;border-radius:6px}
+.badge-tp{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;letter-spacing:.02em;white-space:nowrap}
+.cont-dot{font-size:9px;font-weight:700;color:var(--teal);border:1px solid var(--teal);border-radius:4px;padding:0 4px;letter-spacing:.03em}
+.kb-tipi{display:flex;flex-wrap:wrap;gap:4px;margin:2px 0 6px}
+.ce-tipo{font-size:12px;font-weight:600;padding:6px 10px;border-radius:7px;border:1px solid var(--brd);background:var(--navy);color:var(--text2);cursor:pointer;font-family:'IBM Plex Sans',sans-serif}
+.ce-tipo.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+.tf-chip{font-size:12px;font-weight:600;padding:6px 11px;border-radius:20px;border:1px solid var(--brd);background:var(--navy);color:var(--text2);cursor:pointer;white-space:nowrap;font-family:'IBM Plex Sans',sans-serif}
+.tf-chip.on{background:var(--teal);color:#fff;border-color:var(--teal)}
 @media(max-width:900px){.kanban{grid-template-columns:1fr}}
 @media(max-width:1200px){.kanban{grid-template-columns:repeat(2,1fr)}}
 .kb-warn{font-size:11px;color:var(--red);font-weight:700;margin-bottom:6px}
@@ -546,7 +553,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="ns">Operatività</div>
   <div class="ni" onclick="nav('presenze')">👥 Presenze</div>
   <div class="ni" onclick="nav('nuova-giornata')">➕ Nuova giornata</div>
-  <div class="ni" onclick="nav('cantieri')">🏗️ Cantieri</div>
+  <div class="ni" onclick="nav('cantieri')">🏗️ Commesse</div>
   <div class="ni" onclick="nav('danni')">⚠️ Danni</div>
   <div class="ni" onclick="nav('anagrafica')">🧑‍🤝‍🧑 Anagrafica Personale</div>
   <div class="ni" onclick="nav('flotta')">🚐 Flotta & Carburante</div>
@@ -674,32 +681,51 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
   <!-- CANTIERI -->
   <div id="pg-cantieri" class="pg">
-    <div class="pt">Cantieri</div>
-    <div class="ps">Commesse e costi — vista Kanban per stato</div>
+    <div class="pt">Commesse</div>
+    <div class="ps">Eventi, noleggi, forniture e servizi — vista Kanban per stato, con tipo e margine</div>
 
     <!-- KPI globali -->
     <div class="sg" id="cant-kpi"></div>
 
     <!-- Barra ricerca + toggle archivio -->
-    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
-      <input id="cant-search" class="ts" placeholder="🔍 Cerca cantiere..." oninput="rCant()" style="flex:1;min-width:180px;max-width:320px">
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+      <input id="cant-search" class="ts" placeholder="🔍 Cerca commessa..." oninput="rCant()" style="flex:1;min-width:180px;max-width:320px">
       <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);cursor:pointer;white-space:nowrap">
         <input type="checkbox" id="cant-mostra-archivio" onchange="rCant()" style="accent-color:var(--teal)">
         🗄 Mostra archivio
       </label>
     </div>
+    <!-- Filtro per tipo -->
+    <div id="cant-tipo-filtri" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="tf-chip on" data-t="tutti"  onclick="setCantTipoFiltro('tutti',this)">Tutti</button>
+      <button class="tf-chip" data-t="evento"    onclick="setCantTipoFiltro('evento',this)">🎪 Eventi</button>
+      <button class="tf-chip" data-t="noleggio"  onclick="setCantTipoFiltro('noleggio',this)">🔄 Noleggi</button>
+      <button class="tf-chip" data-t="fornitura" onclick="setCantTipoFiltro('fornitura',this)">📦 Forniture</button>
+      <button class="tf-chip" data-t="servizio"  onclick="setCantTipoFiltro('servizio',this)">🚚 Servizi</button>
+      <button class="tf-chip" data-t="interno"   onclick="setCantTipoFiltro('interno',this)">🏠 Interni</button>
+    </div>
 
     <!-- Kanban board -->
     <div id="cant-kanban"></div>
 
-    <!-- Aggiungi cantiere -->
+    <!-- Aggiungi commessa -->
     <div class="fc" style="margin-top:20px">
-      <h3>Aggiungi cantiere</h3>
+      <h3>Aggiungi commessa</h3>
       <div class="fg">
         <div><label>Nome</label><input type="text" id="cn-nome" placeholder="es. Gaeta"></div>
         <div><label>Periodo</label><input type="text" id="cn-periodo" placeholder="es. 1-6/06/26"></div>
         <div><label>Ricavo previsto / preventivo (€)</label><input type="number" id="cn-costo" placeholder="0"></div>
         <div class="fs"><label>Note</label><input type="text" id="cn-note" placeholder="Dettagli..."></div>
+      </div>
+      <div style="margin-top:4px">
+        <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:6px">Tipo <span style="text-transform:none;letter-spacing:0;font-weight:400">(una o più — se lasci vuoto è «Evento»)</span></label>
+        <div id="cn-tipi" style="display:flex;flex-wrap:wrap;gap:6px">
+          <button type="button" class="ce-tipo" data-t="evento"    onclick="this.classList.toggle('on')">🎪 Evento</button>
+          <button type="button" class="ce-tipo" data-t="noleggio"  onclick="this.classList.toggle('on')">🔄 Noleggio</button>
+          <button type="button" class="ce-tipo" data-t="fornitura" onclick="this.classList.toggle('on')">📦 Fornitura</button>
+          <button type="button" class="ce-tipo" data-t="servizio"  onclick="this.classList.toggle('on')">🚚 Servizio</button>
+          <button type="button" class="ce-tipo" data-t="interno"   onclick="this.classList.toggle('on')">🏠 Interno</button>
+        </div>
       </div>
       <div class="fa"><button class="bp" onclick="addCantiere()">💾 Aggiungi</button></div>
     </div>
@@ -1940,7 +1966,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <div class="mo" id="modal-cant-edit">
   <div class="md" style="max-width:440px">
-    <div class="mh"><h3>✏️ Modifica cantiere</h3><button class="mc" onclick="closeModal('modal-cant-edit')">✕</button></div>
+    <div class="mh"><h3>✏️ Modifica commessa</h3><button class="mc" onclick="closeModal('modal-cant-edit')">✕</button></div>
     <div class="mb" style="display:flex;flex-direction:column;gap:12px">
       <input type="hidden" id="ce-id">
       <div>
@@ -1953,6 +1979,20 @@ tbody td{padding:10px 14px;vertical-align:middle}
           <option value="">— Nessun cliente —</option>
         </select>
         <div style="font-size:10px;color:var(--text2);margin-top:4px">Il cliente è condiviso col Planning: qui lo cambi e resta allineato ovunque.</div>
+      </div>
+      <div>
+        <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Tipo commessa <span style="text-transform:none;letter-spacing:0;font-weight:400">(una o più)</span></label>
+        <div id="ce-tipi" style="display:flex;flex-wrap:wrap;gap:6px">
+          <button type="button" class="ce-tipo" data-t="evento"    onclick="this.classList.toggle('on')">🎪 Evento</button>
+          <button type="button" class="ce-tipo" data-t="noleggio"  onclick="this.classList.toggle('on')">🔄 Noleggio</button>
+          <button type="button" class="ce-tipo" data-t="fornitura" onclick="this.classList.toggle('on')">📦 Fornitura</button>
+          <button type="button" class="ce-tipo" data-t="servizio"  onclick="this.classList.toggle('on')">🚚 Servizio</button>
+          <button type="button" class="ce-tipo" data-t="interno"   onclick="this.classList.toggle('on')">🏠 Interno</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:9px;font-size:13px;color:var(--text);cursor:pointer">
+          <input type="checkbox" id="ce-continuativa" style="accent-color:var(--teal)">
+          <span>Continuativa <span style="color:var(--text2);font-size:11px">— con squadra / planning, chiusura manuale (es. Gaeta)</span></span>
+        </label>
       </div>
       <div>
         <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Periodo</label>
@@ -4835,6 +4875,36 @@ const _saveOrig = window.save;
 window.save = function(){ _costiCache=null; if(typeof _saveOrig==='function') _saveOrig(); };
 
 // ── RENDER CANTIERI — KANBAN ──────────────────────────────────────────────
+// ── Commesse: tipi (multipli) + interruttore continuativa ──
+const TIPO_META = {
+  evento:   {ic:'🎪', lbl:'Evento',    col:'var(--teal)', bg:'rgba(14,124,102,.14)'},
+  noleggio: {ic:'🔄', lbl:'Noleggio',  col:'#8494ee',     bg:'rgba(132,148,238,.16)'},
+  fornitura:{ic:'📦', lbl:'Fornitura', col:'var(--gold)', bg:'rgba(232,184,75,.15)'},
+  servizio: {ic:'🚚', lbl:'Servizio',  col:'#d68a3a',     bg:'rgba(214,138,58,.15)'},
+  interno:  {ic:'🏠', lbl:'Interno',   col:'var(--text2)',bg:'rgba(120,140,160,.14)'},
+};
+const TIPI_ORDINE = ['evento','noleggio','fornitura','servizio','interno'];
+function cantTipi(c){
+  const t = c && c.tipoCant;
+  if(Array.isArray(t)) return t.filter(x=>TIPO_META[x]);
+  if(typeof t==='string' && TIPO_META[t]) return [t];
+  return [];
+}
+function badgeTipiHtml(c){
+  const tipi = cantTipi(c);
+  let h = tipi.map(t=>{const m=TIPO_META[t];return `<span class="badge-tp" style="background:${m.bg};color:${m.col}">${m.ic} ${m.lbl}</span>`;}).join('');
+  if(c && c.continuativa) h += `<span class="cont-dot">CONTINUATIVA</span>`;
+  return h ? `<div class="kb-tipi">${h}</div>` : '';
+}
+let _cantTipoFiltro = 'tutti';
+function setCantTipoFiltro(t, el){
+  _cantTipoFiltro = t;
+  document.querySelectorAll('#cant-tipo-filtri .tf-chip').forEach(x=>x.classList.remove('on'));
+  if(el) el.classList.add('on');
+  rCant();
+}
+function _cantMatchTipo(c){ return _cantTipoFiltro==='tutti' || cantTipi(c).includes(_cantTipoFiltro); }
+
 function rCant(){
   if(!_costiCache) _buildCostiCache();
   window._cantieri = DB.cantieri;
@@ -4883,8 +4953,8 @@ function rCant(){
     const cards=gruppi[stato.key]||[];
     return `<div class="kb-col">
       <div class="kb-col-hdr" style="color:${stato.colore};background:${stato.bg}">${stato.label} <span style="opacity:.7">(${cards.length})</span></div>
-      ${cards.length===0?`<div style="font-size:12px;color:var(--text2);text-align:center;padding:20px 0">—</div>`:
-        cards.map((c,li)=>{
+      ${cards.filter(_cantMatchTipo).length===0?`<div style="font-size:12px;color:var(--text2);text-align:center;padding:20px 0">—</div>`:
+        cards.filter(_cantMatchTipo).map((c,li)=>{
           const gi=window._cantieri.indexOf(c);
           const costi=_getCostiCantiere(c.nome);
           const ricavo=getBudget(c.id,c.nome);
@@ -4895,6 +4965,7 @@ function rCant(){
           return `<div class="kb-card" onclick="aprDett(${gi})">
             ${overBudget?`<div class="kb-warn">⚠ Budget superato di ${fmt(costi.totale-ricavo)}</div>`:''}
             <div class="kb-name" title="${c.nome}">${c.nome}</div>
+            ${badgeTipiHtml(c)}
             <div class="kb-periodo">${c.tipo==='lungo_periodo'?'📦 Deposito':'📅'} ${c.periodo||c.periodoInizio||'—'}${c.committente?' · '+c.committente:''}${c.tipo==='lungo_periodo'&&c.dataRitiro?`<br>ritiro: <b>${fdate(c.dataRitiro)}</b>`:''}</div>
             ${ricavo===0?`<div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-style:italic">💰 Budget non impostato</div>`:''}
             ${ricavo>0?`<div class="kb-bar-wrap"><div class="kb-bar" style="width:${pctBarra}%;background:${barCol}"></div></div>`:''}
@@ -4933,12 +5004,13 @@ function rCant(){
           const cards=gruppi[stato.key]||[];
           return `<div class="kb-col">
             <div class="kb-col-hdr" style="color:${stato.colore};background:${stato.bg}">${stato.label} (${cards.length})</div>
-            ${cards.length===0?`<div style="font-size:12px;color:var(--text2);text-align:center;padding:20px 0">—</div>`:
-              cards.map(c=>{
+            ${cards.filter(_cantMatchTipo).length===0?`<div style="font-size:12px;color:var(--text2);text-align:center;padding:20px 0">—</div>`:
+              cards.filter(_cantMatchTipo).map(c=>{
                 const gi=window._cantieri.indexOf(c);
                 const isArch=archIds.has(c.id);
                 return `<div class="kb-card archiviato" onclick="aprDett(${gi})">
                   <div class="kb-name">${c.nome}</div>
+                  ${badgeTipiHtml(c)}
                   <div class="kb-periodo">📅 ${c.periodo||c.periodoInizio||'—'}${c.committente?' · '+c.committente:''}</div>
                   <div class="kb-actions" onclick="event.stopPropagation()">
                     <button class="bs" onclick="aprDett(${gi})">📋</button>
@@ -5524,19 +5596,24 @@ function addCantiere(){
   if(DB.cantieri.find(c=>c.nome.toLowerCase()===nome.toLowerCase())){
     alert('Esiste già un cantiere con questo nome'); return;
   }
+  let tipi = Array.from(document.querySelectorAll('#cn-tipi .ce-tipo.on')).map(b=>b.dataset.t);
+  if(!tipi.length) tipi = ['evento'];
   const c={
     id:uid(), nome,
     periodo:gv('cn-periodo'),
     ricavo:parseFloat(gv('cn-costo')||0), // mantiene il nome campo per compatibilità, ma è il ricavo/preventivo
     costo:parseFloat(gv('cn-costo')||0),
-    note:gv('cn-note')
+    note:gv('cn-note'),
+    tipoCant:tipi,
+    continuativa: tipi.includes('evento') || tipi.includes('interno')
   };
   DB.cantieri.push(c);
   save();
   sincronizzaCantieri();
   clr(['cn-nome','cn-periodo','cn-costo','cn-note']);
+  document.querySelectorAll('#cn-tipi .ce-tipo.on').forEach(b=>b.classList.remove('on'));
   rCant();
-  toast(`Cantiere "${nome}" creato ✓`);
+  toast(`Commessa "${nome}" creata ✓`);
 }
 
 // Crea un cantiere "al volo" da qualsiasi punto dell'app (presenze, spese, ecc.)
@@ -8135,6 +8212,13 @@ function apriModificaCantiere(id){
   const s = (c.stato||'da confermare').toLowerCase();
   statoEl.value = s.includes('corso')?'in corso':s.includes('conclus')?'concluso':s.includes('perso')||s.includes('rifiut')?'perso':'da confermare';
   document.getElementById('ce-warning').style.display='none';
+  // Tipo commessa (multipli) + interruttore continuativa
+  const tipiSel = cantTipi(c);
+  document.querySelectorAll('#ce-tipi .ce-tipo').forEach(btn=>{
+    btn.classList.toggle('on', tipiSel.includes(btn.dataset.t));
+  });
+  const contEl = document.getElementById('ce-continuativa');
+  if(contEl) contEl.checked = !!c.continuativa;
   renderCePrevBox(c);
   openModal('modal-cant-edit');
 }
@@ -8209,6 +8293,9 @@ function salvaModificaCantiere(){
   setBudget(c.id, nuovoNome, nuovoRicavo); // salva il ricavo nel Gestionale, non nel Planning
   c.note = document.getElementById('ce-note').value;
   c.stato = document.getElementById('ce-stato').value; // aggiornato anche sul cloud al prossimo sync
+  // Tipo commessa (multipli) + interruttore continuativa
+  c.tipoCant = Array.from(document.querySelectorAll('#ce-tipi .ce-tipo.on')).map(b=>b.dataset.t);
+  c.continuativa = document.getElementById('ce-continuativa').checked;
 
   // Cliente: scrive gli stessi campi del Planning (dato condiviso nello stesso blob)
   const selCliS = document.getElementById('ce-cliente');
