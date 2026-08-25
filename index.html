@@ -5047,6 +5047,7 @@ function rCant(){
           const overBudget=ricavo>0&&costi.totale>ricavo;
           return `<div class="kb-card" onclick="aprDett(${gi})">
             ${overBudget?`<div class="kb-warn">⚠ Budget superato di ${fmt(costi.totale-ricavo)}</div>`:''}
+            ${c.codice?`<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);letter-spacing:.5px;margin-bottom:2px">${c.codice}${c.preventivoId?' · 🧾 '+c.preventivoId:''}</div>`:''}
             <div class="kb-name" title="${c.nome}">${c.nome}</div>
             ${badgeTipiHtml(c)}
             <div class="kb-periodo">${c.tipo==='lungo_periodo'?'📦 Deposito':'📅'} ${c.periodo||c.periodoInizio||'—'}${c.committente?' · '+c.committente:''}${c.tipo==='lungo_periodo'&&c.dataRitiro?`<br>ritiro: <b>${fdate(c.dataRitiro)}</b>`:''}</div>
@@ -5092,6 +5093,7 @@ function rCant(){
                 const gi=window._cantieri.indexOf(c);
                 const isArch=archIds.has(c.id);
                 return `<div class="kb-card archiviato" onclick="aprDett(${gi})">
+                  ${c.codice?`<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);letter-spacing:.5px;margin-bottom:2px">${c.codice}</div>`:''}
                   <div class="kb-name">${c.nome}</div>
                   ${badgeTipiHtml(c)}
                   <div class="kb-periodo">📅 ${c.periodo||c.periodoInizio||'—'}${c.committente?' · '+c.committente:''}</div>
@@ -5698,6 +5700,15 @@ async function importaSpeseBot(){
   toast(`✅ ${ids.length} spese importate dal bot`);
 }
 
+// Prossimo codice permanente della commessa (perno): COM-ANNO-NNN
+function _nextComCodice(){
+  const anno=new Date().getFullYear();
+  const re=new RegExp('^COM-'+anno+'-(\\d+)$');
+  let max=0;
+  (DB.cantieri||[]).forEach(c=>{ const m=(c.codice||'').match(re); if(m){ const n=parseInt(m[1],10); if(n>max) max=n; } });
+  return 'COM-'+anno+'-'+String(max+1).padStart(3,'0');
+}
+
 function addCantiere(){
   const nome = gv('cn-nome');
   if(!nome){ alert('Inserisci il nome del cantiere'); return; }
@@ -5707,7 +5718,7 @@ function addCantiere(){
   let tipi = Array.from(document.querySelectorAll('#cn-tipi .ce-tipo.on')).map(b=>b.dataset.t);
   if(!tipi.length) tipi = ['evento'];
   const c={
-    id:uid(), nome,
+    id:uid(), nome, codice:_nextComCodice(),
     periodo:gv('cn-periodo'),
     ricavo:parseFloat(gv('cn-costo')||0), // mantiene il nome campo per compatibilità, ma è il ricavo/preventivo
     costo:parseFloat(gv('cn-costo')||0),
@@ -5733,7 +5744,7 @@ function creaCantiereVeloce(nome){
 
   if(!confirm(`Il cantiere "${nome}" non esiste ancora.\n\nVuoi crearlo ora?`)) return null;
 
-  const c={id:uid(), nome, periodo:'', ricavo:0, costo:0, note:'Creato automaticamente da Presenze'};
+  const c={id:uid(), nome, codice:_nextComCodice(), periodo:'', ricavo:0, costo:0, note:'Creato automaticamente da Presenze'};
   DB.cantieri.push(c);
   save();
   sincronizzaCantieri();
