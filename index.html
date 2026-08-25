@@ -564,6 +564,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="ni" onclick="nav('fatture');renderFatture()">🧾 Fatture & Scadenze</div>
   <div class="ni" onclick="nav('incassi')">📥 Incassi Clienti</div>
   <div class="ni" onclick="nav('clienti-gest');renderClientiGest()">👤 Gestione Clienti</div>
+  <div class="ni" onclick="nav('referenti')">🔗 Referenti</div>
   <div class="ni" onclick="nav('posizione-clienti')">📊 Posizione clienti</div>
   <div class="ni" onclick="nav('posizione-fornitori')">📊 Posizione fornitori</div>
   <div class="ni" onclick="nav('coerenza')">🔍 Coerenza cantieri</div>
@@ -926,6 +927,17 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <input type="file" id="gcli-import-file" accept=".xlsx,.xls" style="display:none" onchange="importaClientiExcelGest(this)">
     </div>
     <div id="gcli-list"></div>
+  </div>
+
+  <!-- REFERENTI (registro gerarchia) -->
+  <div id="pg-referenti" class="pg">
+    <h2>🔗 Referenti</h2>
+    <div class="ps" style="margin-bottom:14px">La persona che tiene i rapporti e può rappresentare più clienti (es. Patrone → Ultralive + Event Generation). Collega i clienti a un referente dalla scheda cliente.</div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+      <input type="text" id="ref-search" placeholder="🔍 Cerca referente..." oninput="rReferenti()" style="flex:1;min-width:180px;background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-size:13px;padding:9px 12px;outline:none">
+      <button onclick="apriModalReferente()" class="bp" style="font-size:13px;padding:8px 18px">+ Nuovo referente</button>
+    </div>
+    <div id="ref-list"></div>
   </div>
 
   <!-- REPORT CLIENTE -->
@@ -3060,7 +3072,8 @@ function nav(pg){
 }
 function render(p){
   if(p==='cantieri'||p==='clienti-gest'){ caricaRifornimentiCloud().then(()=>{ if(p==='cantieri') rCant(); }); }
-  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:rAttrezzeria,saldi:rSaldi,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,coerenza:rCoerenza}[p]||(() =>{}))();
+  if(p==='clienti-gest'){ refLoad(); }
+  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:rAttrezzeria,saldi:rSaldi,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,coerenza:rCoerenza}[p]||(() =>{}))();
 }
 
 // ============================================================
@@ -9839,7 +9852,13 @@ function apriModalClienteGest(id){
         <div class="fg">
           <div class="fs"><label>Ragione sociale *</label><input type="text" id="gcli-rs" value="${c?.ragioneSociale||''}" placeholder="es. Mario Spa..."></div>
           <div><label>P.IVA / C.F.</label><input type="text" id="gcli-piva" value="${c?.piva||''}"></div>
-          <div class="fs"><label>Referente</label><input type="text" id="gcli-ref" value="${c?.referente||''}"></div>
+          <div class="fs"><label>Referente (contatto)</label><input type="text" id="gcli-ref" value="${c?.referente||''}"></div>
+          <div class="fs"><label>Fa capo a (referente)</label>
+            <select id="gcli-refid">
+              <option value="">— nessuno —</option>
+              ${(REF||[]).map(r=>`<option value="${r.id}" ${c&&c.referenteId===r.id?'selected':''}>${esc(r.nome)}</option>`).join('')}
+            </select>
+          </div>
           <div><label>Telefono</label><input type="tel" id="gcli-tel" value="${c?.telefono||''}"></div>
           <div class="fs"><label>Email</label><input type="email" id="gcli-email" value="${c?.email||''}"></div>
           <div class="fs"><label>Indirizzo</label><input type="text" id="gcli-ind" value="${c?.indirizzo||''}"></div>
@@ -9864,6 +9883,7 @@ function salvaClienteGest(id){
     ragioneSociale:rs,
     piva:document.getElementById('gcli-piva')?.value.trim()||'',
     referente:document.getElementById('gcli-ref')?.value.trim()||'',
+    referenteId:document.getElementById('gcli-refid')?.value||'',
     telefono:document.getElementById('gcli-tel')?.value.trim()||'',
     email:document.getElementById('gcli-email')?.value.trim()||'',
     indirizzo:document.getElementById('gcli-ind')?.value.trim()||'',
@@ -9886,6 +9906,100 @@ function eliminaClienteGest(id){
   save(); cloudSalva(true);
   renderClientiGest();
   toast('Cliente eliminato');
+}
+
+// ── REFERENTI (registro gerarchia — tabella cloud "referenti") ─────────────
+let REF=[];
+const _REFAPI=()=>({url:SUPABASE_URL+'/rest/v1/referenti',h:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'}});
+async function refLoad(){
+  try{ const A=_REFAPI(); const r=await fetch(A.url+'?select=*&order=nome.asc',{headers:A.h,cache:'no-cache'}); const d=await r.json(); REF=Array.isArray(d)?d:[]; }
+  catch(e){ REF=REF||[]; }
+  return REF;
+}
+function _refClienti(refId){ return (DB.clienti||[]).filter(c=>c.referenteId===refId); }
+async function rReferenti(){
+  const el=document.getElementById('ref-list'); if(!el) return;
+  el.innerHTML='<div class="dc"><div class="dl">Carico…</div></div>';
+  await refLoad();
+  const q=(document.getElementById('ref-search')?.value||'').toLowerCase();
+  const list=REF.filter(r=>!q||((r.nome||'')+' '+(r.societa||'')+' '+(r.telefono||'')).toLowerCase().includes(q));
+  const senza=(DB.clienti||[]).filter(c=>!c.referenteId);
+  const notaSenza=senza.length?`<div class="ps" style="margin-top:14px">➕ ${senza.length} clienti non ancora collegati a un referente — aprili in Gestione Clienti e scegli "Fa capo a".</div>`:'';
+  if(!list.length){
+    el.innerHTML=(q?`<div class="dc"><div class="dl">Nessun referente trovato.</div></div>`
+      :`<div class="dc"><div class="dl">Nessun referente ancora. Crea il primo con "+ Nuovo referente" (es. Patrone, Carlucci) e poi collega i clienti dalla loro scheda.</div></div>`)+notaSenza;
+    return;
+  }
+  el.innerHTML=list.map(r=>{
+    const cli=_refClienti(r.id);
+    const cants=(DB.cantieri||[]).filter(x=>cli.some(c=>c.id===x.clienteId));
+    const incTot=(DB.incassi||[]).filter(i=>cants.some(ct=>ct.id===i.cantiereId)).reduce((a,i)=>a+parseFloat(i.importo||0),0);
+    return `<div class="ri">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div class="rn">${esc(r.nome)}</div>
+          ${(r.telefono||r.email)?`<div class="rls">${esc(r.telefono||'')}${r.telefono&&r.email?' · ':''}${esc(r.email||'')}</div>`:''}
+          ${r.numero?`<div class="rls" style="opacity:.7">${esc(r.numero)}</div>`:''}
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:18px;font-weight:800;color:var(--teal)">${cli.length}</div>
+          <div style="font-size:11px;color:var(--text2)">clienti · ${cants.length} commesse</div>
+          ${incTot>0?`<div style="font-size:13px;font-weight:700;color:var(--green)">${fm(incTot)}</div>`:''}
+        </div>
+      </div>
+      ${cli.length?`<div style="margin-top:8px;font-size:12px;color:var(--text2)">${cli.map(c=>esc(c.ragioneSociale)).join(' · ')}</div>`:'<div style="margin-top:8px;font-size:12px;color:var(--gold)">Nessun cliente collegato — collegali dalla scheda cliente</div>'}
+      <div style="margin-top:10px;display:flex;gap:6px">
+        <button onclick="apriModalReferente('${r.id}')" class="bs" style="font-size:11px;padding:4px 10px">✏️ Modifica</button>
+        <button onclick="eliminaReferente('${r.id}')" class="bd" style="font-size:11px;padding:4px 10px">✕ Elimina</button>
+      </div>
+    </div>`;
+  }).join('')+notaSenza;
+}
+function apriModalReferente(id){
+  const r=id?REF.find(x=>x.id===id):null;
+  const html=`<div class="mo open" id="modal-ref" style="z-index:200">
+    <div class="md" style="max-width:460px">
+      <div class="mh"><h3>${r?'✏️ Modifica':'+ Nuovo'} referente</h3><button class="mc" onclick="closeModal('modal-ref')">✕</button></div>
+      <div style="padding:0 20px 8px">
+        <div class="fg">
+          <div class="fs"><label>Nome *</label><input type="text" id="refm-nome" value="${r?esc(r.nome):''}" placeholder="es. Patrone, Carlucci..."></div>
+          <div><label>Telefono</label><input type="tel" id="refm-tel" value="${r?esc(r.telefono||''):''}"></div>
+          <div class="fs"><label>Email</label><input type="email" id="refm-email" value="${r?esc(r.email||''):''}"></div>
+          <div class="fs"><label>Società rappresentate (nota)</label><input type="text" id="refm-soc" value="${r?esc(r.societa||''):''}" placeholder="es. Ultralive, Event Generation"></div>
+          <div class="fs"><label>Note</label><input type="text" id="refm-note" value="${r?esc(r.note||''):''}"></div>
+        </div>
+      </div>
+      <div class="mf">
+        <button class="bs" onclick="closeModal('modal-ref')">Annulla</button>
+        <button class="bp" onclick="salvaReferente('${id||''}')">💾 Salva</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+async function salvaReferente(id){
+  const nome=document.getElementById('refm-nome')?.value.trim();
+  if(!nome){ toast('Inserisci il nome'); return; }
+  const body={ nome, telefono:document.getElementById('refm-tel')?.value.trim()||null, email:document.getElementById('refm-email')?.value.trim()||null, societa:document.getElementById('refm-soc')?.value.trim()||null, note:document.getElementById('refm-note')?.value.trim()||null };
+  const A=_REFAPI();
+  try{
+    if(id){ await fetch(A.url+'?id=eq.'+id,{method:'PATCH',headers:{...A.h,Prefer:'return=minimal'},body:JSON.stringify(body)}); }
+    else{ await fetch(A.url,{method:'POST',headers:{...A.h,Prefer:'return=minimal'},body:JSON.stringify(body)}); }
+    closeModal('modal-ref'); await refLoad(); rReferenti(); toast('✓ Referente salvato');
+  }catch(e){ toast('⚠ Errore nel salvataggio'); }
+}
+async function eliminaReferente(id){
+  const r=REF.find(x=>x.id===id); if(!r) return;
+  const cli=_refClienti(id);
+  let msg='Eliminare il referente "'+r.nome+'"?';
+  if(cli.length) msg+='\n\n'+cli.length+' clienti collegati verranno scollegati (i clienti restano).';
+  if(!confirm(msg)) return;
+  const A=_REFAPI();
+  try{
+    await fetch(A.url+'?id=eq.'+id,{method:'DELETE',headers:A.h});
+    if(cli.length){ cli.forEach(c=>{ delete c.referenteId; }); save(); cloudSalva(true); }
+    await refLoad(); rReferenti(); toast('✓ Referente eliminato');
+  }catch(e){ toast('⚠ Errore'); }
 }
 
 // ── REPORT CLIENTE ────────────────────────────────────────────────────────
