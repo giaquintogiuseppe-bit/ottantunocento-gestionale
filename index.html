@@ -5181,6 +5181,7 @@ function elimCantiere(id){
   DB.cantieri = DB.cantieri.filter(x=>x.id!==id);
   if(DB._cantieriArchiviati) DB._cantieriArchiviati = DB._cantieriArchiviati.filter(x=>x!==id);
   save(); rCant();
+  _commessaDelRemote(id); syncCommessePerno();
   toast(incLegati.length ? `Eliminato — ${incLegati.length} incasso/i da riassegnare (vedi Riepilogo)` : 'Cantiere eliminato');
 }
 
@@ -5709,6 +5710,29 @@ function _nextComCodice(){
   return 'COM-'+anno+'-'+String(max+1).padStart(3,'0');
 }
 
+// Perno: mantiene allineata la tabella cloud "commesse" (il blob resta la fonte di verità).
+async function syncCommessePerno(){
+  try{
+    const rows=(DB.cantieri||[]).map(c=>({
+      id:c.id, codice:c.codice||null, nome:c.nome||null,
+      cliente_id:c.clienteId||null, cliente_nome:c.clienteNome||null, committente:c.committente||null,
+      tipo_cant:Array.isArray(c.tipoCant)?c.tipoCant:[],
+      continuativa:(typeof c.continuativa==='boolean')?c.continuativa:null,
+      stato:c.stato||null, luogo:c.luogo||null,
+      periodo_inizio:c.periodoInizio||null, periodo_fine:c.periodoFine||null,
+      origine:c.origine||null, preventivo_id:c.preventivoId||null,
+      ricavo:(c.ricavo!=null&&c.ricavo!=='')?(parseFloat(c.ricavo)||null):null,
+      non_fatturabile:!!c.nonFatturabile, archiviato:!!c.archiviato,
+      aggiornato_il:new Date().toISOString()
+    }));
+    if(!rows.length) return;
+    await fetch(SUPABASE_URL+'/rest/v1/commesse',{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(rows)});
+  }catch(e){ /* il perno si riallinea al prossimo salvataggio */ }
+}
+async function _commessaDelRemote(id){
+  try{ await fetch(SUPABASE_URL+'/rest/v1/commesse?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}}); }catch(e){}
+}
+
 function addCantiere(){
   const nome = gv('cn-nome');
   if(!nome){ alert('Inserisci il nome del cantiere'); return; }
@@ -5729,6 +5753,7 @@ function addCantiere(){
   DB.cantieri.push(c);
   save();
   sincronizzaCantieri();
+  syncCommessePerno();
   clr(['cn-nome','cn-periodo','cn-costo','cn-note']);
   document.querySelectorAll('#cn-tipi .ce-tipo.on').forEach(b=>b.classList.remove('on'));
   rCant();
@@ -5748,6 +5773,7 @@ function creaCantiereVeloce(nome){
   DB.cantieri.push(c);
   save();
   sincronizzaCantieri();
+  syncCommessePerno();
   toast(`Cantiere "${nome}" creato ✓`);
   return nome;
 }
@@ -8449,7 +8475,7 @@ function salvaModificaCantiere(){
     nCarb = DB.carburante.filter(f=>f.note && f.note.includes(vecchioNome)).length;
 
     sincronizzaCantieri();
-    save(); cloudSalva(true);
+    save(); cloudSalva(true); syncCommessePerno();
     closeModal('modal-cant-edit');
     rCant();
 
@@ -8460,7 +8486,7 @@ function salvaModificaCantiere(){
       setTimeout(()=>alert(`Nota: ${nCarb} rifornimento${nCarb>1?'i':''} carburante contengono "${vecchioNome}" nelle note ma non sono stati rinominati automaticamente (il nome è dentro testo libero). Controllali manualmente in Flotta & Carburante se necessario.`), 300);
     }
   } else {
-    save(); cloudSalva(true);
+    save(); cloudSalva(true); syncCommessePerno();
     closeModal('modal-cant-edit');
     rCant();
     toast('Cantiere aggiornato ✓');
