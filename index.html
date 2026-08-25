@@ -802,6 +802,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
       </div>
     </div>
 
+    <!-- Interventi della commessa (perno · lungo periodo) -->
+    <div id="dett-interventi" style="margin-bottom:14px"></div>
+
     <!-- Fatture del cantiere (vita gestionale) -->
     <div id="dett-fatture" style="margin-bottom:14px"></div>
 
@@ -5348,6 +5351,7 @@ function rDettCant(){
   rDettFatture(_c, nome);
   rDettOre(_c, nome);
   rDettEco(_c, nome);
+  rDettInterventi(_c);
 
   const da=document.getElementById('dett-da')?.value||'';
   const al=document.getElementById('dett-al')?.value||'';
@@ -5596,6 +5600,70 @@ function eliminaSpesaDaDett(id){
 function modificaSpesaDaDett(id){
   apriModificaSpesa(id);
   window._afterSaveSpesa=rDettCant; // torna al dettaglio dopo salvataggio
+}
+
+// ── INTERVENTI (livello operativo sotto la commessa · tabella cloud "interventi") ──
+const _INTAPI=()=>({url:SUPABASE_URL+'/rest/v1/interventi',h:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'}});
+const _INT_STA={pianificato:{l:'Pianificato',c:'#5b8def'},in_corso:{l:'In corso',c:'#e8b84b'},concluso:{l:'Concluso',c:'#2f8f5f'},fatturato:{l:'Fatturato',c:'#0e7c66'}};
+async function rDettInterventi(c){
+  const box=document.getElementById('dett-interventi'); if(!box) return;
+  if(!c){ box.innerHTML=''; return; }
+  window._intCommessa=c;
+  box.innerHTML='<div style="font-size:12px;color:var(--text2)">Carico interventi…</div>';
+  let list=[];
+  try{ const A=_INTAPI(); const r=await fetch(A.url+'?commessa_id=eq.'+encodeURIComponent(c.id)+'&order=data_inizio.asc,creato_il.asc',{headers:A.h,cache:'no-cache'}); if(r.ok) list=await r.json(); }catch(e){ list=[]; }
+  if(!Array.isArray(list)) list=[];
+  const rows=list.map(it=>{
+    const st=_INT_STA[it.stato]||{l:it.stato||'—',c:'#8a95a3'};
+    const per=[it.data_inizio,it.data_fine].filter(Boolean).map(fdate).join(' → ');
+    return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--brd)">
+      <div><div style="font-weight:700;font-size:13px">${esc(it.titolo||it.numero||'Intervento')}</div>
+        <div style="font-size:11px;color:var(--text2)">${per||'—'}${it.luogo?' · '+esc(it.luogo):''}${it.importo?' · '+fmt(it.importo):''}</div></div>
+      <div style="display:flex;gap:5px;align-items:center;flex-shrink:0">
+        <span style="font-size:10px;font-weight:700;color:#0a0f16;background:${st.c};padding:2px 7px;border-radius:6px">${st.l}</span>
+        <button class="bs" style="font-size:11px;padding:3px 7px" onclick="intToggleFatt('${it.id}',${!it.fatturato})" title="${it.fatturato?'Riporta a concluso':'Marca fatturato'}">${it.fatturato?'↩︎':'€'}</button>
+        <button class="bd" style="font-size:11px;padding:3px 7px" onclick="intElimina('${it.id}')">✕</button>
+      </div></div>`;
+  }).join('');
+  box.innerHTML=`<div style="background:var(--navy2);border:1px solid var(--brd);border-radius:12px;padding:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-size:13px;font-weight:800;color:var(--teal)">🧭 Interventi <span style="color:var(--text2);font-weight:600">(${list.length})</span></div>
+      <button class="bs" style="font-size:12px;padding:6px 12px" onclick="intToggleForm()">➕ Nuovo intervento</button>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Ogni "volta operativa" della commessa (periodo, luogo, stato). Per i lungo periodo registri qui ogni periodo e lo marchi fatturato.</div>
+    ${list.length?rows:'<div style="font-size:12px;color:var(--text2);padding:6px 0">Nessun intervento ancora.</div>'}
+    <div id="int-form" style="display:none;margin-top:10px;border-top:1px dashed var(--brd);padding-top:10px">
+      <div class="fg">
+        <div class="fs"><label>Titolo</label><input type="text" id="int-titolo" placeholder="Es. Montaggio, Audit settimana 1…"></div>
+        <div><label>Luogo</label><input type="text" id="int-luogo"></div>
+        <div><label>Data inizio</label><input type="date" id="int-di"></div>
+        <div><label>Data fine</label><input type="date" id="int-df"></div>
+        <div><label>Stato</label><select id="int-stato"><option value="pianificato">Pianificato</option><option value="in_corso">In corso</option><option value="concluso">Concluso</option><option value="fatturato">Fatturato</option></select></div>
+        <div><label>Importo (€)</label><input type="number" id="int-importo" step="0.01" placeholder="0.00"></div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="bp" style="font-size:13px" onclick="intSalva()">💾 Salva intervento</button>
+        <button class="bs" style="font-size:13px" onclick="intToggleForm()">Annulla</button>
+      </div>
+    </div></div>`;
+}
+function intToggleForm(){ const f=document.getElementById('int-form'); if(f) f.style.display=f.style.display==='none'?'block':'none'; }
+async function intSalva(){
+  const c=window._intCommessa; if(!c) return;
+  const stato=document.getElementById('int-stato').value||'pianificato';
+  const body={ commessa_id:c.id, commessa_codice:c.codice||null,
+    titolo:document.getElementById('int-titolo').value.trim()||null, luogo:document.getElementById('int-luogo').value.trim()||null,
+    data_inizio:document.getElementById('int-di').value||null, data_fine:document.getElementById('int-df').value||null,
+    stato, importo:parseFloat(document.getElementById('int-importo').value)||null, fatturato:(stato==='fatturato'), creato_da:'gestionale' };
+  try{ const A=_INTAPI(); const r=await fetch(A.url,{method:'POST',headers:{...A.h,Prefer:'return=minimal'},body:JSON.stringify(body)}); if(!r.ok) throw 0; toast('✓ Intervento aggiunto'); rDettInterventi(c); }
+  catch(e){ toast('⚠ Errore nel salvataggio'); }
+}
+async function intToggleFatt(id,val){
+  try{ const A=_INTAPI(); await fetch(A.url+'?id=eq.'+id,{method:'PATCH',headers:{...A.h,Prefer:'return=minimal'},body:JSON.stringify({fatturato:val, stato:val?'fatturato':'concluso'})}); rDettInterventi(window._intCommessa); }catch(e){ toast('⚠ Errore'); }
+}
+async function intElimina(id){
+  if(!confirm('Eliminare questo intervento?')) return;
+  try{ const A=_INTAPI(); await fetch(A.url+'?id=eq.'+id,{method:'DELETE',headers:A.h}); rDettInterventi(window._intCommessa); }catch(e){ toast('⚠ Errore'); }
 }
 
 function aprDett(i){
