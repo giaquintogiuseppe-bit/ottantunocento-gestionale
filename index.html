@@ -9844,10 +9844,11 @@ function renderClientiGest(){
 }
 
 function apriModalClienteGest(id){
+  document.getElementById('modal-cli-gest')?.remove();   // evita modali sovrapposte con id duplicati
   const c=id?(DB.clienti||[]).find(x=>x.id===id):null;
   const html=`<div class="mo open" id="modal-cli-gest" style="z-index:200">
     <div class="md" style="max-width:500px">
-      <div class="mh"><h3>${c?'✏️ Modifica':'+ Nuovo'} cliente</h3><button class="mc" onclick="closeModal('modal-cli-gest')">✕</button></div>
+      <div class="mh"><h3>${c?'✏️ Modifica':'+ Nuovo'} cliente</h3><button class="mc" onclick="document.getElementById('modal-cli-gest')?.remove()">✕</button></div>
       <div style="padding:0 20px 8px">
         <div class="fg">
           <div class="fs"><label>Ragione sociale *</label><input type="text" id="gcli-rs" value="${c?.ragioneSociale||''}" placeholder="es. Mario Spa..."></div>
@@ -9866,7 +9867,7 @@ function apriModalClienteGest(id){
         </div>
       </div>
       <div class="mf">
-        <button class="bs" onclick="closeModal('modal-cli-gest')">Annulla</button>
+        <button class="bs" onclick="document.getElementById('modal-cli-gest')?.remove()">Annulla</button>
         <button class="bp" onclick="salvaClienteGest('${id||''}')">💾 Salva</button>
       </div>
     </div>
@@ -9893,7 +9894,7 @@ function salvaClienteGest(id){
   if(id){ const idx=DB.clienti.findIndex(x=>x.id===id); if(idx>=0)DB.clienti[idx]=dati; else DB.clienti.push(dati); }
   else DB.clienti.push(dati);
   save(); cloudSalva(true);
-  closeModal('modal-cli-gest');
+  document.getElementById('modal-cli-gest')?.remove();
   renderClientiGest();
   toast(`✓ ${rs} salvato`);
 }
@@ -9956,10 +9957,11 @@ async function rReferenti(){
   }).join('')+notaSenza;
 }
 function apriModalReferente(id){
+  document.getElementById('modal-ref')?.remove();   // evita modali sovrapposte con id duplicati
   const r=id?REF.find(x=>x.id===id):null;
   const html=`<div class="mo open" id="modal-ref" style="z-index:200">
     <div class="md" style="max-width:460px">
-      <div class="mh"><h3>${r?'✏️ Modifica':'+ Nuovo'} referente</h3><button class="mc" onclick="closeModal('modal-ref')">✕</button></div>
+      <div class="mh"><h3>${r?'✏️ Modifica':'+ Nuovo'} referente</h3><button class="mc" onclick="document.getElementById('modal-ref')?.remove()">✕</button></div>
       <div style="padding:0 20px 8px">
         <div class="fg">
           <div class="fs"><label>Nome *</label><input type="text" id="refm-nome" value="${r?esc(r.nome):''}" placeholder="es. Patrone, Carlucci..."></div>
@@ -9970,7 +9972,7 @@ function apriModalReferente(id){
         </div>
       </div>
       <div class="mf">
-        <button class="bs" onclick="closeModal('modal-ref')">Annulla</button>
+        <button class="bs" onclick="document.getElementById('modal-ref')?.remove()">Annulla</button>
         <button class="bp" onclick="salvaReferente('${id||''}')">💾 Salva</button>
       </div>
     </div>
@@ -9985,7 +9987,7 @@ async function salvaReferente(id){
   try{
     if(id){ await fetch(A.url+'?id=eq.'+id,{method:'PATCH',headers:{...A.h,Prefer:'return=minimal'},body:JSON.stringify(body)}); }
     else{ await fetch(A.url,{method:'POST',headers:{...A.h,Prefer:'return=minimal'},body:JSON.stringify(body)}); }
-    closeModal('modal-ref'); await refLoad(); rReferenti(); toast('✓ Referente salvato');
+    document.getElementById('modal-ref')?.remove(); await refLoad(); rReferenti(); toast('✓ Referente salvato');
   }catch(e){ toast('⚠ Errore nel salvataggio'); }
 }
 async function eliminaReferente(id){
