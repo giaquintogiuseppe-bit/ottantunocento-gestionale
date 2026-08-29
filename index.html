@@ -2416,19 +2416,12 @@ function load(){
   save();
 }
 
-// ═══ RETTIFICA DI APERTURA — lavoro pregresso mai inserito come presenze ═══
-// Diagnosi 29/08/2026: anticipi, pagamenti e danni combaciano all'euro col foglio
-// "Saldi Dipendenti" dell'Excel, ma al Gestionale mancavano 11.220 € di maturato
-// storico (presenze vecchie mai registrate). Senza questo, i saldi risultavano
-// falsamente negativi (dipendenti dati per stra-anticipati). Qui reintroduciamo,
-// una tantum e per singolo dipendente, il maturato pregresso mancante come
-// "saldo di apertura", così il saldo del Gestionale torna a coincidere col foglio.
-// I valori sono lo scarto (Excel − sistema) al 29/08/2026. Idempotente via flag.
-const _APERTURA_V1 = {
-  p01:50, p02:990, p03:1470, p04:1280, p05:1190, p06:1300, p07:1420,
-  p08:1070, p09:630, p10:550, p11:400,
-  mq9vygurkm7:320, mqbehblhhbp:500, mqtqnxi2bcu:50
-};
+// ═══ SALDO DI APERTURA (rettifica manuale, opzionale) ═══
+// NB (29/08/2026): la "rettifica automatica" da 11.220 € è stata RIMOSSA perché
+// era frutto di una diagnosi errata — il maturato pregresso NON mancava, era già
+// tutto presente nelle giornate in formato vecchio (getTurniRaw somma anche quelle).
+// Applicare una rettifica avrebbe raddoppiato il conteggio. Nessun valore predefinito:
+// il saldo di apertura resta uno strumento manuale, vuoto salvo inserimento esplicito.
 function aperturaDi(dipId){ return (DB.saldiApertura && DB.saldiApertura[dipId]!==undefined) ? (parseFloat(DB.saldiApertura[dipId])||0) : 0; }
 
 // ============================================================
@@ -6816,19 +6809,9 @@ function apriRettificheApertura(){
       <div class="mh"><h3>⚙️ Rettifiche di apertura — lavoro pregresso</h3><button class="mc" onclick="document.getElementById('modal-ret-ap').remove()">✕</button></div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5">Maturato pregresso (lavoro fatto e pagato prima dell'inizio del tracciamento, mai inserito come presenze). Somma al saldo del dipendente. Modifica solo se cambia una posizione storica — normalmente resta fisso. <b>Totale attuale: ${fmt(tot)}</b></div>
       <div style="max-height:56vh;overflow:auto"><table style="width:100%"><thead><tr><th>Dipendente</th><th style="text-align:right">Apertura €</th><th style="text-align:right">Saldo attuale</th></tr></thead><tbody>${righe}</tbody></table></div>
-      <div class="fa" style="margin-top:14px"><button class="bs" onclick="suggerisciRettifiche()">📋 Proponi valori consigliati</button><button class="bp" onclick="salvaRettificheApertura()">💾 Salva rettifiche</button><button class="bs" onclick="azzeraRettifiche()" style="color:var(--red);border-color:rgba(232,84,84,.4)">↩︎ Azzera rettifica</button><button class="bs" onclick="document.getElementById('modal-ret-ap').remove()">Annulla</button></div>
+      <div class="fa" style="margin-top:14px"><button class="bp" onclick="salvaRettificheApertura()">💾 Salva rettifiche</button><button class="bs" onclick="azzeraRettifiche()" style="color:var(--red);border-color:rgba(232,84,84,.4)">↩︎ Azzera tutto</button><button class="bs" onclick="document.getElementById('modal-ret-ap').remove()">Annulla</button></div>
     </div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
-}
-// Riempie i campi coi valori consigliati (scarti dal foglio Excel al 29/08/2026).
-// NON salva: mostra solo la proposta, poi decidi tu con "Salva rettifiche".
-function suggerisciRettifiche(){
-  let n=0;
-  Object.keys(_APERTURA_V1).forEach(id=>{
-    const el=document.getElementById('ret-ap-'+id);
-    if(el){ el.value=_APERTURA_V1[id]; n++; }
-  });
-  toast(n?`Proposti ${n} valori — controlla e premi 💾 Salva`:'Nessun dipendente da rettificare');
 }
 // Annulla completamente la rettifica: rimuove tutti i saldi di apertura e ricalcola.
 // I saldi tornano com'erano PRIMA della rettifica; nient'altro viene toccato.
