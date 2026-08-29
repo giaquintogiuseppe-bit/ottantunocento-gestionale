@@ -2241,6 +2241,21 @@ tbody td{padding:10px 14px;vertical-align:middle}
 </div><!-- /app -->
 
 <script>
+// ═══ RESET DI EMERGENZA ═══
+// Apri la app con ?reset in fondo all'URL per azzerare la copia LOCALE
+// (localStorage, cache, service worker) e ricaricare i dati puliti dal cloud.
+// NON tocca i dati sul server: al riavvio l'app riscarica tutto da Supabase.
+(function(){
+  if(location.search.indexOf('reset')===-1) return;
+  try{ localStorage.clear(); }catch(e){}
+  try{ sessionStorage.clear(); }catch(e){}
+  try{ if(window.caches&&caches.keys) caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});}); }catch(e){}
+  try{ if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations) navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister();});}); }catch(e){}
+  try{ document.documentElement.innerHTML='<body style="margin:0"><div style="font:16px -apple-system,system-ui,sans-serif;padding:48px 24px;color:#333">🧹 Reset in corso… ricarico i dati puliti dal cloud.<br><br>Se non riparte da solo tra 3 secondi, ricarica la pagina.</div></body>'; }catch(e){}
+  setTimeout(function(){ location.replace(location.origin+location.pathname); }, 900);
+})();
+if(location.search.indexOf('reset')!==-1){ throw new Error('reset-in-corso'); }
+
 // ============================================================
 // DATI SEED — Report 1-6 giugno 2026
 // ============================================================
