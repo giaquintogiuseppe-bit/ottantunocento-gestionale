@@ -2414,20 +2414,6 @@ const _APERTURA_V1 = {
   p08:1070, p09:630, p10:550, p11:400,
   mq9vygurkm7:320, mqbehblhhbp:500, mqtqnxi2bcu:50
 };
-function migrazioneAperturaV1(){
-  if(!DB.saldiApertura) DB.saldiApertura={};
-  if(DB._aperturaSeededV1) return;
-  let n=0;
-  Object.keys(_APERTURA_V1).forEach(id=>{
-    // Applica solo se il dipendente esiste e non ha già una rettifica manuale
-    if((DB.personale||[]).some(p=>p.id===id) && DB.saldiApertura[id]===undefined){
-      DB.saldiApertura[id]=_APERTURA_V1[id]; n++;
-    }
-  });
-  DB._aperturaSeededV1=true;
-  if(n){ try{ ricalcolaSaldi(); }catch(e){} }
-  save();
-}
 function aperturaDi(dipId){ return (DB.saldiApertura && DB.saldiApertura[dipId]!==undefined) ? (parseFloat(DB.saldiApertura[dipId])||0) : 0; }
 
 // ============================================================
@@ -2931,8 +2917,8 @@ async function cloudCarica(silenzioso){
     if(!DB.speseCantiere) DB.speseCantiere=[];
     if(!DB.clienti) DB.clienti=[];
     if(!DB.saldiApertura) DB.saldiApertura={};
-
-    migrazioneAperturaV1();  // rettifica lavoro pregresso (una tantum)
+    // La rettifica di apertura NON parte da sola: si applica a mano dal tasto ⚙️
+    // (Riepilogo → Rettifiche apertura → "Proponi valori consigliati" → Salva).
     ricalcolaSaldi();
     // (auto-chiusura d'ufficio rimossa il 30/07/2026: i cantieri scaduti non si chiudono
     //  più da soli — finiscono nel pannello ❓ del cruscotto che CHIEDE cosa farne)
@@ -6815,9 +6801,19 @@ function apriRettificheApertura(){
       <div class="mh"><h3>⚙️ Rettifiche di apertura — lavoro pregresso</h3><button class="mc" onclick="document.getElementById('modal-ret-ap').remove()">✕</button></div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5">Maturato pregresso (lavoro fatto e pagato prima dell'inizio del tracciamento, mai inserito come presenze). Somma al saldo del dipendente. Modifica solo se cambia una posizione storica — normalmente resta fisso. <b>Totale attuale: ${fmt(tot)}</b></div>
       <div style="max-height:56vh;overflow:auto"><table style="width:100%"><thead><tr><th>Dipendente</th><th style="text-align:right">Apertura €</th><th style="text-align:right">Saldo attuale</th></tr></thead><tbody>${righe}</tbody></table></div>
-      <div class="fa" style="margin-top:14px"><button class="bp" onclick="salvaRettificheApertura()">💾 Salva rettifiche</button><button class="bs" onclick="document.getElementById('modal-ret-ap').remove()">Annulla</button></div>
+      <div class="fa" style="margin-top:14px"><button class="bs" onclick="suggerisciRettifiche()">📋 Proponi valori consigliati</button><button class="bp" onclick="salvaRettificheApertura()">💾 Salva rettifiche</button><button class="bs" onclick="document.getElementById('modal-ret-ap').remove()">Annulla</button></div>
     </div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
+}
+// Riempie i campi coi valori consigliati (scarti dal foglio Excel al 29/08/2026).
+// NON salva: mostra solo la proposta, poi decidi tu con "Salva rettifiche".
+function suggerisciRettifiche(){
+  let n=0;
+  Object.keys(_APERTURA_V1).forEach(id=>{
+    const el=document.getElementById('ret-ap-'+id);
+    if(el){ el.value=_APERTURA_V1[id]; n++; }
+  });
+  toast(n?`Proposti ${n} valori — controlla e premi 💾 Salva`:'Nessun dipendente da rettificare');
 }
 function salvaRettificheApertura(){
   if(!DB.saldiApertura) DB.saldiApertura={};
