@@ -569,6 +569,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="ni" onclick="nav('posizione-fornitori')">📊 Posizione fornitori</div>
   <div class="ni" onclick="nav('coerenza')">🔍 Coerenza cantieri</div>
   <div class="ni" onclick="nav('saldi')">💶 Saldi Dipendenti</div>
+  <div class="ni" onclick="nav('riepilogo')">📋 Riepilogo settimanale</div>
   <div class="ni" onclick="nav('scheda-dip')">🧑 Scheda Dipendente</div>
   <div class="ni" onclick="nav('anticipi')">💳 Anticipi</div>
   <div class="ni" onclick="nav('pagamenti')">💰 Pagamenti</div>
@@ -1087,6 +1088,28 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div class="th"><h3>Prospetto completo</h3><input class="ts" placeholder="Cerca..." oninput="filterT('sal-tb',this.value)"></div>
       <div style="overflow-x:auto"><table><thead><tr><th>Dipendente</th><th>Maturato</th><th>Anticipi</th><th>Pagato</th><th>⚠ Danni scalati</th><th>Residuo</th><th>Stato</th></tr></thead><tbody id="sal-tb"></tbody></table></div>
     </div>
+  </div>
+
+  <!-- RIEPILOGO DIPENDENTI (settimanale) -->
+  <div id="pg-riepilogo" class="pg">
+    <div class="pt">Riepilogo Dipendenti</div>
+    <div class="ps">Foglio settimanale (Dom→Sab) — maturato, anticipi (settimana · storico · riporto), pagamenti e danni. Lo storico e il riporto scorrono in automatico di settimana in settimana.</div>
+    <div class="fc" style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button class="bs" onclick="ripSettimana(-1)">◀ Prec.</button>
+        <div id="rip-label" style="font-weight:800;font-size:15px;min-width:230px;text-align:center">—</div>
+        <button class="bs" onclick="ripSettimana(1)">Succ. ▶</button>
+        <button class="bs" onclick="ripSettimana(0)">📅 Corrente</button>
+        <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="bs" onclick="apriRettificheApertura()">⚙️ Rettifiche apertura</button>
+          <button class="bp" onclick="ripExportCSV()">⬇️ CSV</button>
+          <button class="bs" onclick="window.print()">🖨 Stampa</button>
+        </div>
+      </div>
+    </div>
+    <div class="sg" id="rip-kpi"></div>
+    <div class="tc"><div style="overflow-x:auto" id="rip-tbwrap"></div></div>
+    <div id="rip-note" style="font-size:11px;color:var(--text2);margin-top:10px;line-height:1.5"></div>
   </div>
 
   <!-- ANTICIPI -->
@@ -1711,6 +1734,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div class="mni-item" onclick="nav('flotta')"><span class="mii">🚐</span>Flotta</div>
     <div class="mni-item" onclick="nav('attrezzeria')"><span class="mii">🔧</span>Attrezzeria</div>
     <div class="mni-item" onclick="nav('saldi')"><span class="mii">💶</span>Saldi</div>
+    <div class="mni-item" onclick="nav('riepilogo')"><span class="mii">📋</span>Riepilogo</div>
     <div class="mni-item" onclick="nav('anticipi')"><span class="mii">💳</span>Anticipi</div>
     <div class="mni-item" onclick="nav('scheda-dip')"><span class="mii">🧑</span>Scheda</div>
     <div class="mni-item" onclick="openModal('modal-import-xl')"><span class="mii">📂</span>Importa</div>
@@ -2356,6 +2380,7 @@ function load(){
     if(!DB.addebiti)      DB.addebiti=[];
     if(!DB.speseCantiere) DB.speseCantiere=[];
     if(!DB.budgetCantieri)DB.budgetCantieri=[];  // Fase 1: separazione economica
+    if(!DB.saldiApertura) DB.saldiApertura={};    // rettifica lavoro pregresso per dipendente
     return;
   }}catch(e){}
   Object.assign(DB,JSON.parse(JSON.stringify(SEED)));
@@ -2365,8 +2390,38 @@ function load(){
   if(!DB.scontrini)     DB.scontrini=[];
   if(!DB.addebiti)      DB.addebiti=[];
   if(!DB.budgetCantieri)DB.budgetCantieri=[];
+  if(!DB.saldiApertura) DB.saldiApertura={};
   save();
 }
+
+// ═══ RETTIFICA DI APERTURA — lavoro pregresso mai inserito come presenze ═══
+// Diagnosi 29/08/2026: anticipi, pagamenti e danni combaciano all'euro col foglio
+// "Saldi Dipendenti" dell'Excel, ma al Gestionale mancavano 11.220 € di maturato
+// storico (presenze vecchie mai registrate). Senza questo, i saldi risultavano
+// falsamente negativi (dipendenti dati per stra-anticipati). Qui reintroduciamo,
+// una tantum e per singolo dipendente, il maturato pregresso mancante come
+// "saldo di apertura", così il saldo del Gestionale torna a coincidere col foglio.
+// I valori sono lo scarto (Excel − sistema) al 29/08/2026. Idempotente via flag.
+const _APERTURA_V1 = {
+  p01:50, p02:990, p03:1470, p04:1280, p05:1190, p06:1300, p07:1420,
+  p08:1070, p09:630, p10:550, p11:400,
+  mq9vygurkm7:320, mqbehblhhbp:500, mqtqnxi2bcu:50
+};
+function migrazioneAperturaV1(){
+  if(!DB.saldiApertura) DB.saldiApertura={};
+  if(DB._aperturaSeededV1) return;
+  let n=0;
+  Object.keys(_APERTURA_V1).forEach(id=>{
+    // Applica solo se il dipendente esiste e non ha già una rettifica manuale
+    if((DB.personale||[]).some(p=>p.id===id) && DB.saldiApertura[id]===undefined){
+      DB.saldiApertura[id]=_APERTURA_V1[id]; n++;
+    }
+  });
+  DB._aperturaSeededV1=true;
+  if(n){ try{ ricalcolaSaldi(); }catch(e){} }
+  save();
+}
+function aperturaDi(dipId){ return (DB.saldiApertura && DB.saldiApertura[dipId]!==undefined) ? (parseFloat(DB.saldiApertura[dipId])||0) : 0; }
 
 // ============================================================
 // BUDGET CANTIERI — separazione economica dal Planning
@@ -2868,7 +2923,9 @@ async function cloudCarica(silenzioso){
     if(!DB.addebiti)  DB.addebiti=[];
     if(!DB.speseCantiere) DB.speseCantiere=[];
     if(!DB.clienti) DB.clienti=[];
+    if(!DB.saldiApertura) DB.saldiApertura={};
 
+    migrazioneAperturaV1();  // rettifica lavoro pregresso (una tantum)
     ricalcolaSaldi();
     // (auto-chiusura d'ufficio rimossa il 30/07/2026: i cantieri scaduti non si chiudono
     //  più da soli — finiscono nel pannello ❓ del cruscotto che CHIEDE cosa farne)
@@ -3076,7 +3133,7 @@ function nav(pg){
 function render(p){
   if(p==='cantieri'||p==='clienti-gest'){ caricaRifornimentiCloud().then(()=>{ if(p==='cantieri') rCant(); }); }
   if(p==='clienti-gest'){ refLoad(); }
-  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:rAttrezzeria,saldi:rSaldi,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,coerenza:rCoerenza}[p]||(() =>{}))();
+  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:rAttrezzeria,saldi:rSaldi,riepilogo:rRiepilogo,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,coerenza:rCoerenza}[p]||(() =>{}))();
 }
 
 // ============================================================
@@ -6412,12 +6469,14 @@ function ricalcolaSaldi(){
     const scalAppl = totaleScalatureApplicate(s.dipId);  // già trattenuto per danni
     const addebitiResidui = residuoAddebiti(s.dipId);     // ancora da trattenere
 
+    const ap = aperturaDi(s.dipId);   // lavoro pregresso non registrato come presenze
     s.maturato  = mat;
+    s.apertura  = ap;
     s.anticipi  = ant;
     s.pagamenti = pag;
     s.scalature = scalAppl;   // totale danni già scalati (per visualizzazione)
     s.addebiti  = addebitiResidui; // residuo danni non ancora scalati (informativo)
-    s.saldo     = calcolaResiduo(mat, ant, pag, scalAppl); // ← FIX: scalature incluse
+    s.saldo     = calcolaResiduo(mat + ap, ant, pag, scalAppl); // apertura + scalature incluse
   });
 }
 // ═══ ESTRATTO CONTO DIPENDENTE: tutti i movimenti in ordine, saldo progressivo ═══
@@ -6450,6 +6509,11 @@ function estrattoConto(dipId){
       mov.push({data:sc.data, ord:3, tipo:'trattenuta', descr:'Trattenuta — '+(x.descrizione||'danno')+(x.mezzo?' ('+x.mezzo+')':''), dare:parseFloat(sc.importo||0), avere:0});
     });
   });
+  const ap=aperturaDi(dipId);
+  if(Math.abs(ap)>0.009){
+    const primaData=mov.reduce((mn,x)=>(x.data&&(!mn||x.data<mn))?x.data:mn,null)||'2025-01-01';
+    mov.push({data:primaData, ord:-5, tipo:'apertura', descr:'Saldo di apertura — lavoro pregresso (rettifica)', avere:ap>0?ap:0, dare:ap<0?-ap:0});
+  }
   mov.sort((a,b)=>(a.data||'').localeCompare(b.data||'')||a.ord-b.ord);
   let saldo=0; mov.forEach(m=>{ saldo+=(m.avere||0)-(m.dare||0); m.saldo=saldo; });
   return mov;
@@ -6461,7 +6525,7 @@ function apriEstrattoConto(dipId){
   const residuoDanni=s.addebiti||0;
   const righe=mov.map(m=>`<tr>
     <td style="white-space:nowrap">${fdate(m.data)}</td>
-    <td style="font-size:11.5px">${m.tipo==='maturato'?'🔨':m.tipo==='anticipo'?'💸':m.tipo==='pagamento'?'💶':'⚖️'} ${m.descr}</td>
+    <td style="font-size:11.5px">${m.tipo==='apertura'?'📌':m.tipo==='maturato'?'🔨':m.tipo==='anticipo'?'💸':m.tipo==='pagamento'?'💶':'⚖️'} ${m.descr}</td>
     <td style="text-align:right;color:var(--red)">${m.dare?fmt(m.dare):''}</td>
     <td style="text-align:right;color:var(--green)">${m.avere?fmt(m.avere):''}</td>
     <td style="text-align:right;font-weight:800;color:${m.saldo>=0?'var(--green)':'var(--red)'}">${fmt(m.saldo)}</td>
@@ -6499,7 +6563,7 @@ function rSaldi(){
     return {
       id:s.dipId, nome:s.nome,
       // progressivo (tutto storico)
-      maturato:s.maturato, anticipi:s.anticipi, pagamenti:s.pagamenti,
+      maturato:s.maturato, apertura:s.apertura||0, anticipi:s.anticipi, pagamenti:s.pagamenti,
       scalature:s.scalature||0, addebiti:s.addebiti||0, saldo:s.saldo,
       // periodo (solo intervallo selezionato)
       matPeriodo, antPeriodo, pagPeriodo
@@ -6528,6 +6592,7 @@ function rSaldi(){
       <div class="sn">${s.nome}</div>
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;margin-bottom:6px">── Saldo progressivo (tutto lo storico)</div>
       <div class="sr"><span class="lb">Maturato tot.</span><span>${fmt(s.maturato)}</span></div>
+      ${s.apertura>0?`<div class="sr" style="color:var(--teal)"><span class="lb">＋ Apertura (pregresso)</span><span>${fmt(s.apertura)}</span></div>`:''}
       <div class="sr"><span class="lb">Anticipi tot.</span><span class="rr">${s.anticipi?fmt(s.anticipi):'—'}</span></div>
       <div class="sr"><span class="lb">Pagato tot.</span><span class="rr">${s.pagamenti?fmt(s.pagamenti):'—'}</span></div>
       ${s.scalature>0?`<div class="sr" style="color:var(--red)"><span class="lb">⚠ Danni scalati</span><span class="rr">${fmt(s.scalature)}</span></div>`:''}
@@ -6559,6 +6624,206 @@ function rSaldi(){
       <td><span class="bx ${s.saldo<-0.009?'bg':s.saldo>0.009?'bo':'bg'}">${s.saldo<-0.009?'⊕ CREDITO':s.saldo>0.009?'DA PAGARE':'✓ SALDATO'}</span></td>
     </tr>`).join('')
     : '<tr><td colspan="7" class="empty">Nessun dato nel periodo</td></tr>';
+}
+
+// ============================================================
+// RIEPILOGO DIPENDENTI — foglio settimanale (Dom→Sab) col registro a scorrimento
+//   storico a riporto = saldo di apertura della settimana (progressivo)
+//   riporto           = saldo di chiusura → diventa lo storico della settimana dopo
+// ============================================================
+let RIP_REF = null; // Date dentro la settimana di riferimento (null = oggi)
+
+function _ripBounds(ref){
+  const now = ref ? new Date(ref.getTime()) : new Date();
+  now.setHours(12,0,0,0);
+  const dow = now.getDay();                 // 0 = domenica
+  const dom = new Date(now); dom.setDate(now.getDate()-dow);
+  const iso = d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const giorni=[]; for(let i=0;i<7;i++){ const d=new Date(dom); d.setDate(dom.getDate()+i); giorni.push(iso(d)); }
+  return { da:giorni[0], al:giorni[6], giorni };
+}
+function ripSettimana(delta){
+  if(delta===0){ RIP_REF=null; }
+  else { const base = RIP_REF||new Date(); base.setHours(12,0,0,0); base.setDate(base.getDate()+delta*7); RIP_REF=new Date(base.getTime()); }
+  rRiepilogo();
+}
+// Maturato di COMPETENZA di un dipendente in un intervallo di giorni [da,al] (stringhe ISO, inclusive).
+// null su un estremo = aperto. Usa totaleCompetenza (i notturni contano il giorno dopo).
+function _matRange(dipId, da, al){
+  let s=0;
+  Object.keys(DB.presenze||{}).forEach(d=>{
+    if(d.length!==10) return;
+    if(da && d<da) return;
+    if(al && d>al) return;
+    s+=totaleCompetenza(d, dipId);
+  });
+  return s;
+}
+function _antRange(dipId, da, al){
+  return (DB.anticipi||[]).filter(a=>a.dipId===dipId && a.metodo!=='Anticipo da pagamento'
+      && (!da||a.data>=da) && (!al||a.data<=al))
+    .reduce((s,x)=>s+parseFloat(x.importo||0),0);
+}
+function _pagRange(dipId, da, al){
+  return (DB.pagamenti||[]).filter(p=>p.dipId===dipId && (!da||p.data>=da) && (!al||p.data<=al))
+    .reduce((s,x)=>s+parseFloat(x.pagato||0),0);
+}
+function _scalRange(dipId, da, al){
+  return (DB.addebiti||[]).filter(a=>a.dipId===dipId)
+    .reduce((tot,a)=>tot+(a.scalature||[]).filter(x=>(!da||x.data>=da)&&(!al||x.data<=al))
+      .reduce((s,x)=>s+parseFloat(x.importo||0),0),0);
+}
+// Pagamenti della settimana divisi per metodo (Bonifico/Revolut/Contanti). Metodo mancante → Contanti.
+function _pagMetodo(dipId, da, al){
+  const out={Bonifico:0,Revolut:0,Contanti:0};
+  (DB.pagamenti||[]).filter(p=>p.dipId===dipId && (!da||p.data>=da) && (!al||p.data<=al)).forEach(p=>{
+    let m=(p.metodo||'').trim();
+    if(m==='Bonifico') out.Bonifico+=parseFloat(p.pagato||0);
+    else if(m==='Revolut') out.Revolut+=parseFloat(p.pagato||0);
+    else out.Contanti+=parseFloat(p.pagato||0);
+  });
+  return out;
+}
+function _giornoBreve(iso){ const [y,m,d]=iso.split('-'); const gg=['Dom','Lun','Mar','Mer','Gio','Ven','Sab'][new Date(iso+'T12:00').getDay()]; return gg+' '+d+'/'+m; }
+
+let _RIP_ULTIMO=null; // cache righe per l'export CSV
+function rRiepilogo(){
+  ricalcolaSaldi();
+  sincronizzaPersonale();
+  const {da,al,giorni}=_ripBounds(RIP_REF);
+  document.getElementById('rip-label').textContent = fdate(da)+' → '+fdate(al);
+
+  const righe=(DB.personale||[]).map(p=>{
+    const daily=giorni.map(g=>_matRange(p.id, g, g));
+    const maturato=daily.reduce((a,b)=>a+b,0);
+    const antSett=_antRange(p.id, da, al);
+    const scalSett=_scalRange(p.id, da, al);
+    // storico a riporto = saldo progressivo alla vigilia della settimana (fino al sabato prima)
+    const vigilia=_isoPrev(giorni[0]);
+    const apertura = aperturaDi(p.id)
+      + _matRange(p.id, null, vigilia)
+      - _antRange(p.id, null, vigilia)
+      - _pagRange(p.id, null, vigilia)
+      - _scalRange(p.id, null, vigilia);
+    const pagSett=_pagRange(p.id, da, al);
+    const met=_pagMetodo(p.id, da, al);
+    // saldo (da regolare a fine settimana) = storico + maturato − anticipi − danni
+    const saldo = apertura + maturato - antSett - scalSett;
+    // riporto = saldo − pagato = saldo di chiusura → storico della settimana dopo
+    const riporto = saldo - pagSett;
+    return {id:p.id, nome:p.nome, daily, maturato, antSett, apertura, scalSett, saldo, met, pagSett, riporto};
+  }).filter(r=> r.maturato>0.009 || r.antSett>0.009 || r.pagSett>0.009 || Math.abs(r.apertura)>0.009 || Math.abs(r.riporto)>0.009 );
+
+  _RIP_ULTIMO={da,al,giorni,righe};
+
+  // KPI
+  const tM=righe.reduce((a,r)=>a+r.maturato,0);
+  const tA=righe.reduce((a,r)=>a+r.antSett,0);
+  const tSaldo=righe.reduce((a,r)=>a+r.saldo,0);
+  const tPag=righe.reduce((a,r)=>a+r.pagSett,0);
+  const tRip=righe.reduce((a,r)=>a+r.riporto,0);
+  document.getElementById('rip-kpi').innerHTML=`
+    <div class="sc"><div class="lb">Maturato settimana</div><div class="vl" style="font-size:20px">${fmt(tM)}</div></div>
+    <div class="sc"><div class="lb">Anticipi settimana</div><div class="vl rr" style="font-size:20px">${fmt(tA)}</div></div>
+    <div class="sc"><div class="lb">Da regolare (saldo)</div><div class="vl or" style="font-size:20px">${fmt(tSaldo)}</div></div>
+    <div class="sc"><div class="lb">Pagato in settimana</div><div class="vl gr" style="font-size:20px">${fmt(tPag)}</div></div>
+    <div class="sc"><div class="lb">Riporto → sett. succ.</div><div class="vl" style="font-size:20px">${fmt(tRip)}</div></div>`;
+
+  const fmtCell=(v,cls='')=> v>0.009||v<-0.009 ? `<span class="${cls}">${fmt(v)}</span>` : '<span style="color:var(--text2)">—</span>';
+  const head=`<tr>
+    <th style="position:sticky;left:0;background:var(--card);z-index:2">Dipendente</th>
+    ${giorni.map(g=>`<th style="text-align:right;font-size:11px">${_giornoBreve(g)}</th>`).join('')}
+    <th style="text-align:right">Maturato</th>
+    <th style="text-align:right">Ant. sett.</th>
+    <th style="text-align:right">Storico</th>
+    <th style="text-align:right">Saldo</th>
+    <th style="text-align:right">Danni</th>
+    <th style="text-align:right">Bonifico</th>
+    <th style="text-align:right">Revolut</th>
+    <th style="text-align:right">Contanti</th>
+    <th style="text-align:right">Riporto</th>
+  </tr>`;
+  const body=righe.map(r=>`<tr>
+    <td style="position:sticky;left:0;background:var(--card);z-index:1"><b>${r.nome}</b></td>
+    ${r.daily.map(v=>`<td class="mn" style="text-align:right;font-size:12px;${v>0?'':'color:var(--text2)'}">${v>0?fmt(v):'·'}</td>`).join('')}
+    <td class="mn" style="text-align:right;font-weight:800">${fmt(r.maturato)}</td>
+    <td class="mn" style="text-align:right">${fmtCell(r.antSett,'rr')}</td>
+    <td class="mn" style="text-align:right" title="${r.apertura<0?'Anticipo storico: il dipendente ha ricevuto più di quanto maturato':'Credito residuo a favore del dipendente'}">${r.apertura<-0.009?`<span style="color:var(--gold)">${fmt(r.apertura)}</span>`:fmtCell(r.apertura,'gr')}</td>
+    <td class="mn" style="text-align:right;font-weight:800">${r.saldo>0.009?`<span class="or">${fmt(r.saldo)}</span>`:r.saldo<-0.009?`<span class="gr">${fmt(r.saldo)}</span>`:'<span class="gr">✓</span>'}</td>
+    <td class="mn" style="text-align:right">${r.scalSett>0.009?`<span style="color:var(--red)">${fmt(r.scalSett)}</span>`:'<span style="color:var(--text2)">—</span>'}</td>
+    <td class="mn" style="text-align:right">${fmtCell(r.met.Bonifico)}</td>
+    <td class="mn" style="text-align:right">${fmtCell(r.met.Revolut)}</td>
+    <td class="mn" style="text-align:right">${fmtCell(r.met.Contanti)}</td>
+    <td class="mn" style="text-align:right;font-weight:700" title="Diventa lo 'Storico' della settimana successiva">${r.riporto>0.009?`<span class="or">${fmt(r.riporto)}</span>`:r.riporto<-0.009?`<span class="gold" style="color:var(--gold)">${fmt(r.riporto)}</span>`:'<span class="gr">✓</span>'}</td>
+  </tr>`).join('');
+  document.getElementById('rip-tbwrap').innerHTML = righe.length
+    ? `<table style="min-width:1000px"><thead>${head}</thead><tbody>${body}</tbody></table>`
+    : '<div class="empty" style="padding:20px">Nessun movimento in questa settimana.</div>';
+
+  document.getElementById('rip-note').innerHTML=`
+    <b>Come leggerlo.</b> <b>Storico</b> = saldo trascinato dalle settimane precedenti (in oro = anticipo storico non ancora recuperato; in verde = credito del dipendente).
+    <b>Saldo</b> = storico + maturato − anticipi − danni = quanto resta da regolare a fine settimana.
+    <b>Riporto</b> = saldo − pagato: è ciò che passa alla settimana dopo e vi diventa lo <b>Storico</b>. Quando paghi tutto il saldo, il riporto va a zero (✓).
+    I giorni usano la <i>competenza</i> (i turni notturni contano il giorno dopo). Le rettifiche di apertura per il lavoro pregresso si gestiscono col tasto ⚙️.`;
+}
+function _isoPrev(iso){ if(!iso) return null; const d=new Date(iso+'T12:00'); d.setDate(d.getDate()-1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+function ripExportCSV(){
+  if(!_RIP_ULTIMO){ rRiepilogo(); }
+  const {da,al,giorni,righe}=_RIP_ULTIMO;
+  const sep=';';
+  const nl='\r\n';
+  const esc=v=>{ const s=String(v==null?'':v); return /[";\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
+  const num=v=> (Math.round((v||0)*100)/100).toString().replace('.',',');
+  const intest=['Dipendente',...giorni.map(_giornoBreve),'Maturato','Anticipi settimana','Storico a riporto','Saldo','Danni scalati','Bonifico','Revolut','Contanti','Riporto sett. succ.'];
+  let out=`L'OTTANTUNOCENTO - Riepilogo dipendenti ${fdate(da)} - ${fdate(al)}${nl}`;
+  out+=intest.map(esc).join(sep)+nl;
+  righe.forEach(r=>{
+    out+=[r.nome,...r.daily.map(num),num(r.maturato),num(r.antSett),num(r.apertura),num(r.saldo),num(r.scalSett),num(r.met.Bonifico),num(r.met.Revolut),num(r.met.Contanti),num(r.riporto)].map(esc).join(sep)+nl;
+  });
+  // totali
+  const T=k=>righe.reduce((a,r)=>a+(typeof k==='function'?k(r):r[k]),0);
+  out+=['TOTALE',...giorni.map((g,i)=>num(righe.reduce((a,r)=>a+r.daily[i],0))),num(T('maturato')),num(T('antSett')),num(T('apertura')),num(T('saldo')),num(T('scalSett')),num(T(r=>r.met.Bonifico)),num(T(r=>r.met.Revolut)),num(T(r=>r.met.Contanti)),num(T('riporto'))].map(esc).join(sep)+nl;
+  const blob=new Blob(['﻿'+out],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=`riepilogo_dipendenti_${da}_${al}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+// ═══ EDITOR RETTIFICHE DI APERTURA (lavoro pregresso) ═══
+function apriRettificheApertura(){
+  ricalcolaSaldi();
+  const righe=(DB.personale||[]).slice().sort((a,b)=>a.nome.localeCompare(b.nome)).map(p=>{
+    const ap=aperturaDi(p.id);
+    const s=(DB.saldi||[]).find(x=>x.dipId===p.id)||{};
+    return `<tr>
+      <td><b>${p.nome}</b></td>
+      <td style="text-align:right"><input type="number" step="10" id="ret-ap-${p.id}" value="${ap||''}" placeholder="0" style="width:110px;text-align:right;font-family:'IBM Plex Mono',monospace;background:var(--navy);border:1px solid var(--brd);border-radius:6px;padding:6px 8px;color:var(--text)"></td>
+      <td class="mn" style="text-align:right;color:${(s.saldo||0)>=0?'var(--green)':'var(--red)'}">${fmt(s.saldo||0)}</td>
+    </tr>`;
+  }).join('');
+  const tot=(DB.personale||[]).reduce((a,p)=>a+aperturaDi(p.id),0);
+  const html=`<div class="mo" id="modal-ret-ap" style="display:flex" onclick="if(event.target.id==='modal-ret-ap')this.remove()">
+    <div class="mb" style="max-width:640px;width:96%">
+      <div class="mh"><h3>⚙️ Rettifiche di apertura — lavoro pregresso</h3><button class="mc" onclick="document.getElementById('modal-ret-ap').remove()">✕</button></div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5">Maturato pregresso (lavoro fatto e pagato prima dell'inizio del tracciamento, mai inserito come presenze). Somma al saldo del dipendente. Modifica solo se cambia una posizione storica — normalmente resta fisso. <b>Totale attuale: ${fmt(tot)}</b></div>
+      <div style="max-height:56vh;overflow:auto"><table style="width:100%"><thead><tr><th>Dipendente</th><th style="text-align:right">Apertura €</th><th style="text-align:right">Saldo attuale</th></tr></thead><tbody>${righe}</tbody></table></div>
+      <div class="fa" style="margin-top:14px"><button class="bp" onclick="salvaRettificheApertura()">💾 Salva rettifiche</button><button class="bs" onclick="document.getElementById('modal-ret-ap').remove()">Annulla</button></div>
+    </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function salvaRettificheApertura(){
+  if(!DB.saldiApertura) DB.saldiApertura={};
+  (DB.personale||[]).forEach(p=>{
+    const el=document.getElementById('ret-ap-'+p.id);
+    if(!el) return;
+    const v=parseFloat(el.value||0)||0;
+    if(v) DB.saldiApertura[p.id]=v; else delete DB.saldiApertura[p.id];
+  });
+  ricalcolaSaldi(); save();
+  document.getElementById('modal-ret-ap')?.remove();
+  toast('Rettifiche di apertura salvate ✓');
+  if(curPg==='riepilogo') rRiepilogo(); else if(curPg==='saldi') rSaldi();
 }
 
 // ============================================================
