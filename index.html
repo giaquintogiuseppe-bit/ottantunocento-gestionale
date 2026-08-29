@@ -1215,6 +1215,13 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <div class="sc"><div class="lb">Totale da pagare</div><div class="vl or" style="font-size:20px" id="pag-tot-saldo">€0</div></div>
         <div class="sc"><div class="lb">Stai pagando</div><div class="vl" style="font-size:20px" id="pag-tot-pago">€0</div></div>
       </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600">Metodo</label>
+        <select id="pag-metodo" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'IBM Plex Sans',sans-serif">
+          <option>Contanti</option><option>Bonifico</option><option>Revolut</option>
+        </select>
+        <span style="font-size:11px;color:var(--text2)">— con che mezzo stai pagando questa tornata (finisce nelle colonne del Riepilogo)</span>
+      </div>
       <div class="fa">
         <button class="bp" onclick="confermaPagamenti()">✅ Conferma pagamenti</button>
         <button class="bs" onclick="document.getElementById('pag-grid').innerHTML='';document.getElementById('pag-footer').style.display='none'">Annulla</button>
@@ -7816,14 +7823,15 @@ function caricaProposta(){
         <span>${p.saldo>0?'DA PAGARE':'✓ SALDATO'}</span>
         <span class="${p.saldo>0?'or':'gr'}">${p.saldo>0?fmt(p.saldo):'—'}</span>
       </div>
+      ${p.danniResidui>0?`<div style="margin-top:10px">
+        <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--red);font-weight:600;display:block;margin-bottom:4px">Trattieni per danni (auto · modificabile)</label>
+        <input class="pinput" type="number" id="pagdanni-${p.pid}" value="${(p.saldo>0?Math.min(p.danniResidui,p.saldo):0).toFixed(2)}" step="0.01" min="0" max="${Math.min(p.danniResidui,Math.max(0,p.saldo)).toFixed(2)}" data-saldo="${p.saldo.toFixed(2)}" oninput="ricalcTrattenuta('${p.pid}')" style="border-color:rgba(232,84,84,.45)">
+        <div style="font-size:11px;color:var(--text2);margin-top:3px">Danni residui: <b style="color:var(--red)">${fmt(p.danniResidui)}</b> — la quota scala i danni e riduce il contante da dare · <span style="color:var(--teal);cursor:pointer;text-decoration:underline" onclick="nav('danni')">gestisci</span></div>
+      </div>`:''}
       <div style="margin-top:10px">
         <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:4px">Quanto paghi ora</label>
-        <input class="pinput" type="number" id="paginput-${p.pid}" value="${p.saldo.toFixed(2)}" step="0.01" oninput="aggiornaTotPag()">
+        <input class="pinput" type="number" id="paginput-${p.pid}" value="${(p.saldo - (p.danniResidui>0&&p.saldo>0?Math.min(p.danniResidui,p.saldo):0)).toFixed(2)}" step="0.01" oninput="aggiornaTotPag()">
       </div>
-      ${p.danniResidui>0?`<div style="margin-top:8px;font-size:11px;padding:6px 8px;background:rgba(232,84,84,.06);border-radius:6px;border:1px solid rgba(232,84,84,.2)">
-        <span style="color:var(--red)">⚠️</span> Danni residui da recuperare: <b style="color:var(--red)">${fmt(p.danniResidui)}</b>
-        <span style="color:var(--teal);cursor:pointer;text-decoration:underline;margin-left:4px" onclick="nav('danni')">→ gestisci</span>
-      </div>`:''}
       <div class="pnote" id="pagnote-${p.pid}"></div>
     </div>`;
   }).join('');
@@ -7855,20 +7863,26 @@ function confermaPagamenti(){
   const al=document.getElementById('pag-al').value;
   const dataPag=document.getElementById('pag-data').value||today();
   const notePag=document.getElementById('pag-note').value;
+  const metodo=document.getElementById('pag-metodo')?.value||'Contanti';
   const pr=window._pagProposte||[];
   if(!pr.length) return;
 
   pr.forEach(p=>{
+    // trattenuta danni (auto ma modificabile) → scala i danni residui
+    const dEl=document.getElementById('pagdanni-'+p.pid);
+    const trattenuta=dEl?Math.max(0,parseFloat(dEl.value||0)):0;
+    const trattApplicata = trattenuta>0 ? applicaTrattenutaDanni(p.pid, trattenuta, dataPag) : 0;
+
     const input=document.getElementById('paginput-'+p.pid);
     const importoPago=parseFloat(input?.value||0);
-    if(importoPago<=0) return;
+    if(importoPago<=0 && trattApplicata<=0) return;
 
-    DB.pagamenti.push({
+    if(importoPago>0) DB.pagamenti.push({
       id:uid(), data:dataPag, dipId:p.pid, dipNome:p.nome,
       periodoDa:da, periodoAl:al,
       maturato:p.mat, anticipiDati:p.ant,
-      scalatureDanni:p.scalPer||0,
-      pagato:importoPago,
+      scalatureDanni:(p.scalPer||0)+trattApplicata,
+      pagato:importoPago, metodo,
       note:notePag
     });
   });
@@ -7880,6 +7894,38 @@ function confermaPagamenti(){
   window._pagProposte=[];
   rPagHist();
   toast('Pagamenti registrati ✓');
+}
+
+// La trattenuta danni scala i danni attivi (dal più vecchio) e adegua il contante da dare
+function ricalcTrattenuta(pid){
+  const dEl=document.getElementById('pagdanni-'+pid);
+  const pEl=document.getElementById('paginput-'+pid);
+  if(!dEl||!pEl) return;
+  const saldo=parseFloat(dEl.getAttribute('data-saldo')||0)||0;
+  let tratt=Math.max(0,parseFloat(dEl.value||0)||0);
+  const max=parseFloat(dEl.getAttribute('max')||0)||0;
+  if(tratt>max){ tratt=max; dEl.value=max.toFixed(2); }
+  pEl.value=Math.max(0, saldo - tratt).toFixed(2);
+  aggiornaTotPag();
+}
+// Registra scalature sui danni attivi del dipendente (FIFO), fino all'importo indicato.
+// Ritorna la quota effettivamente scalata.
+function applicaTrattenutaDanni(dipId, importo, data){
+  let resto=importo, applicato=0;
+  const attivi=(DB.addebiti||[]).filter(a=>a.dipId===dipId && !a.chiuso)
+    .sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  for(const a of attivi){
+    if(resto<=0.009) break;
+    const scalato=(a.scalature||[]).reduce((s,x)=>s+parseFloat(x.importo||0),0);
+    const residuo=Math.max(0, a.importo-scalato);
+    if(residuo<=0.009) continue;
+    const q=Math.min(resto, residuo);
+    if(!a.scalature) a.scalature=[];
+    a.scalature.push({id:uid(), importo:q, data:data||today()});
+    if((a.scalature.reduce((s,x)=>s+parseFloat(x.importo||0),0)) >= a.importo-0.01) a.chiuso=true;
+    resto-=q; applicato+=q;
+  }
+  return applicato;
 }
 
 function rPagHist(){
