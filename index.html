@@ -6801,7 +6801,7 @@ function apriRettificheApertura(){
       <div class="mh"><h3>⚙️ Rettifiche di apertura — lavoro pregresso</h3><button class="mc" onclick="document.getElementById('modal-ret-ap').remove()">✕</button></div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5">Maturato pregresso (lavoro fatto e pagato prima dell'inizio del tracciamento, mai inserito come presenze). Somma al saldo del dipendente. Modifica solo se cambia una posizione storica — normalmente resta fisso. <b>Totale attuale: ${fmt(tot)}</b></div>
       <div style="max-height:56vh;overflow:auto"><table style="width:100%"><thead><tr><th>Dipendente</th><th style="text-align:right">Apertura €</th><th style="text-align:right">Saldo attuale</th></tr></thead><tbody>${righe}</tbody></table></div>
-      <div class="fa" style="margin-top:14px"><button class="bs" onclick="suggerisciRettifiche()">📋 Proponi valori consigliati</button><button class="bp" onclick="salvaRettificheApertura()">💾 Salva rettifiche</button><button class="bs" onclick="document.getElementById('modal-ret-ap').remove()">Annulla</button></div>
+      <div class="fa" style="margin-top:14px"><button class="bs" onclick="suggerisciRettifiche()">📋 Proponi valori consigliati</button><button class="bp" onclick="salvaRettificheApertura()">💾 Salva rettifiche</button><button class="bs" onclick="azzeraRettifiche()" style="color:var(--red);border-color:rgba(232,84,84,.4)">↩︎ Azzera rettifica</button><button class="bs" onclick="document.getElementById('modal-ret-ap').remove()">Annulla</button></div>
     </div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
 }
@@ -6814,6 +6814,18 @@ function suggerisciRettifiche(){
     if(el){ el.value=_APERTURA_V1[id]; n++; }
   });
   toast(n?`Proposti ${n} valori — controlla e premi 💾 Salva`:'Nessun dipendente da rettificare');
+}
+// Annulla completamente la rettifica: rimuove tutti i saldi di apertura e ricalcola.
+// I saldi tornano com'erano PRIMA della rettifica; nient'altro viene toccato.
+function azzeraRettifiche(){
+  const n=Object.keys(DB.saldiApertura||{}).length;
+  if(!n){ toast('Nessuna rettifica da azzerare'); return; }
+  if(!confirm(`Azzerare la rettifica di apertura per ${n} dipendenti?\nI saldi tornano come prima. Il resto dei dati non cambia.`)) return;
+  DB.saldiApertura={};
+  ricalcolaSaldi(); save();
+  document.getElementById('modal-ret-ap')?.remove();
+  toast('Rettifica azzerata ✓');
+  if(curPg==='riepilogo') rRiepilogo(); else if(curPg==='saldi') rSaldi();
 }
 function salvaRettificheApertura(){
   if(!DB.saldiApertura) DB.saldiApertura={};
