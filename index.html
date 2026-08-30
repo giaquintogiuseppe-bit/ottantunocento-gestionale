@@ -975,7 +975,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div class="ps">Chi devo incassare e cosa resta da fatturare. Fonte: tabella fatture + cantieri con budget.</div>
     <div class="sg" id="pc-kpi"></div>
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
-      <input type="text" id="pc-search" placeholder="🔍 Cerca cliente..." oninput="pcRender()" style="flex:1;min-width:180px;background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-size:13px;padding:9px 12px;outline:none">
+      <input type="text" id="pc-search" placeholder="🔍 Cerca cliente o referente…" oninput="pcRender()" style="flex:1;min-width:180px;background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-size:13px;padding:9px 12px;outline:none">
       <button class="bs pc-flt on" data-flt="esposti" onclick="pcFiltra('esposti')" style="font-size:12px;padding:7px 13px">💰 Con esposizione</button>
       <button class="bs pc-flt" data-flt="dafatt" onclick="pcFiltra('dafatt')" style="font-size:12px;padding:7px 13px">📝 Da fatturare</button>
       <button class="bs pc-flt" data-flt="tutti" onclick="pcFiltra('tutti')" style="font-size:12px;padding:7px 13px">Tutti</button>
@@ -10812,6 +10812,7 @@ function _pcCompute(){
 async function rPosizioneClienti(){
   const el=document.getElementById('pc-list'); if(el) el.innerHTML='<div style="color:var(--text2);padding:16px">Carico le fatture…</div>';
   try{ const F=_FAPI(); const r=await fetch(F.url+'?select=*',{headers:F.h,cache:'no-cache'}); _fatture=await r.json(); }catch(e){ /* usa quelle in memoria */ }
+  if((!REF||!REF.length) && typeof refLoad==='function'){ try{ await refLoad(); }catch(e){} }  // serve per la ricerca per referente
   pcRender();
 }
 function pcFiltra(f){ _pcFiltro=f; document.querySelectorAll('.pc-flt').forEach(b=>b.classList.toggle('on',b.dataset.flt===f)); pcRender(); }
@@ -10833,7 +10834,17 @@ function pcRender(){
   if(_pcFiltro==='esposti') l=l.filter(e=>e.residuo>0);
   else if(_pcFiltro==='dafatt') l=l.filter(e=>e.daFattTot>0 || e.daEmettereTot>0 || e.daQuant.length>0);
   else l=l.filter(e=>e.residuo>0 || e.daFattTot>0 || e.daEmettereTot>0 || e.daQuant.length>0 || e.fatturato>0);
-  if(q) l=l.filter(e=>_pcNorm(e.nome).includes(q) || e.key.includes(q));
+  if(q){
+    // clienti che fanno capo a un REFERENTE che matcha la ricerca (per id o testo libero)
+    const cliRef=new Set();
+    const refIds=(REF||[]).filter(r=>_pcNorm(r.nome).includes(q)).map(r=>r.id);
+    (DB.clienti||[]).forEach(c=>{
+      const byId = c.referenteId && refIds.includes(c.referenteId);
+      const byTxt = c.referente && _pcNorm(c.referente).includes(q);
+      if(byId||byTxt){ const k=_pcNorm(c.ragioneSociale); if(k) cliRef.add(k); }
+    });
+    l=l.filter(e=> _pcNorm(e.nome).includes(q) || e.key.includes(q) || cliRef.has(e.key) || cliRef.has(_pcNorm(e.nome)) );
+  }
   if(!l.length){ box.innerHTML='<div class="fc" style="text-align:center;color:var(--text2)">Nessun cliente in questa vista.</div>'; return; }
   box.innerHTML=l.map((e,i)=>_pcCard(e,i)).join('');
 }
