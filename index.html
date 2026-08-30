@@ -1845,6 +1845,14 @@ tbody td{padding:10px 14px;vertical-align:middle}
 </div>
 
 
+<!-- MODAL DRILL-DOWN (dettaglio KPI posizione clienti/fornitori) -->
+<div class="mo" id="modal-drill">
+  <div class="md" style="max-width:720px">
+    <div class="mh"><h3 id="drill-title">Dettaglio</h3><button class="mc" onclick="closeModal('modal-drill')">✕</button></div>
+    <div class="mb" id="drill-body" style="max-height:70vh;overflow-y:auto"></div>
+  </div>
+</div>
+
 <!-- MODAL IMPORTA EXCEL -->
 <div class="mo" id="modal-import-xl">
   <div class="md" style="max-width:540px">
@@ -3288,10 +3296,10 @@ function rDash(){
   const giornate=Object.keys(DB.presenze).filter(d=>inRange(d)&&d.length===10).length;
 
   document.getElementById('ds-kpi').innerHTML=`
-    <div class="dc"><div class="dl">Maturato periodo</div><div class="dv" style="font-size:20px">${fmt(totM)}</div><div class="ds">${giornate} giornate</div></div>
-    <div class="dc"><div class="dl">Anticipi periodo</div><div class="dv rr" style="font-size:20px">${fmt(totA)}</div><div class="ds">${antR.length} transazioni</div></div>
-    <div class="dc"><div class="dl">Carburante</div><div class="dv rr" style="font-size:20px">${fmt(totCarb)}</div><div class="ds">${carbR.length} rifornimenti</div></div>
-    <div class="dc"><div class="dl">Saldo netto</div><div class="dv or" style="font-size:20px">${fmt(totS)}</div><div class="ds">maturato – anticipi</div></div>`;
+    <div class="dc" onclick="nav('presenze')" style="cursor:pointer" title="Vai alle presenze"><div class="dl">Maturato periodo 🔍</div><div class="dv" style="font-size:20px">${fmt(totM)}</div><div class="ds">${giornate} giornate</div></div>
+    <div class="dc" onclick="nav('anticipi')" style="cursor:pointer" title="Vai ai pagamenti/anticipi"><div class="dl">Anticipi periodo 🔍</div><div class="dv rr" style="font-size:20px">${fmt(totA)}</div><div class="ds">${antR.length} transazioni</div></div>
+    <div class="dc" onclick="nav('flotta')" style="cursor:pointer" title="Vai a Flotta & Carburante"><div class="dl">Carburante 🔍</div><div class="dv rr" style="font-size:20px">${fmt(totCarb)}</div><div class="ds">${carbR.length} rifornimenti</div></div>
+    <div class="dc" onclick="nav('saldi')" style="cursor:pointer" title="Vai ai saldi dipendenti"><div class="dl">Saldo netto 🔍</div><div class="dv or" style="font-size:20px">${fmt(totS)}</div><div class="ds">maturato – anticipi</div></div>`;
 
   const archIds = new Set(DB._cantieriArchiviati||[]);
   const cantieriAttivi = DB.cantieri.filter(c=>{
@@ -7984,11 +7992,11 @@ async function rGrafici(){
   const margineTot=cant.reduce((s,x)=>s+x.margine,0);
   const kpi=document.getElementById('cru-kpi');
   if(kpi) kpi.innerHTML=`
-    <div class="sc"><div class="lb">💰 Da incassare (clienti)</div><div class="vl gr" style="font-size:20px">${fmt(daIncassare)}</div><div class="sb2">fatture emesse non pagate</div></div>
-    <div class="sc"><div class="lb">💸 Da pagare dipendenti</div><div class="vl or" style="font-size:20px">${fmt(daPagareDip)}</div><div class="sb2">saldi correnti</div></div>
-    <div class="sc" id="cru-forn"><div class="lb">🧾 Da pagare fornitori</div><div class="vl or" style="font-size:20px">…</div><div class="sb2">carico…</div></div>
-    <div class="sc" ${scadute.length?'style="border-color:rgba(232,75,75,.4)"':''}><div class="lb">⚠ Fatture scadute</div><div class="vl" style="font-size:20px;color:${scadute.length?'var(--red)':'var(--text)'}">${scadute.length}</div><div class="sb2">${fmt(scadTot)} da incassare</div></div>
-    <div class="sc"><div class="lb">📈 Margine cantieri</div><div class="vl ${margineTot>=0?'gr':'rr'}" style="font-size:20px">${fmt(margineTot)}</div><div class="sb2">ricavi − costi</div></div>`;
+    <div class="sc" onclick="pcDrill('daincassare')" style="cursor:pointer" title="Vedi le fatture da incassare"><div class="lb">💰 Da incassare (clienti) 🔍</div><div class="vl gr" style="font-size:20px">${fmt(daIncassare)}</div><div class="sb2">fatture emesse non pagate</div></div>
+    <div class="sc" onclick="nav('saldi')" style="cursor:pointer" title="Vai ai saldi dipendenti"><div class="lb">💸 Da pagare dipendenti 🔍</div><div class="vl or" style="font-size:20px">${fmt(daPagareDip)}</div><div class="sb2">saldi correnti</div></div>
+    <div class="sc" id="cru-forn" onclick="pfDrill('debito')" style="cursor:pointer" title="Vedi le fatture fornitori"><div class="lb">🧾 Da pagare fornitori</div><div class="vl or" style="font-size:20px">…</div><div class="sb2">carico…</div></div>
+    <div class="sc" onclick="pcDrill('scadute')" style="cursor:pointer;${scadute.length?'border-color:rgba(232,75,75,.4)':''}" title="Vedi le fatture scadute"><div class="lb">⚠ Fatture scadute 🔍</div><div class="vl" style="font-size:20px;color:${scadute.length?'var(--red)':'var(--text)'}">${scadute.length}</div><div class="sb2">${fmt(scadTot)} da incassare</div></div>
+    <div class="sc" onclick="nav('grafici');setTimeout(()=>{var m=document.getElementById('cru-margine');if(m)m.scrollIntoView({behavior:'smooth',block:'center'});},120)" style="cursor:pointer" title="Vedi il dettaglio margini per commessa"><div class="lb">📈 Margine cantieri 🔍</div><div class="vl ${margineTot>=0?'gr':'rr'}" style="font-size:20px">${fmt(margineTot)}</div><div class="sb2">ricavi − costi</div></div>`;
   // fornitori (async, tabella fatture_acquisto)
   (async()=>{ try{
     if(!Array.isArray(_faRows)){ const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=*',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'}); _faRows=r.ok?await r.json():[]; }
@@ -10823,12 +10831,12 @@ function pcRender(){
   const {list,tot}=_pcCompute();
   const K=document.getElementById('pc-kpi');
   if(K) K.innerHTML=
-    '<div class="sc"><div class="lb">Fatturato</div><div class="vl">'+fmtE(tot.fatturato)+'</div></div>'+
-    '<div class="sc"><div class="lb">Incassato</div><div class="vl gr">'+fmtE(tot.incassato)+'</div></div>'+
-    '<div class="sc"><div class="lb">Da incassare</div><div class="vl or">'+fmtE(tot.residuo)+'</div></div>'+
-    '<div class="sc"><div class="lb">Da fatturare</div><div class="vl" style="color:#c98fd0">'+fmtE(tot.daFatt)+'</div></div>'+
-    '<div class="sc"><div class="lb">Da emettere</div><div class="vl" style="color:#6fb3e0">'+fmtE(tot.daEmettere)+'</div></div>'+
-    '<div class="sc"><div class="lb">Da quantificare</div><div class="vl" style="color:var(--text2)">'+tot.quant+' <span style="font-size:12px;font-weight:400">cantieri</span></div></div>';
+    '<div class="sc" onclick="pcDrill(\'fatturato\')" style="cursor:pointer" title="Vedi le fatture"><div class="lb">Fatturato 🔍</div><div class="vl">'+fmtE(tot.fatturato)+'</div></div>'+
+    '<div class="sc" onclick="pcDrill(\'incassato\')" style="cursor:pointer" title="Vedi gli incassi"><div class="lb">Incassato 🔍</div><div class="vl gr">'+fmtE(tot.incassato)+'</div></div>'+
+    '<div class="sc" onclick="pcDrill(\'daincassare\')" style="cursor:pointer" title="Vedi le fatture aperte"><div class="lb">Da incassare 🔍</div><div class="vl or">'+fmtE(tot.residuo)+'</div></div>'+
+    '<div class="sc" onclick="pcDrill(\'dafatturare\')" style="cursor:pointer" title="Vedi i cantieri da fatturare"><div class="lb">Da fatturare 🔍</div><div class="vl" style="color:#c98fd0">'+fmtE(tot.daFatt)+'</div></div>'+
+    '<div class="sc" onclick="pcDrill(\'daemettere\')" style="cursor:pointer" title="Vedi le fatture da emettere"><div class="lb">Da emettere 🔍</div><div class="vl" style="color:#6fb3e0">'+fmtE(tot.daEmettere)+'</div></div>'+
+    '<div class="sc" onclick="pcDrill(\'daquant\')" style="cursor:pointer" title="Vedi i cantieri da quantificare"><div class="lb">Da quantificare 🔍</div><div class="vl" style="color:var(--text2)">'+tot.quant+' <span style="font-size:12px;font-weight:400">cantieri</span></div></div>';
   const q=_pcNorm(document.getElementById('pc-search')?.value||'');
   let l=list.slice();
   if(_pcFiltro==='esposti') l=l.filter(e=>e.residuo>0);
@@ -10920,6 +10928,81 @@ function pcExport(){
   list.forEach(e=>e.daQuant.forEach(c=>s3.push([e.nome,c.nome,c.stato||'','DA QUANTIFICARE'])));
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s3),'Da fatturare');
   XLSX.writeFile(wb,'Posizione_clienti_'+_oggi()+'.xlsx');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// 🔍 DRILL-DOWN KPI — clic su una scheda in alto apre il dettaglio dei dati
+// ══════════════════════════════════════════════════════════════════════════
+function _drillRow(onclick, leftHtml, rightHtml){
+  const open = onclick ? (' onclick="closeModal(\'modal-drill\');'+onclick+'" style="cursor:pointer;') : (' style="');
+  return '<div'+open+'display:flex;justify-content:space-between;gap:10px;padding:9px 2px;border-top:1px solid var(--brd)">'+
+    '<div style="min-width:0;font-size:13px">'+leftHtml+'</div>'+
+    '<div style="text-align:right;white-space:nowrap;font-family:\'IBM Plex Mono\',monospace;font-weight:700;font-size:13px">'+(rightHtml||'')+'</div></div>';
+}
+function _drillOpen(title, subtitle, rowsHtml){
+  const t=document.getElementById('drill-title'); if(t) t.textContent=title;
+  const b=document.getElementById('drill-body');
+  if(b) b.innerHTML=(subtitle?'<div style="font-size:12px;color:var(--text2);margin:2px 0 8px">'+subtitle+'</div>':'')+
+    (rowsHtml||'<div style="color:var(--text2);padding:10px 0">Nessun dato in questa voce.</div>');
+  openModal('modal-drill');
+}
+function pcDrill(tipo){
+  const {list,tot}=_pcCompute();
+  const rows=[]; let title='', total=0, n=0;
+  const cli=(x)=>'<span style="color:var(--text2);font-size:11px">'+esc(x||'')+'</span>';
+  if(tipo==='fatturato'){
+    title='📊 Fatturato — fatture emesse/pagate';
+    (_fatture||[]).filter(f=>(f.tipo==='unica'||f.tipo==='acconto')&&f.stato!=='annullata'&&(f.stato==='pagata'||f.stato==='emessa'))
+      .sort((a,b)=>(+b.importo||0)-(+a.importo||0)).forEach(f=>{ const imp=+f.importo||0; total+=imp; n++;
+        rows.push(_drillRow('fattApri('+f.id+')','<b>'+esc(f.numero||'—')+'</b> '+cli((f.cliente||'')+(f.stato==='pagata'?' · pagata':' · emessa')), fmtE(imp))); });
+  } else if(tipo==='incassato'){
+    title='💵 Incassato — pagamenti ricevuti';
+    (_fatture||[]).filter(f=>(f.tipo==='unica'||f.tipo==='acconto')&&f.stato==='pagata').sort((a,b)=>(+b.importo||0)-(+a.importo||0)).forEach(f=>{ const imp=+f.importo||0; total+=imp; n++;
+      rows.push(_drillRow('fattApri('+f.id+')','<b>'+esc(f.numero||'—')+'</b> '+cli((f.cliente||'')+' · pagata'), fmtE(imp))); });
+    (_fatture||[]).filter(f=>(f.tipo==='unica'||f.tipo==='acconto')&&f.stato==='emessa').forEach(f=>{ const acc=_pcAcc(f); if(acc>0){ total+=acc; n++;
+      rows.push(_drillRow('fattApri('+f.id+')','<b>'+esc(f.numero||'—')+'</b> '+cli((f.cliente||'')+' · acconti'), fmtE(acc))); } });
+    const diff=tot.incassato-total; if(diff>1){ n++; rows.push(_drillRow(null,cli('Incassi senza fattura (contanti/sponsor/compensazioni)'), fmtE(diff))); total=tot.incassato; }
+  } else if(tipo==='daincassare'){
+    title='💰 Da incassare — fatture aperte';
+    list.forEach(e=>e.fattAperte.forEach(f=>{ const acc=_pcAcc(f), res=Math.max(0,(+f.importo||0)-acc); if(res>0){ total+=res; n++;
+      rows.push(_drillRow('fattApri('+f.id+')','<b>'+esc(f.numero||'—')+'</b> '+cli(e.nome+(f.scadenza?' · scad. '+fdate(f.scadenza):'')), fmtE(res))); } }));
+  } else if(tipo==='dafatturare'){
+    title='📝 Da fatturare — cantieri con budget non fatturato';
+    list.forEach(e=>e.daFatt.forEach(o=>{ total+=o.r; n++;
+      rows.push(_drillRow('apriDett(\''+o.c.id+'\')','<b>'+esc(o.c.nome)+'</b> '+cli(e.nome+' · '+(o.c.stato||'')), fmtE(o.r))); }));
+  } else if(tipo==='daemettere'){
+    title='📄 Da emettere — fatture preparate';
+    list.forEach(e=>e.daEmettere.forEach(f=>{ const imp=+f.importo||0; total+=imp; n++;
+      rows.push(_drillRow('fattApri('+f.id+')','<b>'+esc(f.numero||'(senza numero)')+'</b> '+cli(e.nome), fmtE(imp))); }));
+  } else if(tipo==='daquant'){
+    title='❓ Da quantificare — cantieri conclusi senza importo';
+    list.forEach(e=>e.daQuant.forEach(c=>{ n++;
+      rows.push(_drillRow('apriDett(\''+c.id+'\')','<b>'+esc(c.nome)+'</b> '+cli(e.nome), '→')); }));
+  } else if(tipo==='scadute'){
+    title='⚠ Fatture scadute';
+    (_fatture||[]).filter(f=>{ const s=(typeof fattStatoScadenza==='function')?fattStatoScadenza(f):null; return s&&s.cls==='scaduta'; })
+      .sort((a,b)=>(a.scadenza||'').localeCompare(b.scadenza||'')).forEach(f=>{ const res=(typeof _fattResiduo==='function')?_fattResiduo(f):(+f.importo||0); total+=res; n++;
+        rows.push(_drillRow('fattApri('+f.id+')','<b>'+esc(f.numero||'—')+'</b> '+cli((f.cliente||'')+(f.scadenza?' · scaduta il '+fdate(f.scadenza):'')), fmtE(res))); });
+  } else return;
+  const sub = (tipo==='daquant') ? (n+' cantieri') : (n+' voci · totale '+fmtE(total));
+  _drillOpen(title, sub, rows.join(''));
+}
+function pfDrill(tipo){
+  const {list,tot}=_pfCompute();
+  const rows=[]; let title='', total=0, n=0;
+  const meta=(x)=>'<span style="color:var(--text2);font-size:11px">'+esc(x||'')+'</span>';
+  const add=(pred, useResid)=>{ (_faRows||[]).filter(pred).sort((a,b)=>_pfNum(b.residuo)-_pfNum(a.residuo)).forEach(f=>{
+      const val=useResid?_pfNum(f.residuo):_pfNum(f.importo); total+=val; n++;
+      const st=(_PF_STATI&&_PF_STATI[f.stato_verificato])||{label:(f.stato_verificato||'—')};
+      rows.push(_drillRow(null,'<b>'+esc(f.fornitore||'—')+'</b> '+meta((f.numero||'')+(f.data_fattura?' · '+fdate(f.data_fattura):'')+' · '+st.label), fmtE(val))); }); };
+  if(tipo==='debito'){ title='🧾 Debito reale — fatture aperte + parziali'; add(f=>{const s=f.stato_verificato; return s==='aperta'||s==='parziale';}, true); }
+  else if(tipo==='aperte'){ title='🧾 Fatture aperte'; add(f=>f.stato_verificato==='aperta', true); }
+  else if(tipo==='parziali'){ title='🧾 Parziali'; add(f=>f.stato_verificato==='parziale', true); }
+  else if(tipo==='confermare'){ title='🧾 Da confermare'; add(f=>_pfDaConfermare(f.stato_verificato), true); }
+  else if(tipo==='pagate'){ title='🧾 Pagate confermate'; add(f=>f.stato_verificato==='pagata_confermata', false); }
+  else return;
+  const sub = (tipo==='pagate') ? (n+' fatture · totale '+fmtE(total)) : (n+' fatture · residuo '+fmtE(total));
+  _drillOpen(title, sub, rows.join(''));
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -11282,11 +11365,11 @@ function pfRender(){
   const cnt=(n)=>' <span style="font-size:12px;font-weight:400;color:var(--text2)">'+n+'</span>';
   const K=document.getElementById('pf-kpi');
   if(K) K.innerHTML=
-    '<div class="sc"><div class="lb">Debito reale</div><div class="vl" style="color:#e0645f">'+fmtE(tot.debito)+'</div></div>'+
-    '<div class="sc"><div class="lb">Aperte</div><div class="vl" style="color:#e8a34b">'+fmtE(tot.apertaR)+cnt(tot.apertaN)+'</div></div>'+
-    '<div class="sc"><div class="lb">Parziali</div><div class="vl" style="color:#c98fd0">'+fmtE(tot.parzR)+cnt(tot.parzN)+'</div></div>'+
-    '<div class="sc"><div class="lb">Da confermare</div><div class="vl" style="color:#6fb3e0">'+fmtE(tot.confR)+cnt(tot.confN)+'</div></div>'+
-    '<div class="sc"><div class="lb">Pagate confermate</div><div class="vl" style="color:#3fbf7f">'+tot.pagN+'</div></div>';
+    '<div class="sc" onclick="pfDrill(\'debito\')" style="cursor:pointer" title="Vedi le fatture del debito"><div class="lb">Debito reale 🔍</div><div class="vl" style="color:#e0645f">'+fmtE(tot.debito)+'</div></div>'+
+    '<div class="sc" onclick="pfDrill(\'aperte\')" style="cursor:pointer" title="Vedi le fatture aperte"><div class="lb">Aperte 🔍</div><div class="vl" style="color:#e8a34b">'+fmtE(tot.apertaR)+cnt(tot.apertaN)+'</div></div>'+
+    '<div class="sc" onclick="pfDrill(\'parziali\')" style="cursor:pointer" title="Vedi le fatture parziali"><div class="lb">Parziali 🔍</div><div class="vl" style="color:#c98fd0">'+fmtE(tot.parzR)+cnt(tot.parzN)+'</div></div>'+
+    '<div class="sc" onclick="pfDrill(\'confermare\')" style="cursor:pointer" title="Vedi le fatture da confermare"><div class="lb">Da confermare 🔍</div><div class="vl" style="color:#6fb3e0">'+fmtE(tot.confR)+cnt(tot.confN)+'</div></div>'+
+    '<div class="sc" onclick="pfDrill(\'pagate\')" style="cursor:pointer" title="Vedi le fatture pagate"><div class="lb">Pagate confermate 🔍</div><div class="vl" style="color:#3fbf7f">'+tot.pagN+'</div></div>';
   const q=(document.getElementById('pf-search')?document.getElementById('pf-search').value:'').toLowerCase().trim();
   let l=list.slice();
   if(_pfFiltro==='aperte') l=l.filter(e=>e.apertaR>0);
