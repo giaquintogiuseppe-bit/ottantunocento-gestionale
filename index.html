@@ -571,8 +571,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="ni" onclick="nav('saldi')">💶 Saldi Dipendenti</div>
   <div class="ni" onclick="nav('riepilogo')">📋 Riepilogo settimanale</div>
   <div class="ni" onclick="nav('scheda-dip')">🧑 Scheda Dipendente</div>
-  <div class="ni" onclick="nav('anticipi')">💳 Anticipi</div>
-  <div class="ni" onclick="nav('pagamenti')">💰 Pagamenti</div>
+  <div class="ni" onclick="nav('anticipi')">💳 Pagamenti</div>
+  <div class="ni" onclick="nav('pagamenti')">💰 Chiusura settimana</div>
   <div class="ns">Report</div>
   <div class="ni" onclick="nav('grafici')">📊 Grafici</div>
   <div class="ns">Personale</div>
@@ -1082,12 +1082,12 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
   <div id="pg-saldi" class="pg">
     <div class="pt">Saldi Dipendenti</div>
-    <div class="ps">Maturato · Anticipi · Residuo da pagare</div>
+    <div class="ps">Maturato · Pagato · Residuo da pagare</div>
     <div class="sg" id="sal-kpi"></div>
     <div class="sal-grid" id="sal-cards"></div>
     <div class="tc">
       <div class="th"><h3>Prospetto completo</h3><input class="ts" placeholder="Cerca..." oninput="filterT('sal-tb',this.value)"></div>
-      <div style="overflow-x:auto"><table><thead><tr><th>Dipendente</th><th>Maturato</th><th>Anticipi</th><th>Pagato</th><th>⚠ Danni scalati</th><th>Residuo</th><th>Stato</th></tr></thead><tbody id="sal-tb"></tbody></table></div>
+      <div style="overflow-x:auto"><table><thead><tr><th>Dipendente</th><th>Maturato</th><th>Pagato/dato</th><th>⚠ Danni scalati</th><th>Residuo</th><th>Stato</th></tr></thead><tbody id="sal-tb"></tbody></table></div>
     </div>
   </div>
 
@@ -1115,15 +1115,15 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
   <!-- ANTICIPI -->
   <div id="pg-anticipi" class="pg">
-    <div class="pt">Anticipi Erogati</div>
-    <div class="ps">Contanti erogati al personale</div>
+    <div class="pt">Pagamenti ai dipendenti</div>
+    <div class="ps">Tutti i soldi dati al personale — anticipi durante la settimana e saldi di fine settimana, in un'unica lista. (Le spese con fornitore/oggetto restano nella loro sezione.)</div>
     <div class="sg" id="ant-kpi"></div>
     <div class="tc">
-      <div class="th"><h3>Lista anticipi</h3><input class="ts" placeholder="Cerca..." oninput="filterT('ant-tb',this.value)"></div>
+      <div class="th"><h3>Storico pagamenti</h3><input class="ts" placeholder="Cerca..." oninput="filterT('ant-tb',this.value)"></div>
       <div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Dipendente</th><th>Importo</th><th>Metodo</th><th>Note</th><th></th></tr></thead><tbody id="ant-tb"></tbody></table></div>
     </div>
     <div class="fc mt">
-      <h3>Registra anticipo</h3>
+      <h3>Registra pagamento</h3>
       <div class="fg">
         <div><label>Data</label><input type="date" id="a-data"></div>
         <div><label>Dipendente</label><select id="a-dip"><option value="">Seleziona...</option></select></div>
@@ -1163,7 +1163,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div id="sd-timeline"></div>
 
     <!-- ANTICIPI PERSONA -->
-    <div class="sl mt">Anticipi ricevuti</div>
+    <div class="sl mt">Pagamenti ricevuti</div>
     <div class="tc">
       <div style="overflow-x:auto"><table>
         <thead><tr><th>Data</th><th>Importo</th><th>Metodo</th><th>Note</th></tr></thead>
@@ -1185,8 +1185,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
   <!-- PAGAMENTI FINE SETTIMANA -->
   <div id="pg-pagamenti" class="pg">
-    <div class="pt">Pagamenti</div>
-    <div class="ps">Registra i pagamenti di fine settimana — il sistema propone il saldo maturato</div>
+    <div class="pt">Chiusura settimana</div>
+    <div class="ps">Chiudi la settimana: il sistema propone quanto resta da dare a ciascuno (maturato − già dato). I singoli pagamenti li trovi tutti insieme in "Pagamenti".</div>
 
     <!-- Selezione periodo -->
     <div class="fc">
@@ -1743,10 +1743,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div class="mni-item" onclick="nav('attrezzeria')"><span class="mii">🔧</span>Attrezzeria</div>
     <div class="mni-item" onclick="nav('saldi')"><span class="mii">💶</span>Saldi</div>
     <div class="mni-item" onclick="nav('riepilogo')"><span class="mii">📋</span>Riepilogo</div>
-    <div class="mni-item" onclick="nav('anticipi')"><span class="mii">💳</span>Anticipi</div>
+    <div class="mni-item" onclick="nav('anticipi')"><span class="mii">💳</span>Pagam.</div>
     <div class="mni-item" onclick="nav('scheda-dip')"><span class="mii">🧑</span>Scheda</div>
     <div class="mni-item" onclick="openModal('modal-import-xl')"><span class="mii">📂</span>Importa</div>
-    <div class="mni-item" onclick="nav('pagamenti')"><span class="mii">💰</span>Pagam.</div>
+    <div class="mni-item" onclick="nav('pagamenti')"><span class="mii">💰</span>Chiusura</div>
     <div class="mni-item" onclick="nav('dkv')"><span class="mii">⛽</span>DKV</div>
     <div class="mni-item" onclick="nav('grafici')"><span class="mii">📈</span>Grafici</div>
     <div class="mni-item" onclick="nav('documenti')"><span class="mii">📋</span>Docs</div>
@@ -6504,7 +6504,7 @@ function estrattoConto(dipId){
     mov.push({data:ultimoGiorno, ord:0, tipo:'maturato', descr:'Giornate settimana '+fdate(lun)+' – '+fdate(dom)+' ('+sett[lun].gg.size+' gg)', avere:sett[lun].imp, dare:0});
   });
   (DB.anticipi||[]).filter(a=>a.dipId===dipId && a.metodo!=='Anticipo da pagamento').forEach(a=>{
-    mov.push({data:a.data, ord:1, tipo:'anticipo', descr:'Anticipo'+(a.note?' — '+a.note:'')+(a.metodo?' ('+a.metodo+')':''), dare:parseFloat(a.importo||0), avere:0});
+    mov.push({data:a.data, ord:1, tipo:'anticipo', descr:'Pagamento'+(a.note?' — '+a.note:'')+(a.metodo?' ('+a.metodo+')':''), dare:parseFloat(a.importo||0), avere:0});
   });
   (DB.pagamenti||[]).filter(p=>p.dipId===dipId).forEach(p=>{
     mov.push({data:p.data, ord:2, tipo:'pagamento', descr:'Pagamento'+(p.periodoDa?' settimana '+fdate(p.periodoDa)+' – '+fdate(p.periodoAl||p.periodoDa):'')+(p.note?' — '+p.note:''), dare:parseFloat(p.pagato||0), avere:0});
@@ -6585,8 +6585,7 @@ function rSaldi(){
 
   document.getElementById('sal-kpi').innerHTML=`
     <div class="sc"><div class="lb">Maturato totale</div><div class="vl" style="font-size:20px">${fmt(totM)}</div><div class="sb2">storico completo</div></div>
-    <div class="sc"><div class="lb">Anticipi totali</div><div class="vl rr" style="font-size:20px">${fmt(totA)}</div><div class="sb2">storico completo</div></div>
-    <div class="sc"><div class="lb">Pagamenti totali</div><div class="vl rr" style="font-size:20px">${fmt(totP)}</div><div class="sb2">storico completo</div></div>
+    <div class="sc"><div class="lb">Pagato/dato totale</div><div class="vl rr" style="font-size:20px">${fmt(totA+totP)}</div><div class="sb2">anticipi + pagamenti · storico completo</div></div>
     ${totSc>0?`<div class="sc" style="border-color:rgba(232,84,84,.4)"><div class="lb">⚠ Danni scalati</div><div class="vl rr" style="font-size:20px">${fmt(totSc)}</div><div class="sb2">storico completo</div></div>`:''}
     <div class="sc"><div class="lb">Da pagare</div><div class="vl or" style="font-size:20px">${fmt(totDebiti)}</div><div class="sb2">${periodoSaldi.filter(s=>s.saldo>0.009).length} persone</div></div>
     ${totCrediti>0?`<div class="sc" style="border-color:rgba(75,232,122,.3)"><div class="lb">⊕ Crediti</div><div class="vl gr" style="font-size:20px">${fmt(totCrediti)}</div><div class="sb2">${periodoSaldi.filter(s=>s.saldo<-0.009).length} persone</div></div>`:''}`;
@@ -6598,8 +6597,7 @@ function rSaldi(){
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;margin-bottom:6px">── Saldo progressivo (tutto lo storico)</div>
       <div class="sr"><span class="lb">Maturato tot.</span><span>${fmt(s.maturato)}</span></div>
       ${s.apertura>0?`<div class="sr" style="color:var(--teal)"><span class="lb">＋ Apertura (pregresso)</span><span>${fmt(s.apertura)}</span></div>`:''}
-      <div class="sr"><span class="lb">Anticipi tot.</span><span class="rr">${s.anticipi?fmt(s.anticipi):'—'}</span></div>
-      <div class="sr"><span class="lb">Pagato tot.</span><span class="rr">${s.pagamenti?fmt(s.pagamenti):'—'}</span></div>
+      <div class="sr"><span class="lb">Pagato/dato tot.</span><span class="rr">${(s.anticipi+s.pagamenti)?fmt(s.anticipi+s.pagamenti):'—'}</span></div>
       ${s.scalature>0?`<div class="sr" style="color:var(--red)"><span class="lb">⚠ Danni scalati</span><span class="rr">${fmt(s.scalature)}</span></div>`:''}
       ${s.addebiti>0?`<div class="sr" style="color:var(--gold)"><span class="lb">⚠ Danni residui</span><span>${fmt(s.addebiti)}</span></div>`:''}
       <div class="ss"><span>${s.saldo<-0.009?'⊕ CREDITO':s.saldo>0.009?'DA PAGARE':'✓ SALDATO'}</span><span class="${classSaldo(s.saldo)}">${fmtSaldo(s.saldo)}</span></div>
@@ -6609,8 +6607,7 @@ function rSaldi(){
       ${(s.matPeriodo||s.antPeriodo||s.pagPeriodo)?`
       <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--brd);font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;margin-bottom:6px">── Solo periodo selezionato</div>
       <div class="sr"><span class="lb">Maturato</span><span>${fmt(s.matPeriodo)}</span></div>
-      ${s.antPeriodo?`<div class="sr"><span class="lb">Anticipi</span><span class="rr">${fmt(s.antPeriodo)}</span></div>`:''}
-      ${s.pagPeriodo?`<div class="sr"><span class="lb">Pagato</span><span class="rr">${fmt(s.pagPeriodo)}</span></div>`:''}
+      ${(s.antPeriodo||s.pagPeriodo)?`<div class="sr"><span class="lb">Pagato/dato</span><span class="rr">${fmt((s.antPeriodo||0)+(s.pagPeriodo||0))}</span></div>`:''}
       <div class="sr" style="border-top:1px dashed var(--brd);padding-top:4px"><span class="lb">Risultato del periodo</span><span style="font-weight:700">${(s.matPeriodo-(s.antPeriodo||0)-(s.pagPeriodo||0))>=0?'+':''}${fmt(s.matPeriodo-(s.antPeriodo||0)-(s.pagPeriodo||0))}</span></div>
       <div style="font-size:10px;color:var(--text2);margin-top:2px">⚠ non è il saldo: il conto vero (tutta la storia) è il numero grande sopra</div>
       `:''}
@@ -6622,13 +6619,12 @@ function rSaldi(){
     <tr>
       <td><b>${s.nome}</b></td>
       <td class="mn">${fmt(s.maturato)}</td>
-      <td class="mn rr">${s.anticipi?fmt(s.anticipi):'—'}</td>
-      <td class="mn rr">${s.pagamenti?fmt(s.pagamenti):'—'}</td>
+      <td class="mn rr">${(s.anticipi+s.pagamenti)?fmt(s.anticipi+s.pagamenti):'—'}</td>
       <td class="mn rr" style="color:var(--red)">${s.scalature>0?fmt(s.scalature):'—'}</td>
       <td class="mn ${classSaldo(s.saldo)}">${fmtSaldo(s.saldo)}</td>
       <td><span class="bx ${s.saldo<-0.009?'bg':s.saldo>0.009?'bo':'bg'}">${s.saldo<-0.009?'⊕ CREDITO':s.saldo>0.009?'DA PAGARE':'✓ SALDATO'}</span></td>
     </tr>`).join('')
-    : '<tr><td colspan="7" class="empty">Nessun dato nel periodo</td></tr>';
+    : '<tr><td colspan="6" class="empty">Nessun dato nel periodo</td></tr>';
 }
 
 // ============================================================
@@ -6875,20 +6871,25 @@ function condensaMesi(sez, items, dataDi, importoDi, trDi, colspan, rirender){
 function _toggleMese(key,rirender){ _mesiAperti[key]=!_mesiAperti[key]; try{ window[rirender](); }catch(e){} }
 
 function rAnticip(){
-  const antR=DB.anticipi.filter(a=>inRange(a.data));
-  const tot=antR.reduce((a,x)=>a+parseFloat(x.importo||0),0);
+  // Vista UNIFICATA (solo dipendenti): anticipi + pagamenti settimanali insieme.
+  // Per l'operatore è tutto "pagamento"; i dati restano in due liste (compat. app mobile).
+  const mov=[
+    ...(DB.anticipi||[]).filter(a=>inRange(a.data)).map(a=>({data:a.data,dipNome:a.dipNome,importo:parseFloat(a.importo||0),metodo:a.metodo||'',note:a.note||'',_src:'anticipi',id:a.id,periodo:''})),
+    ...(DB.pagamenti||[]).filter(p=>inRange(p.data)).map(p=>({data:p.data,dipNome:p.dipNome,importo:parseFloat(p.pagato||0),metodo:p.metodo||'',note:p.note||'',_src:'pagamenti',id:p.id,periodo:(p.periodoDa?fdate(p.periodoDa)+'→'+fdate(p.periodoAl||p.periodoDa):'')}))
+  ];
+  const tot=mov.reduce((a,x)=>a+x.importo,0);
   const sub=RANGE.from===RANGE.to?fdate(RANGE.from):`${fdate(RANGE.from)} – ${fdate(RANGE.to)}`;
   document.getElementById('ant-kpi').innerHTML=`
-    <div class="sc"><div class="lb">Totale anticipi</div><div class="vl rr" style="font-size:20px">${fmt(tot)}</div><div class="sb2">${sub}</div></div>
-    <div class="sc"><div class="lb">Transazioni</div><div class="vl">${antR.length}</div></div>`;
+    <div class="sc"><div class="lb">Totale pagato</div><div class="vl rr" style="font-size:20px">${fmt(tot)}</div><div class="sb2">${sub}</div></div>
+    <div class="sc"><div class="lb">Movimenti</div><div class="vl">${mov.length}</div></div>`;
   document.getElementById('ant-tb').innerHTML=condensaMesi('anticipi',
-    [...antR].sort((a,b)=>(a.data||'').localeCompare(b.data||'')),
+    [...mov].sort((a,b)=>(a.data||'').localeCompare(b.data||'')),
     a=>a.data, a=>a.importo,
     a=>`<tr><td class="mn">${fdate(a.data)}</td><td><b>${a.dipNome}</b></td>
-    <td class="mn rr">${fmt(a.importo)}</td><td>${a.metodo}</td>
+    <td class="mn rr">${fmt(a.importo)}</td><td>${a.metodo||'—'}${a.periodo?` <span style="font-size:10px;color:var(--text2)">· sett. ${a.periodo}</span>`:''}</td>
     <td style="font-size:11px;color:var(--text2)">${a.note||'—'}</td>
-    <td><button class="bd" onclick="delItem('anticipi','${a.id}',rAnticip)">✕</button></td></tr>`,
-    6,'rAnticip')||'<tr><td colspan="6" class="empty">Nessun anticipo nel periodo</td></tr>';
+    <td><button class="bd" onclick="delItem('${a._src}','${a.id}',rAnticip)">✕</button></td></tr>`,
+    6,'rAnticip')||'<tr><td colspan="6" class="empty">Nessun pagamento nel periodo</td></tr>';
   sincronizzaPersonale();
   const sel=document.getElementById('a-dip');
   if(sel)sel.innerHTML='<option value="">Seleziona...</option>'+DB.personale.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
@@ -6898,7 +6899,7 @@ function addAnticipo(){
   const dipId=gv('a-dip');const p=DB.personale.find(x=>x.id===dipId);
   if(!dipId||!gv('a-imp'))return alert('Seleziona dipendente e importo');
   const a={id:uid(),data:gv('a-data'),dipId,dipNome:p?p.nome:'',importo:parseFloat(gv('a-imp')),metodo:gv('a-met'),note:gv('a-note')};
-  DB.anticipi.push(a);ricalcolaSaldi();save();clr(['a-imp','a-note']);rAnticip();toast('Anticipo registrato ✓');
+  DB.anticipi.push(a);ricalcolaSaldi();save();clr(['a-imp','a-note']);rAnticip();toast('Pagamento registrato ✓');
 }
 // apre modal selezione dipendenti da aggiungere alla giornata
 function openAddDipModal(){
@@ -7677,7 +7678,7 @@ function loadSchedaDip(){
   const antTb=document.getElementById('sd-ant-tb');
   const righeAnt = ants.map(a=>`<tr>
       <td class="mn">${fdate(a.data)}</td>
-      <td><span class="bx br">ANTICIPO</span></td>
+      <td><span class="bx br">PAGAMENTO</span></td>
       <td class="mn rr">${fmt(a.importo)}</td>
       <td>${a.metodo}</td>
       <td style="font-size:11px;color:var(--text2)">${a.note||'—'}</td>
@@ -7826,7 +7827,7 @@ function caricaProposta(){
     return `<div class="pag-card" id="pagc-${p.pid}" style="${p.saldo<=0?'border-color:rgba(75,232,122,.4)':''}">
       <div class="pnm">${p.nome}</div>
       <div class="prow"><span>Maturato settimana</span><span><b>${fmt(p.mat)}</b></span></div>
-      ${p.ant?`<div class="prow"><span>Anticipi già dati</span><span class="rr">−${fmt(p.ant)}</span></div>`:''}
+      ${p.ant?`<div class="prow"><span>Già dato in settimana</span><span class="rr">−${fmt(p.ant)}</span></div>`:''}
       ${p.pagPer?`<div class="prow"><span>Già pagato</span><span class="rr">−${fmt(p.pagPer)}</span></div>`:''}
       ${p.scalPer?`<div class="prow" style="color:var(--red)"><span>Danni scalati</span><span class="rr">−${fmt(p.scalPer)}</span></div>`:''}
       <div class="prow tot" style="border-top:2px solid var(--brd);margin-top:6px;padding-top:6px">
