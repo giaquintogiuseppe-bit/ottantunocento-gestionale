@@ -1031,6 +1031,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
     <!-- FILTRI + AZIONI -->
     <div class="fc">
+      <input type="text" id="fatt-search" placeholder="🔍 Cerca fattura per cliente, cantiere o numero…" oninput="fattRenderLista()" style="width:100%;box-sizing:border-box;background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-size:13px;padding:9px 12px;outline:none;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="bs fatt-flt on" data-flt="tutte" onclick="fattFiltra('tutte')" style="font-size:12px;padding:6px 12px">Tutte</button>
@@ -3631,6 +3632,9 @@ function fattRenderLista(){
   if(_fattFiltro==='scadute') lista=lista.filter(f=>{const s=fattStatoScadenza(f);return s&&s.cls==='scaduta';});
   else if(_fattFiltro==='parziali') lista=lista.filter(f=>f.stato==='emessa' && _fattAccTot(f)>0);
   else if(_fattFiltro!=='tutte') lista=lista.filter(f=>f.stato===_fattFiltro);
+  // ── ricerca testuale (cliente / cantiere / numero / note) ──
+  const _q=(document.getElementById('fatt-search')?.value||'').toLowerCase().trim();
+  if(_q) lista=lista.filter(f=>[f.cliente,f.cantiere_nome,f.numero,f.note].some(x=>String(x||'').toLowerCase().includes(_q)));
   // ── barra totali per stato (sempre calcolata sulla vista corrente) ──
   const T={n:lista.length, imp:0, resid:0, nPag:0, impPag:0, nEme:0, impEme:0, nDaEm:0, impDaEm:0};
   lista.forEach(f=>{
