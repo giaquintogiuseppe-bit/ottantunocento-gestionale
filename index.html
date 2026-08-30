@@ -1101,6 +1101,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <div id="rip-label" style="font-weight:800;font-size:15px;min-width:230px;text-align:center">—</div>
         <button class="bs" onclick="ripSettimana(1)">Succ. ▶</button>
         <button class="bs" onclick="ripSettimana(0)">📅 Corrente</button>
+        <button class="bs" id="rip-btn-tutti" onclick="ripToggleTutti()">👥 Mostra tutti</button>
         <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
           <button class="bs" onclick="apriRettificheApertura()">⚙️ Rettifiche apertura</button>
           <button class="bp" onclick="ripExportCSV()">⬇️ CSV</button>
@@ -6633,6 +6634,8 @@ function rSaldi(){
 //   riporto           = saldo di chiusura → diventa lo storico della settimana dopo
 // ============================================================
 let RIP_REF = null; // Date dentro la settimana di riferimento (null = oggi)
+let RIP_TUTTI = false; // mostra anche i dipendenti saldati (senza attività nella settimana)
+function ripToggleTutti(){ RIP_TUTTI=!RIP_TUTTI; const b=document.getElementById('rip-btn-tutti'); if(b){ b.classList.toggle('on',RIP_TUTTI); b.textContent=RIP_TUTTI?'👥 Solo attivi':'👥 Mostra tutti'; } rRiepilogo(); }
 
 function _ripBounds(ref){
   const now = ref ? new Date(ref.getTime()) : new Date();
@@ -6713,7 +6716,9 @@ function rRiepilogo(){
     // riporto = saldo − pagato = saldo di chiusura → storico della settimana dopo
     const riporto = saldo - pagSett;
     return {id:p.id, nome:p.nome, daily, maturato, antSett, apertura, scalSett, saldo, met, pagSett, riporto};
-  }).filter(r=> r.maturato>0.009 || r.antSett>0.009 || r.pagSett>0.009 || Math.abs(r.apertura)>0.009 || Math.abs(r.riporto)>0.009 );
+  }).filter(r=> RIP_TUTTI
+      ? (_matRange(r.id,null,null)>0.009 || _antRange(r.id,null,null)>0.009 || _pagRange(r.id,null,null)>0.009)
+      : (r.maturato>0.009 || r.antSett>0.009 || r.pagSett>0.009 || Math.abs(r.apertura)>0.009 || Math.abs(r.riporto)>0.009) );
 
   _RIP_ULTIMO={da,al,giorni,righe};
 
