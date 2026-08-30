@@ -9066,10 +9066,12 @@ async function rIncassi(){
   });
 
   // Incassi non collegati ad alcun cantiere (soprattutto fatture "libere" senza cantiere_id)
+  // Mostrata IN CIMA alla pagina così è subito visibile senza scorrere tutti i cantieri.
+  let senzaHtml='';
   const senza=INC.filter(x=>!x.cantiereId);
   if(senza.length){
     const tSenza=senza.reduce((a,x)=>a+parseFloat(x.importo||0),0);
-    html+=`<div class="tc" style="margin-bottom:18px;border:1px dashed var(--brd)">
+    senzaHtml+=`<div class="tc" style="margin-bottom:18px;border:1px dashed var(--brd)">
       <div class="th"><div><h3 style="font-size:15px">🧾 Fatture senza cantiere collegato</h3>
       <div style="font-size:11px;color:var(--text2);margin-top:2px">${senza.length} incassi non agganciati a un cantiere</div></div>
       <div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--green);font-family:'IBM Plex Mono',monospace">${fmt(tSenza)} incassati</div></div></div>
@@ -9084,7 +9086,7 @@ async function rIncassi(){
         </tr>`).join('')}</tbody></table></div>`;
   }
 
-  document.getElementById('inc-body').innerHTML=html||'<div class="empty">Nessun cantiere con budget impostato.<br>Imposta il ricavo previsto dalla pagina Cantieri.</div>';
+  document.getElementById('inc-body').innerHTML=(senzaHtml+html)||'<div class="empty">Nessun cantiere con budget impostato.<br>Imposta il ricavo previsto dalla pagina Cantieri.</div>';
 }
 
 function precompilaNuovoIncasso(cid, importo){
