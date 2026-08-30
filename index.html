@@ -8944,8 +8944,49 @@ function salvaModificaCantiere(){
 // ============================================================
 // INCASSI CLIENTI
 // ============================================================
-function rIncassi(){
+// ═══ FONTE UNICA DEGLI INCASSI ═══
+// Gli incassi mostrati vengono dalle FATTURE (pagate = saldo, emesse = acconti già presi)
+// PIU' gli incassi "extra" del blob che NON hanno una fattura (contanti/sponsor/compensazione).
+// Cosi' Incassi Clienti e Fatture non possono piu' divergere.
+function _incassiUnificati(){
+  const out=[];
+  const F=Array.isArray(_fatture)?_fatture:[];
+  const rappr=new Set();                 // numeri base di fatture gia' rappresentate qui
+  F.forEach(f=>{
+    const tipo=(f.tipo||'unica');
+    if(tipo==='nota di credito' || f.stato==='annullata') return;
+    const imp=+f.importo||0; if(imp<=0) return;
+    const base=String(f.numero||'').split('/')[0].trim();
+    const acc=Array.isArray(f.acconti)?f.acconti:[];
+    let somma=0;
+    acc.forEach(a=>{
+      const ai=+a.importo||0; if(ai<=0) return; somma+=ai;
+      out.push({id:'F'+f.id+'-'+(a.rif||a.data||Math.random().toString(36).slice(2,6)),
+        cantiereId:f.cantiere_id||'', cantiereName:f.cantiere_nome||'', committente:f.cliente||'',
+        data:a.data||f.data_pagamento||f.data_fattura||'', importo:ai,
+        metodo:_incMetLabel(a.metodo)||'—', fattura:f.numero||'', note:a.nota||'', _fonte:'fattura', _fid:f.id});
+    });
+    if(f.stato==='pagata' && somma < imp-0.01){        // pagata: mostra il saldo (o l'intero se senza acconti)
+      out.push({id:'F'+f.id+'-saldo', cantiereId:f.cantiere_id||'', cantiereName:f.cantiere_nome||'', committente:f.cliente||'',
+        data:f.data_pagamento||f.data_fattura||'', importo:+(imp-somma).toFixed(2),
+        metodo:'—', fattura:f.numero||'', note:(somma>0?'saldo':'pagata'), _fonte:'fattura', _fid:f.id});
+    }
+    if(base && (f.stato==='pagata' || acc.length)) rappr.add(base);
+  });
+  // incassi del blob non coperti da una fattura (contanti/sponsor/compensazione o manuali orfani)
+  (DB.incassi||[]).forEach(x=>{
+    const base=String(x.fattura||'').split('/')[0].trim();
+    if(base && rappr.has(base)) return;                // gia' mostrato dal lato fatture: niente doppioni
+    out.push(Object.assign({}, x, {_fonte:'blob'}));
+  });
+  return out;
+}
+
+async function rIncassi(){
   if(!DB.incassi) DB.incassi=[];
+  // fonte fatture sempre fresca dal cloud (come Posizione clienti)
+  try{ const F=_FAPI(); const r=await fetch(F.url+'?select=*',{headers:F.h,cache:'no-cache'}); _fatture=await r.json(); }catch(e){}
+  const INC=_incassiUnificati();
 
   // Popola select cantieri
   const sel=document.getElementById('inc-cant');
@@ -8960,11 +9001,11 @@ function rIncassi(){
   const archIds=new Set(DB._cantieriArchiviati||[]);
   const cantieriConBudget=(DB.cantieri||[]).filter(c=>!archIds.has(c.id)&&getBudget(c.id,c.nome)>0);
   const totPrev=cantieriConBudget.reduce((a,c)=>a+getBudget(c.id,c.nome),0);
-  const totInc=(DB.incassi).reduce((a,x)=>a+parseFloat(x.importo||0),0);
+  const totInc=INC.reduce((a,x)=>a+parseFloat(x.importo||0),0);
   const totRes=totPrev-totInc;
   document.getElementById('inc-kpi').innerHTML=`
     <div class="sc"><div class="lb">Ricavi previsti totali</div><div class="vl tr">${fmt(totPrev)}</div><div class="sb2">${cantieriConBudget.length} cantieri con budget</div></div>
-    <div class="sc"><div class="lb">Totale incassato</div><div class="vl gr">${fmt(totInc)}</div><div class="sb2">${DB.incassi.length} incassi registrati</div></div>
+    <div class="sc"><div class="lb">Totale incassato</div><div class="vl gr">${fmt(totInc)}</div><div class="sb2">${INC.length} incassi (fatture + extra)</div></div>
     <div class="sc"><div class="lb">Da riscuotere</div><div class="vl ${totRes>0?'or':'gr'}">${fmt(Math.abs(totRes))}</div><div class="sb2">${totRes>0?'residuo':'tutto incassato'}</div></div>`;
 
   // Tabella per cantiere
@@ -8972,7 +9013,7 @@ function rIncassi(){
   const cantieri=(DB.cantieri||[]).filter(c=>!archIds.has(c.id));
   cantieri.forEach((c,i)=>{
     const ricavo=getBudget(c.id,c.nome);
-    const incassiC=(DB.incassi).filter(x=>x.cantiereId===c.id);
+    const incassiC=INC.filter(x=>x.cantiereId===c.id);
     const totaleInc=incassiC.reduce((a,x)=>a+parseFloat(x.importo||0),0);
     const residuo=ricavo-totaleInc;
     if(ricavo===0&&!incassiC.length) return; // nascondi cantieri senza budget né incassi
@@ -9008,7 +9049,7 @@ function rIncassi(){
               <td><span class="bx bt">${x.metodo||'—'}</span></td>
               <td class="mn" style="color:var(--text2)">${x.fattura||'—'}</td>
               <td style="color:var(--text2);font-size:12px">${x.note||''}</td>
-              <td><button class="bd" onclick="eliminaIncasso('${x.id}')">✕</button></td>
+              <td>${x._fonte==='blob'?`<button class="bd" onclick="eliminaIncasso('${x.id}')">✕</button>`:`<span title="Da fattura ${x.fattura||''} — si modifica dalla scheda fattura" style="color:var(--text2);font-size:11px">🧾</span>`}</td>
             </tr>`).join('')
             : `<tr><td colspan="6" style="color:var(--text2);font-size:12px;padding:12px 14px;font-style:italic">Nessun incasso registrato</td></tr>`}
           ${ricavo>0&&residuo>0?`<tr style="border-top:2px solid var(--brd)">
@@ -9023,6 +9064,25 @@ function rIncassi(){
       </table>
     </div>`;
   });
+
+  // Incassi non collegati ad alcun cantiere (soprattutto fatture "libere" senza cantiere_id)
+  const senza=INC.filter(x=>!x.cantiereId);
+  if(senza.length){
+    const tSenza=senza.reduce((a,x)=>a+parseFloat(x.importo||0),0);
+    html+=`<div class="tc" style="margin-bottom:18px;border:1px dashed var(--brd)">
+      <div class="th"><div><h3 style="font-size:15px">🧾 Fatture senza cantiere collegato</h3>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px">${senza.length} incassi non agganciati a un cantiere</div></div>
+      <div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--green);font-family:'IBM Plex Mono',monospace">${fmt(tSenza)} incassati</div></div></div>
+      <table style="width:100%"><thead><tr><th>Data</th><th>Importo</th><th>Metodo</th><th>Fattura</th><th>Cliente / Note</th><th></th></tr></thead>
+      <tbody>${senza.slice().sort((a,b)=>(a.data||'').localeCompare(b.data||'')).map(x=>`
+        <tr><td class="mn">${fdate(x.data)}</td>
+        <td class="mn gr" style="font-weight:700">+${fmt(x.importo)}</td>
+        <td><span class="bx bt">${x.metodo||'—'}</span></td>
+        <td class="mn" style="color:var(--text2)">${x.fattura||'—'}</td>
+        <td style="color:var(--text2);font-size:12px">${esc(x.committente||x.note||'')}</td>
+        <td>${x._fonte==='blob'?`<button class="bd" onclick="eliminaIncasso('${x.id}')">✕</button>`:`<span style="color:var(--text2);font-size:11px">🧾</span>`}</td>
+        </tr>`).join('')}</tbody></table></div>`;
+  }
 
   document.getElementById('inc-body').innerHTML=html||'<div class="empty">Nessun cantiere con budget impostato.<br>Imposta il ricavo previsto dalla pagina Cantieri.</div>';
 }
