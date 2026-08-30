@@ -1104,7 +1104,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <button class="bs" id="rip-btn-tutti" onclick="ripToggleTutti()">👥 Mostra tutti</button>
         <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
           <button class="bs" onclick="apriRettificheApertura()">⚙️ Rettifiche apertura</button>
-          <button class="bp" onclick="ripExportCSV()">⬇️ CSV</button>
+          <button class="bp" onclick="ripExportXLSX()">⬇️ Excel</button>
+          <button class="bs" onclick="ripExportCSV()">CSV</button>
           <button class="bs" onclick="window.print()">🖨 Stampa</button>
         </div>
       </div>
@@ -3987,31 +3988,32 @@ function esportaPresenzeExcel(){
   XLSX.utils.book_append_sheet(wb,ws5,'Costi per cantiere');
 
   // ── FOGLIO 6: RIEPILOGO DIPENDENTI (una riga per dipendente, tutti i totali) ──
-  const h6=[['Dipendente','Giornate','Giorni distinti','Paga base €','Straordinari €','Totale €','N° cantieri','Anticipi periodo €','Anticipi storico €','Anticipi da recuperare €','Pagato periodo €','Trattenute periodo €','SALDO ATTUALE €']];
+  // Anticipi e pagamenti UNIFICATI (solo dipendenti): un'unica voce "Pagato/dato".
+  const h6=[['Dipendente','Giornate','Giorni distinti','Paga base €','Straordinari €','Totale €','N° cantieri','Pagato/dato periodo €','Pagato/dato storico €','Da recuperare €','Trattenute periodo €','SALDO ATTUALE €']];
   const _dipIdByName=n=>{const p=(DB.personale||[]).find(x=>x.nome===n);return p?p.id:null;};
-  let _tAntStor=0, _tAntRec=0;
+  let _tPagStor=0, _tAntRec=0, _tPagPer=0;
   Object.keys(dip).sort().forEach(dp=>{
     const rr=dip[dp];
     const giorni=new Set(rr.map(r=>r.data)).size;
     const cantieriN=new Set(rr.map(r=>r.cantiere).filter(c=>c&&c!=='—')).size;
     const pid=_dipIdByName(dp);
     const antP=pid?(DB.anticipi||[]).filter(x=>x.dipId===pid&&x.data>=da&&x.data<=a&&x.metodo!=='Anticipo da pagamento').reduce((s,x)=>s+parseFloat(x.importo||0),0):0;
+    const pagP=pid?(DB.pagamenti||[]).filter(x=>x.dipId===pid&&x.data>=da&&x.data<=a).reduce((s,x)=>s+parseFloat(x.pagato||0),0):0;
     const _sRec=pid?(DB.saldi||[]).find(x=>x.dipId===pid):null;
-    const antStor=_sRec?parseFloat(_sRec.anticipi||0):0;      // storico: TUTTI gli anticipi (netto 'Anticipo da pagamento')
+    const pagStor=_sRec?(parseFloat(_sRec.anticipi||0)+parseFloat(_sRec.pagamenti||0)):0; // tutto il dato: anticipi + pagamenti
     const saldoS=_sRec?parseFloat(_sRec.saldo||0):0;
     const antRec=Math.max(0, -saldoS);                        // da recuperare: quanto ha ricevuto in piu' del maturato
-    _tAntStor+=antStor; _tAntRec+=antRec;
-    const pagP=pid?(DB.pagamenti||[]).filter(x=>x.dipId===pid&&x.data>=da&&x.data<=a).reduce((s,x)=>s+parseFloat(x.pagato||0),0):0;
     const tratP=pid?(DB.addebiti||[]).filter(x=>x.dipId===pid).reduce((s,x)=>s+(x.scalature||[]).filter(sc=>sc.data>=da&&sc.data<=a).reduce((z,sc)=>z+parseFloat(sc.importo||0),0),0):0;
+    _tPagStor+=pagStor; _tAntRec+=antRec; _tPagPer+=(antP+pagP);
     h6.push([dp, rr.length, giorni,
       rr.reduce((s,r)=>s+r.base,0), rr.reduce((s,r)=>s+r.straord,0),
-      rr.reduce((s,r)=>s+r.totale,0), cantieriN, antP, antStor, antRec, pagP, tratP, saldoS]);
+      rr.reduce((s,r)=>s+r.totale,0), cantieriN, antP+pagP, pagStor, antRec, tratP, saldoS]);
   });
-  h6.push(['TOTALE', flat.length, '', flat.reduce((s,r)=>s+r.base,0), flat.reduce((s,r)=>s+r.straord,0), flat.reduce((s,r)=>s+r.totale,0), '', '', _tAntStor, _tAntRec, '', '', '']);
+  h6.push(['TOTALE', flat.length, '', flat.reduce((s,r)=>s+r.base,0), flat.reduce((s,r)=>s+r.straord,0), flat.reduce((s,r)=>s+r.totale,0), '', _tPagPer, _tPagStor, _tAntRec, '', '']);
   h6.push([]);
   h6.push(['SALDO ATTUALE: positivo = da pagare al dipendente, negativo = il dipendente ha ricevuto in più. Calcolato su tutto lo storico.']);
-  h6.push(['Anticipi storico = tutti gli anticipi erogati dall\'inizio (netto \'Anticipo da pagamento\').  Anticipi da recuperare = quanto il dipendente ha ricevuto in più del maturato (0 se è a credito).']);
-  const ws6=XLSX.utils.aoa_to_sheet(h6); ws6['!cols']=[{wch:22},{wch:10},{wch:13},{wch:12},{wch:13},{wch:11},{wch:10},{wch:15},{wch:16},{wch:18},{wch:14},{wch:16},{wch:14}];
+  h6.push(['Pagato/dato = anticipi + pagamenti insieme (unificati, solo dipendenti). Da recuperare = quanto il dipendente ha ricevuto in più del maturato (0 se è a credito).']);
+  const ws6=XLSX.utils.aoa_to_sheet(h6); ws6['!cols']=[{wch:22},{wch:10},{wch:13},{wch:12},{wch:13},{wch:11},{wch:10},{wch:18},{wch:18},{wch:16},{wch:16},{wch:14}];
   XLSX.utils.book_append_sheet(wb,ws6,'Riepilogo dipendenti');
 
   // ── 📒 FOGLIO ESTRATTO CONTO DIPENDENTI (vista temporale: movimenti del periodo + saldo progressivo) ──
@@ -6794,6 +6796,24 @@ function ripExportCSV(){
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download=`riepilogo_dipendenti_${da}_${al}.csv`;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+// Export .xlsx del foglio settimanale, formattato come il foglio "Riepilogo Dipendenti" manuale
+function ripExportXLSX(){
+  if(!_RIP_ULTIMO){ rRiepilogo(); }
+  if(typeof XLSX==='undefined'){ return ripExportCSV(); }
+  const {da,al,giorni,righe}=_RIP_ULTIMO;
+  const r2=v=>Math.round((v||0)*100)/100;
+  const intest=['Dipendente',...giorni.map(_giornoBreve),'Maturato','Anticipi settimana','Storico a riporto','Saldo','Danni scalati','Bonifico','Revolut','Contanti','Riporto sett. succ.'];
+  const aoa=[[`L'OTTANTUNOCENTO — Riepilogo dipendenti  ${fdate(da)} – ${fdate(al)}`], [], intest];
+  righe.forEach(r=>aoa.push([r.nome,...r.daily.map(r2),r2(r.maturato),r2(r.antSett),r2(r.apertura),r2(r.saldo),r2(r.scalSett),r2(r.met.Bonifico),r2(r.met.Revolut),r2(r.met.Contanti),r2(r.riporto)]));
+  const T=k=>r2(righe.reduce((a,r)=>a+(typeof k==='function'?k(r):r[k]),0));
+  aoa.push(['TOTALE',...giorni.map((g,i)=>r2(righe.reduce((a,r)=>a+r.daily[i],0))),T('maturato'),T('antSett'),T('apertura'),T('saldo'),T('scalSett'),T(r=>r.met.Bonifico),T(r=>r.met.Revolut),T(r=>r.met.Contanti),T('riporto')]);
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:24},...giorni.map(()=>({wch:9})),{wch:10},{wch:16},{wch:15},{wch:10},{wch:12},{wch:11},{wch:10},{wch:10},{wch:18}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Riepilogo Dipendenti');
+  const fn=`riepilogo_dipendenti_${da}_${al}.xlsx`;
+  try{ XLSX.writeFile(wb,fn); }
+  catch(e){ const out=XLSX.write(wb,{bookType:'xlsx',type:'array'}); const blob=new Blob([out],{type:'application/octet-stream'}); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=fn; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),1000); }
 }
 
 // ═══ EDITOR RETTIFICHE DI APERTURA (lavoro pregresso) ═══
