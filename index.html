@@ -1841,7 +1841,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;margin-top:4px">Fogli da includere</div>
       <div class="exp-cb-group">
         <label class="exp-cb"><input type="checkbox" id="exp-presenze" checked> Presenze Personale</label>
-        <label class="exp-cb"><input type="checkbox" id="exp-anticipi" checked> Anticipi</label>
+        <label class="exp-cb"><input type="checkbox" id="exp-anticipi" checked> Pagamenti</label>
         <label class="exp-cb"><input type="checkbox" id="exp-carburante" checked> Spese Carburante</label>
         <label class="exp-cb"><input type="checkbox" id="exp-saldi" checked> Saldi Dipendenti</label>
         <label class="exp-cb"><input type="checkbox" id="exp-cantieri" checked> Costi per Cantiere</label>
@@ -1849,7 +1849,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <label class="exp-cb"><input type="checkbox" id="exp-prospetto-dip" checked> Prospetto dipendenti (matrice giornate)</label>
         <label class="exp-cb"><input type="checkbox" id="exp-schede-dip" checked> Scheda per ogni dipendente</label>
         <label class="exp-cb"><input type="checkbox" id="exp-pagamenti" checked> Pagamenti fine settimana</label>
-        <label class="exp-cb"><input type="checkbox" id="exp-anticipi-det" checked> Anticipi dettaglio completo</label>
+        <label class="exp-cb"><input type="checkbox" id="exp-anticipi-det" checked> Pagamenti dettaglio (+ residuo storico)</label>
         <label class="exp-cb"><input type="checkbox" id="exp-addebiti" checked> Addebiti e scalature</label>
       </div>
     </div>
@@ -7103,17 +7103,20 @@ function doExport(){
     XLSX.utils.book_append_sheet(wb,ws,'Presenze Personale');
   }
 
-  // ---- FOGLIO 2: Anticipi ----
+  // ---- FOGLIO 2: Pagamenti dipendenti (anticipi + pagamenti unificati) ----
   if(document.getElementById('exp-anticipi').checked){
-    const antFiltrati=DB.anticipi.filter(a=>a.data>=from&&a.data<=to);
-    const label=`L'OTTANTUNOCENTO – ANTICIPI EROGATI  |  ${fdate(from)} – ${fdate(to)}`;
+    const mov=[
+      ...DB.anticipi.filter(a=>a.data>=from&&a.data<=to).map(a=>({data:a.data,dipNome:a.dipNome,importo:parseFloat(a.importo||0),metodo:a.metodo||'',note:a.note||''})),
+      ...(DB.pagamenti||[]).filter(p=>p.data>=from&&p.data<=to).map(p=>({data:p.data,dipNome:p.dipNome,importo:parseFloat(p.pagato||0),metodo:p.metodo||'',note:(p.note||'')+(p.periodoDa?' [sett. '+fdate(p.periodoDa)+'→'+fdate(p.periodoAl||p.periodoDa)+']':'')}))
+    ].sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+    const label=`L'OTTANTUNOCENTO – PAGAMENTI DIPENDENTI  |  ${fdate(from)} – ${fdate(to)}`;
     const rows=[[label],[],['Data','Dipendente','Importo (€)','Metodo','Note']];
     let totAnt=0;
-    antFiltrati.forEach(a=>{rows.push([fdate(a.data),a.dipNome,a.importo,a.metodo,a.note||'']);totAnt+=a.importo;});
-    rows.push(['TOTALE ANTICIPI','',totAnt,'','']);
+    mov.forEach(a=>{rows.push([fdate(a.data),a.dipNome,a.importo,a.metodo,a.note||'']);totAnt+=a.importo;});
+    rows.push(['TOTALE PAGATO','',totAnt,'','']);
     const ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=[{wch:12},{wch:22},{wch:12},{wch:14},{wch:30}];
-    XLSX.utils.book_append_sheet(wb,ws,'Anticipi');
+    ws['!cols']=[{wch:12},{wch:22},{wch:12},{wch:14},{wch:34}];
+    XLSX.utils.book_append_sheet(wb,ws,'Pagamenti');
   }
 
   // ---- FOGLIO 3: Carburante ----
@@ -7134,19 +7137,21 @@ function doExport(){
     ricalcolaSaldi();
     const label=`L'OTTANTUNOCENTO – SALDI DIPENDENTI  |  aggiornato al ${fdate(to)}`;
     const rows=[[label],[],
-      ['Dipendente','Maturato (€)','Anticipi (€)','Pagato (€)','Danni scalati (€)','Danni residui (€)','Residuo da pagare (€)','Stato']
+      ['Dipendente','Maturato (€)','Pagato/dato (€)','Anticipo storico residuo (€)','Danni scalati (€)','Danni residui (€)','Residuo/Saldo (€)','Stato']
     ];
-    let totM=0,totA=0,totP=0,totSc=0,totRes=0,totS=0;
+    let totM=0,totPD=0,totAntStor=0,totSc=0,totRes=0,totS=0;
     DB.saldi.filter(s=>s.maturato>0||s.saldo!==0).forEach(s=>{
       const stato=s.saldo<-0.009?'⊕ CREDITO':s.saldo>0.009?'DA PAGARE':'✓ SALDATO';
-      rows.push([s.nome, s.maturato, s.anticipi||0, s.pagamenti||0,
-        s.scalature||0, s.addebiti||0, s.saldo, stato]);
-      totM+=s.maturato; totA+=s.anticipi||0; totP+=s.pagamenti||0;
-      totSc+=s.scalature||0; totRes+=s.addebiti||0; totS+=s.saldo;
+      const pd=(s.anticipi||0)+(s.pagamenti||0);               // pagato/dato storico (anticipi + pagamenti)
+      const antStorRes=Math.max(0, -(s.saldo||0));             // anticipo storico ancora da recuperare (0 se a credito)
+      rows.push([s.nome, s.maturato, pd, antStorRes, s.scalature||0, s.addebiti||0, s.saldo, stato]);
+      totM+=s.maturato; totPD+=pd; totAntStor+=antStorRes; totSc+=s.scalature||0; totRes+=s.addebiti||0; totS+=s.saldo;
     });
-    rows.push(['TOTALE', totM, totA, totP, totSc, totRes, totS, '']);
+    rows.push(['TOTALE', totM, totPD, totAntStor, totSc, totRes, totS, '']);
+    rows.push([]);
+    rows.push(['Pagato/dato = anticipi + pagamenti insieme.  Anticipo storico residuo = quanto il dipendente ha ricevuto in più del maturato, da recuperare (0 se è a credito).  Residuo/Saldo = positivo → da pagare al dipendente, negativo → il dipendente ha ricevuto in più.']);
     const ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=[{wch:22},{wch:14},{wch:14},{wch:14},{wch:18},{wch:18},{wch:20},{wch:14}];
+    ws['!cols']=[{wch:22},{wch:14},{wch:16},{wch:24},{wch:16},{wch:16},{wch:18},{wch:14}];
     XLSX.utils.book_append_sheet(wb,ws,'Saldi Dipendenti');
   }
 
@@ -7453,45 +7458,45 @@ function doExport(){
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws['!cols'] = [{wch:12},{wch:22},{wch:12},{wch:12},{wch:14},{wch:14},{wch:12},{wch:16},{wch:28}];
-    XLSX.utils.book_append_sheet(wb, ws, 'Pagamenti');
+    XLSX.utils.book_append_sheet(wb, ws, 'Chiusure settimanali');
   }
 
-  // ---- FOGLIO: Anticipi dettaglio completo ----
+  // ---- FOGLIO: Pagamenti dettaglio (anticipi + pagamenti) + residuo storico per dipendente ----
   if(document.getElementById('exp-anticipi-det').checked){
-    const antF = DB.anticipi.filter(a => a.data>=from && a.data<=to);
-    const label = `L'OTTANTUNOCENTO – ANTICIPI DETTAGLIO  |  ${fdate(from)} – ${fdate(to)}`;
+    const movD=[
+      ...DB.anticipi.filter(a=>a.data>=from&&a.data<=to).map(a=>({data:a.data,dipNome:a.dipNome,importo:parseFloat(a.importo||0),metodo:a.metodo||'',note:a.note||''})),
+      ...(DB.pagamenti||[]).filter(p=>p.data>=from&&p.data<=to).map(p=>({data:p.data,dipNome:p.dipNome,importo:parseFloat(p.pagato||0),metodo:p.metodo||'',note:(p.note||'')+(p.periodoDa?' [sett. '+fdate(p.periodoDa)+'→'+fdate(p.periodoAl||p.periodoDa)+']':'')}))
+    ].sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+    const label = `L'OTTANTUNOCENTO – PAGAMENTI DETTAGLIO  |  ${fdate(from)} – ${fdate(to)}`;
     const rows = [[label],[],
       ['Data','Dipendente','Importo (€)','Metodo','Note']
     ];
     let totAnt=0;
-    antF.forEach(a=>{
-      rows.push([fdate(a.data), a.dipNome, a.importo, a.metodo, a.note||'']);
-      totAnt+=a.importo;
-    });
-    rows.push(['TOTALE ANTICIPI','',totAnt,'','']);
+    movD.forEach(a=>{ rows.push([fdate(a.data), a.dipNome, a.importo, a.metodo, a.note||'']); totAnt+=a.importo; });
+    rows.push(['TOTALE PAGATO','',totAnt,'','']);
     rows.push([],[]);
 
-    // riepilogo per dipendente
-    rows.push(['📊  RIEPILOGO ANTICIPI PER DIPENDENTE','','','','']);
-    rows.push(['Dipendente','N° anticipi','Totale anticipi (€)','','']);
-    const perDipAnt={};
-    antF.forEach(a=>{
-      if(!perDipAnt[a.dipNome]) perDipAnt[a.dipNome]={n:0,tot:0};
-      perDipAnt[a.dipNome].n++;
-      perDipAnt[a.dipNome].tot+=a.importo;
+    // riepilogo per dipendente CON residuo anticipo storico
+    ricalcolaSaldi();
+    rows.push(['📊  RIEPILOGO PER DIPENDENTE','','','','']);
+    rows.push(['Dipendente','N° movimenti','Pagato periodo (€)','Anticipo storico residuo (€)','Residuo/Saldo (€)']);
+    const perDip={};
+    movD.forEach(a=>{ if(!perDip[a.dipNome]) perDip[a.dipNome]={n:0,tot:0}; perDip[a.dipNome].n++; perDip[a.dipNome].tot+=a.importo; });
+    const _sByName=n=>(DB.saldi||[]).find(x=>x.nome===n);
+    Object.entries(perDip).sort((a,b)=>b[1].tot-a[1].tot).forEach(([nome,v])=>{
+      const s=_sByName(nome); const saldo=s?parseFloat(s.saldo||0):0;
+      rows.push([nome, v.n, v.tot, Math.max(0,-saldo), saldo]);
     });
-    Object.entries(perDipAnt).sort((a,b)=>b[1].tot-a[1].tot).forEach(([nome,v])=>{
-      rows.push([nome, v.n, v.tot,'','']);
-    });
-    rows.push(['TOTALE','',totAnt,'','']);
 
-    if(!antF.length){
-      rows.push(['Nessun anticipo nel periodo selezionato','','','','']);
+    if(!movD.length){
+      rows.push(['Nessun pagamento nel periodo selezionato','','','','']);
     }
+    rows.push([]);
+    rows.push(['Anticipo storico residuo = quanto il dipendente ha ricevuto in più del maturato, da recuperare (0 se è a credito).  Residuo/Saldo = positivo → da pagargli, negativo → ha ricevuto in più.']);
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:12},{wch:22},{wch:14},{wch:14},{wch:35}];
-    XLSX.utils.book_append_sheet(wb, ws, 'Anticipi Dettaglio');
+    ws['!cols'] = [{wch:12},{wch:22},{wch:16},{wch:24},{wch:18}];
+    XLSX.utils.book_append_sheet(wb, ws, 'Pagamenti dettaglio');
   }
 
   // ---- FOGLIO: Addebiti e Scalature ----
