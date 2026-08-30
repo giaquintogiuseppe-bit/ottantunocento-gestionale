@@ -75,6 +75,8 @@ html,body{height:100%;background:var(--navy);color:var(--text);font-family:'IBM 
 .bd:hover{background:rgba(232,75,75,.1)}
 /* TABLE */
 .tc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden;margin-bottom:18px}
+details.tc>summary::-webkit-details-marker{display:none}
+details.tc[open]>summary .inc-caret{transform:rotate(90deg)}
 .th{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid var(--brd)}
 .th h3{font-size:13px;font-weight:700}
 .ts{background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:12px;padding:6px 10px;outline:none;width:180px}
@@ -9071,10 +9073,17 @@ async function rIncassi(){
   const senza=INC.filter(x=>!x.cantiereId);
   if(senza.length){
     const tSenza=senza.reduce((a,x)=>a+parseFloat(x.importo||0),0);
-    senzaHtml+=`<div class="tc" style="margin-bottom:18px;border:1px dashed var(--brd)">
-      <div class="th"><div><h3 style="font-size:15px">🧾 Fatture senza cantiere collegato</h3>
-      <div style="font-size:11px;color:var(--text2);margin-top:2px">${senza.length} incassi non agganciati a un cantiere</div></div>
-      <div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--green);font-family:'IBM Plex Mono',monospace">${fmt(tSenza)} incassati</div></div></div>
+    senzaHtml+=`<details class="tc" style="margin-bottom:18px;border:1px dashed var(--brd)">
+      <summary style="list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:var(--text2);transition:transform .2s" class="inc-caret">▶</span>
+          <div>
+            <h3 style="font-size:15px;margin:0">🧾 Fatture senza cantiere collegato</h3>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px">${senza.length} incassi non agganciati a un cantiere · clicca per espandere</div>
+          </div>
+        </div>
+        <div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--green);font-family:'IBM Plex Mono',monospace">${fmt(tSenza)} incassati</div></div>
+      </summary>
       <table style="width:100%"><thead><tr><th>Data</th><th>Importo</th><th>Metodo</th><th>Fattura</th><th>Cliente / Note</th><th></th></tr></thead>
       <tbody>${senza.slice().sort((a,b)=>(a.data||'').localeCompare(b.data||'')).map(x=>`
         <tr><td class="mn">${fdate(x.data)}</td>
@@ -9083,7 +9092,7 @@ async function rIncassi(){
         <td class="mn" style="color:var(--text2)">${x.fattura||'—'}</td>
         <td style="color:var(--text2);font-size:12px">${esc(x.committente||x.note||'')}</td>
         <td>${x._fonte==='blob'?`<button class="bd" onclick="eliminaIncasso('${x.id}')">✕</button>`:`<span style="color:var(--text2);font-size:11px">🧾</span>`}</td>
-        </tr>`).join('')}</tbody></table></div>`;
+        </tr>`).join('')}</tbody></table></details>`;
   }
 
   document.getElementById('inc-body').innerHTML=(senzaHtml+html)||'<div class="empty">Nessun cantiere con budget impostato.<br>Imposta il ricavo previsto dalla pagina Cantieri.</div>';
