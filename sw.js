@@ -1,4 +1,4 @@
-const CACHE_NAME = 'otto8100-gestionale-v10';
+const CACHE_NAME = 'otto8100-gestionale-v11';
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(['./','./index.html']).catch(()=>{}))); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k))))); self.clients.claim(); });
 self.addEventListener('fetch', e => {

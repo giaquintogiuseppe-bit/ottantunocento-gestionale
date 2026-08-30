@@ -574,7 +574,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="ni" onclick="nav('anticipi')">💳 Pagamenti</div>
   <div class="ni" onclick="nav('pagamenti')">💰 Chiusura settimana</div>
   <div class="ns">Report</div>
-  <div class="ni" onclick="nav('grafici')">📊 Grafici</div>
+  <div class="ni" onclick="nav('grafici')">📊 Cruscotto</div>
   <div class="ns">Personale</div>
   <div class="ni" onclick="nav('documenti')">📋 Documenti</div>
   <div class="ns">Sistema</div>
@@ -1240,28 +1240,12 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
   <!-- GRAFICI -->
   <div id="pg-grafici" class="pg">
-    <div class="pt">Grafici & Trend</div>
-    <div class="ps">Analisi visiva per il periodo selezionato</div>
-
-    <div class="chart-wrap">
-      <h3>💰 Maturato mensile per dipendente</h3>
-      <div id="chart-maturato"></div>
-    </div>
-
-    <div class="chart-wrap">
-      <h3>⛽ Spese carburante mensili</h3>
-      <div id="chart-carburante"></div>
-    </div>
-
-    <div class="chart-wrap">
-      <h3>📊 Riepilogo costi cantieri</h3>
-      <div id="chart-cantieri"></div>
-    </div>
-
-    <div class="chart-wrap">
-      <h3>👥 Giornate lavorate per persona</h3>
-      <div id="chart-giornate"></div>
-    </div>
+    <div class="pt">Cruscotto</div>
+    <div class="ps">I numeri per decidere: cassa, margini, costi, alert. I grafici mensili usano il periodo selezionato in alto.</div>
+    <div class="sg" id="cru-kpi"></div>
+    <div class="tc mt"><div class="th"><h3>💼 Margine per commessa</h3><span style="font-size:11px;color:var(--text2)">ricavo − costi (le perdite in cima)</span></div><div id="cru-margine"></div></div>
+    <div class="chart-wrap mt"><h3>👷 Costo personale per mese</h3><div id="cru-personale"></div></div>
+    <div class="tc mt"><div class="th"><h3>⚠️ Da tenere d'occhio</h3></div><div id="cru-alert" style="padding:12px"></div></div>
   </div>
 
   <!-- DOCUMENTI PERSONALE -->
@@ -1750,7 +1734,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div class="mni-item" onclick="openModal('modal-import-xl')"><span class="mii">📂</span>Importa</div>
     <div class="mni-item" onclick="nav('pagamenti')"><span class="mii">💰</span>Chiusura</div>
     <div class="mni-item" onclick="nav('dkv')"><span class="mii">⛽</span>DKV</div>
-    <div class="mni-item" onclick="nav('grafici')"><span class="mii">📈</span>Grafici</div>
+    <div class="mni-item" onclick="nav('grafici')"><span class="mii">📈</span>Cruscotto</div>
     <div class="mni-item" onclick="nav('documenti')"><span class="mii">📋</span>Docs</div>
     <div class="mni-item" onclick="nav('scontrini')"><span class="mii">🧾</span>Scontrini</div>
     <div class="mni-item" onclick="nav('sync')"><span class="mii">☁️</span>Sync</div>
@@ -7988,11 +7972,45 @@ function rPagHist(){
 // ============================================================
 // GRAFICI
 // ============================================================
-function rGrafici(){
-  rGraficoMaturato();
-  rGraficoCarburante();
-  rGraficoCantieri();
-  rGraficoGiornate();
+async function rGrafici(){
+  if(!_fatture||!_fatture.length){ try{ const F=_FAPI(); const r=await fetch(F.url+'?select=*',{headers:F.h,cache:'no-cache'}); if(r.ok)_fatture=await r.json(); }catch(e){} }
+  ricalcolaSaldi();
+  // ── KPI cassa ──
+  const daIncassare=(_fatture||[]).filter(f=>f.stato==='emessa').reduce((s,f)=>s+_fattResiduo(f),0);
+  const daPagareDip=(DB.saldi||[]).reduce((s,x)=>s+Math.max(0,x.saldo||0),0);
+  const scadute=(_fatture||[]).filter(f=>{const s=fattStatoScadenza(f);return s&&s.cls==='scaduta';});
+  const scadTot=scadute.reduce((s,f)=>s+_fattResiduo(f),0);
+  const cant=(DB.cantieri||[]).map(c=>{ const ric=getBudget(c.id,c.nome); const co=_getCostiCantiere(c.nome); return {nome:c.nome, ricavo:ric, costi:co.totale||0, margine:ric-(co.totale||0)}; }).filter(x=>x.ricavo>0||x.costi>0);
+  const margineTot=cant.reduce((s,x)=>s+x.margine,0);
+  const kpi=document.getElementById('cru-kpi');
+  if(kpi) kpi.innerHTML=`
+    <div class="sc"><div class="lb">💰 Da incassare (clienti)</div><div class="vl gr" style="font-size:20px">${fmt(daIncassare)}</div><div class="sb2">fatture emesse non pagate</div></div>
+    <div class="sc"><div class="lb">💸 Da pagare dipendenti</div><div class="vl or" style="font-size:20px">${fmt(daPagareDip)}</div><div class="sb2">saldi correnti</div></div>
+    <div class="sc" id="cru-forn"><div class="lb">🧾 Da pagare fornitori</div><div class="vl or" style="font-size:20px">…</div><div class="sb2">carico…</div></div>
+    <div class="sc" ${scadute.length?'style="border-color:rgba(232,75,75,.4)"':''}><div class="lb">⚠ Fatture scadute</div><div class="vl" style="font-size:20px;color:${scadute.length?'var(--red)':'var(--text)'}">${scadute.length}</div><div class="sb2">${fmt(scadTot)} da incassare</div></div>
+    <div class="sc"><div class="lb">📈 Margine cantieri</div><div class="vl ${margineTot>=0?'gr':'rr'}" style="font-size:20px">${fmt(margineTot)}</div><div class="sb2">ricavi − costi</div></div>`;
+  // fornitori (async, tabella fatture_acquisto)
+  (async()=>{ try{
+    if(!Array.isArray(_faRows)){ const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=*',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'}); _faRows=r.ok?await r.json():[]; }
+    const forn=(_faRows||[]).reduce((s,f)=>s+(typeof _pfNum==='function'?_pfNum(f.residuo):parseFloat(f.residuo||0)),0);
+    const el=document.getElementById('cru-forn'); if(el) el.innerHTML=`<div class="lb">🧾 Da pagare fornitori</div><div class="vl or" style="font-size:20px">${fmt(forn)}</div><div class="sb2">residuo fatture ricevute</div>`;
+  }catch(e){ const el=document.getElementById('cru-forn'); if(el){ const v=el.querySelector('.vl'); if(v)v.textContent='—'; } } })();
+  // ── Margine per commessa (perdite in cima) ──
+  const mrg=document.getElementById('cru-margine');
+  const sorted=cant.slice().sort((a,b)=>a.margine-b.margine);
+  if(mrg) mrg.innerHTML=cant.length?`<div style="overflow-x:auto"><table style="width:100%;font-size:12.5px"><thead><tr><th>Commessa</th><th style="text-align:right">Ricavo</th><th style="text-align:right">Costi</th><th style="text-align:right">Margine</th><th style="text-align:right">%</th></tr></thead><tbody>${sorted.map(x=>`<tr><td><b>${esc(x.nome)}</b></td><td class="mn" style="text-align:right">${x.ricavo?fmt(x.ricavo):'—'}</td><td class="mn" style="text-align:right;color:var(--red)">${x.costi?fmt(x.costi):'—'}</td><td class="mn" style="text-align:right;font-weight:800;color:${x.margine>=0?'var(--green)':'var(--red)'}">${fmt(x.margine)}</td><td class="mn" style="text-align:right;color:var(--text2)">${x.ricavo>0?Math.round(x.margine/x.ricavo*100)+'%':'—'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty" style="padding:16px">Nessuna commessa con ricavo o costi nel periodo.</div>';
+  // ── Costo personale per mese ──
+  const mesi={};
+  Object.keys(DB.presenze||{}).filter(d=>d.length===10&&inRange(d)).forEach(d=>{ const m=d.slice(0,7); if(!(m in mesi))mesi[m]=0; (DB.personale||[]).forEach(p=>{ const pr=(DB.presenze[d]||{})[p.id]; if(pr)mesi[m]+=pr.totale||0; }); });
+  const itemsP=Object.entries(mesi).sort().map(([m,v])=>({label:new Date(m+'-01').toLocaleDateString('it-IT',{month:'short',year:'2-digit'}),val:Math.round(v)}));
+  makeBars('cru-personale',itemsP,'bar-mat','label','val');
+  // ── Alert ──
+  const senzaRicavo=(DB.cantieri||[]).filter(c=>c.nome&&getBudget(c.id,c.nome)<=0&&!c.archiviato&&c.stato!=='concluso');
+  const al=document.getElementById('cru-alert');
+  if(al) al.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:10px">
+    <div class="sc" style="flex:1;min-width:220px;${scadute.length?'border-color:rgba(232,75,75,.4)':''}"><div class="lb">Fatture scadute</div>${scadute.length?scadute.slice(0,6).map(f=>`<div style="font-size:12px;display:flex;justify-content:space-between;gap:8px;padding:2px 0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.cliente||'—')}</span><span class="mn" style="color:var(--red);white-space:nowrap">${fmt(_fattResiduo(f))}</span></div>`).join('')+(scadute.length>6?`<div style="font-size:11px;color:var(--text2)">+${scadute.length-6} altre</div>`:''):'<div style="color:var(--green);font-size:12px">Nessuna ✓</div>'}</div>
+    <div class="sc" style="flex:1;min-width:220px"><div class="lb">Commesse senza ricavo impostato</div>${senzaRicavo.length?senzaRicavo.slice(0,6).map(c=>`<div style="font-size:12px;padding:2px 0">${esc(c.nome)}</div>`).join('')+(senzaRicavo.length>6?`<div style="font-size:11px;color:var(--text2)">+${senzaRicavo.length-6} altre</div>`:''):'<div style="color:var(--green);font-size:12px">Tutte con ricavo ✓</div>'}</div>
+  </div>`;
 }
 
 function makeBars(containerId,items,colorClass,labelKey,valKey,suffix=''){
