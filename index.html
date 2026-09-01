@@ -4112,7 +4112,7 @@ function loadPres(){
     d?`${fdate(d)} — ${Object.keys(stato).length} presenti — Maturato: ${fmt(totGiornata)}`:'Seleziona una data';
 
   const cantOpzioni=`<option value="">— Nessun cantiere —</option>`+
-    (DB.cantieri||[]).filter(Boolean).map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('')+
+    _optCantByNome('')+
     `<option value="__nuovo__">➕ Crea nuovo cantiere...</option>`;
 
   document.getElementById('pres-grid').innerHTML=DB.personale.map(p=>{
@@ -4268,7 +4268,7 @@ function updatePresCantiere(pid, selectEl){
     val = nomeCreato;
     // ricostruisce le opzioni della select con il nuovo cantiere incluso
     selectEl.innerHTML = '<option value="">— Nessun cantiere —</option>' +
-      DB.cantieri.map(c=>`<option value="${c.nome}" ${c.nome===val?'selected':''}>${c.nome}</option>`).join('') +
+      _optCantByNome(val) +
       '<option value="__nuovo__">➕ Crea nuovo cantiere...</option>';
     selectEl.value = val;
   }
@@ -4666,7 +4666,7 @@ function rNuovaGiornata(){
   if(cantSel){
     const cur=cantSel.value;
     cantSel.innerHTML='<option value="">— Nessun cantiere —</option>'+
-      (DB.cantieri||[]).filter(Boolean).map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('')+
+      _optCantByNome(cur||'')+
       '<option value="__nuovo__">➕ Crea nuovo cantiere...</option>';
     if(cur) cantSel.value=cur;
   }
@@ -4685,7 +4685,7 @@ function rNuovaGiornata(){
         <tr id="ngr-${p.id}">
           <td style="padding:7px 10px;font-weight:600;font-size:13px">${p.nome.split(' ')[0]} <span style="font-size:11px;color:var(--text2)">${p.nome.split(' ').slice(1).join(' ')}</span></td>
           <td style="text-align:center;padding:7px 6px"><input type="checkbox" id="ngc-${p.id}" style="width:16px;height:16px;accent-color:var(--teal)" onchange="ngToggle('${p.id}')"></td>
-          <td style="padding:7px 4px"><select class="ie cantiere-select" id="ngcant-${p.id}" disabled style="opacity:.4"><option value="">—</option>${(DB.cantieri||[]).filter(Boolean).map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('')}</select></td>
+          <td style="padding:7px 4px"><select class="ie cantiere-select" id="ngcant-${p.id}" disabled style="opacity:.4"><option value="">—</option>${_optCantByNome('')}</select></td>
           <td style="padding:7px 4px"><input class="ie" type="number" id="ngbase-${p.id}" placeholder="0" disabled style="opacity:.4" oninput="ngCalcTot('${p.id}')"></td>
           <td style="padding:7px 4px"><input class="ie" type="number" id="ngstr-${p.id}" placeholder="0" disabled style="opacity:.4" oninput="ngCalcTot('${p.id}')"></td>
           <td style="padding:7px 4px"><input class="ie" id="ngnote-${p.id}" placeholder="Note" disabled style="opacity:.4"></td>
@@ -5910,7 +5910,7 @@ function creaCantiereVeloce(nome){
 // Aggiorna tutti i <select> cantiere sparsi nell'app
 function sincronizzaCantieri(){
   const opts = '<option value="">— Nessun cantiere —</option>' +
-    (DB.cantieri||[]).filter(Boolean).map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');
+    _cantieriOrdinati(true).map(c=>`<option value="${esc(c.nome)}">${esc(c.nome)}</option>`).join('');
   document.querySelectorAll('select.cantiere-select').forEach(sel=>{
     const cur = sel.value;
     sel.innerHTML = opts + '<option value="__nuovo__">➕ Crea nuovo cantiere...</option>';
@@ -5995,6 +5995,61 @@ async function rAttrezzeria(){
   </tr>`).join('');
 }
 function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ── Cantieri ordinati "attivi prima" ────────────────────────────────────────
+// Prima gli operativi, poi i depositi/lungo periodo, in fondo i conclusi/persi.
+// Riduce la sfilza nei menu a tendina (76 cantieri, solo ~15 attivi).
+function _cantieriOrdinati(includiArchiviati){
+  const archIds=new Set(DB._cantieriArchiviati||[]);
+  const isConcl=c=>{const s=(c.stato||'').toLowerCase();return s.includes('conclus')||s.includes('pers');};
+  const rank=c=>isConcl(c)?2:(c.tipo==='lungo_periodo'?1:0);
+  return (DB.cantieri||[]).filter(c=>c && (includiArchiviati||!archIds.has(c.id)))
+    .slice().sort((a,b)=>rank(a)-rank(b)||(a.nome||'').localeCompare(b.nome||''));
+}
+// <option> per NOME (value=nome), attivi-prima; mantiene selNome anche se archiviato/assente
+function _optCantByNome(selNome){
+  const arr=_cantieriOrdinati();
+  if(selNome && !arr.some(c=>c.nome===selNome)){
+    const c=(DB.cantieri||[]).find(x=>x.nome===selNome);
+    arr.unshift(c||{nome:selNome});
+  }
+  return arr.map(c=>`<option value="${esc(c.nome)}"${c.nome===selNome?' selected':''}>${esc(c.nome)}</option>`).join('');
+}
+// <option> per ID (value=id), attivi-prima; mantiene selId anche se archiviato/assente
+function _optCantById(selId, withComm){
+  const arr=_cantieriOrdinati();
+  if(selId && !arr.some(c=>c.id===selId)){
+    const c=(DB.cantieri||[]).find(x=>x.id===selId);
+    if(c) arr.unshift(c);
+  }
+  return arr.map(c=>`<option value="${c.id}"${c.id===selId?' selected':''}>${esc(c.nome)}${withComm&&c.committente?' · '+esc(c.committente):''}</option>`).join('');
+}
+
+// ── Stop autofill contatti del telefono (rubrica) sui campi di testo ──
+function _killAutofill(root){
+  const NO=['date','time','number','checkbox','radio','file','range','color','password','hidden'];
+  (root||document).querySelectorAll('input').forEach(el=>{
+    if(el.dataset.afDone) return;
+    const t=(el.getAttribute('type')||'text').toLowerCase();
+    if(NO.includes(t)) return;
+    el.setAttribute('autocomplete','off');
+    el.setAttribute('autocorrect','off');
+    el.setAttribute('spellcheck','false');
+    el.dataset.afDone='1';
+  });
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  _killAutofill(document);
+  try{
+    new MutationObserver(ms=>{
+      for(const m of ms) for(const n of m.addedNodes){
+        if(n.nodeType!==1) continue;
+        if(n.matches&&n.matches('input')) _killAutofill(n.parentNode||document);
+        else if(n.querySelector&&n.querySelector('input')) _killAutofill(n);
+      }
+    }).observe(document.body,{childList:true,subtree:true});
+  }catch(e){}
+});
 
 function _popolaSelect(sel, valori, attuale){
   sel.innerHTML = '<option value="">—</option>' + valori.map(v=>`<option value="${esc(v)}"${v===attuale?' selected':''}>${esc(v)}</option>`).join('');
@@ -6377,7 +6432,7 @@ function rFlotta(){
     <td>
       <select class="ie cantiere-select" style="font-size:11px;padding:4px 6px" onchange="assegnaCantiereCarburante('${f.id}',this.value)">
         <option value="">— Nessuno —</option>
-        ${DB.cantieri.map(c=>`<option value="${c.nome}" ${c.nome===f.cantiere?'selected':''}>${c.nome}</option>`).join('')}
+        ${_optCantByNome(f.cantiere)}
       </select>
     </td>
     <td style="font-size:11px;color:var(--text2)">${f.note}</td>
@@ -8746,7 +8801,7 @@ function apriModificaSpesa(id){
   document.getElementById('se-categoria').value=s.categoria||'Altro';
   // Popola select cantieri
   const sel=document.getElementById('se-cantiere');
-  sel.innerHTML=(DB.cantieri||[]).map(c=>`<option value="${c.nome}" ${c.nome===s.cantiere?'selected':''}>${c.nome}</option>`).join('');
+  sel.innerHTML=_optCantByNome(s.cantiere);
   // Avviso se è uno scontrino contabilizzato
   const warn=document.getElementById('se-warn');
   if(s.scontrinoId){
@@ -8994,8 +9049,7 @@ async function rIncassi(){
   const sel=document.getElementById('inc-cant');
   if(sel){
     const archIds=new Set(DB._cantieriArchiviati||[]);
-    sel.innerHTML='<option value="">— Seleziona cantiere —</option>'+
-      (DB.cantieri||[]).filter(c=>!archIds.has(c.id)).map(c=>`<option value="${c.id}">${c.nome}${c.committente?' · '+c.committente:''}</option>`).join('');
+    sel.innerHTML='<option value="">— Seleziona cantiere —</option>'+_optCantById('', true);
   }
   if(!document.getElementById('inc-data').value) document.getElementById('inc-data').value=today();
 
