@@ -2474,10 +2474,13 @@ function getBudget(cantiereId, cantiereName){
   return byName?parseFloat(byName.ricavoPrevisto||0):0;
 }
 
-// ── CANTIERI CONTINUATIVI: ricavo rolling ─────────────────────────────────
-// Un cantiere con `continuativa:true` (es. GAETA/BLU) matura il ricavo mese per
-// mese: il fatturato supera presto il "previsto" fisso, quindi NON si può usare
-// "da fatturare = previsto − fatturato" (darebbe margini negativi fantasma).
+// ── RICAVO ROLLING per i cantieri (fix continuativi) ──────────────────────
+// Problema: sui cantieri che maturano ricavo nel tempo (es. GAETA/BLU) il
+// fatturato supera presto il "previsto" fisso → margini/residui negativi
+// fantasma. Il flag `continuativa` NON è affidabile (default evento=true lo
+// accende su quasi tutto, e sulla vera GAETA è nullo), quindi NON lo usiamo
+// come discriminante: applichiamo una regola sempre valida e neutra.
+//
 // Fatturato maturato di un cantiere = somma fatture emesse/pagate (no annullate,
 // no da_emettere) agganciate per id o, in ripiego, per nome cantiere.
 function _fatturatoCantiere(c){
@@ -2491,14 +2494,14 @@ function _fatturatoCantiere(c){
     return (byId||byNm) ? s+(+f.importo||0) : s;
   },0);
 }
-// Ricavo da usare nei margini/posizione: per i continuativi è il maturato
-// (mai sotto il fatturato); per gli altri resta il previsto fisso.
-// Nota: se _fatture non è ancora caricato, _fatturatoCantiere torna 0 e quindi
-// si ripiega sul previsto — nessun crash, solo niente rolling finché mancano i dati.
+// Ricavo da usare nei MARGINI: il ricavo non può mai essere sotto quanto già
+// fatturato. Per un cantiere normale fatturato≈previsto → invariato; per uno
+// che ha maturato oltre il previsto (continuativo) usa il fatturato reale.
+// Nota: se _fatture non è caricato, _fatturatoCantiere torna 0 → si ripiega
+// sul previsto — nessun crash, solo niente rolling finché mancano i dati.
 function _ricavoCommessa(c){
   const prev=getBudget(c.id, c.nome)||0;
-  if(c && c.continuativa) return Math.max(prev, _fatturatoCantiere(c));
-  return prev;
+  return Math.max(prev, _fatturatoCantiere(c));
 }
 
 // Salva/aggiorna il budget di un cantiere nel Gestionale
@@ -5319,8 +5322,8 @@ function _raccogliDettCant(nome, da, al){
 function rDettEco(cant, nome){
   const box=document.getElementById('dett-eco'); if(!box) return;
   const costi=_getCostiCantiere(nome);
-  const isCont=!!(cant && cant.continuativa);
-  const ricavo=cant?_ricavoCommessa(cant):0;   // continuativi: ricavo = maturato (fatturato), non previsto fisso
+  const ricavo=cant?_ricavoCommessa(cant):0;   // ricavo mai sotto il fatturato (rolling per i continuativi)
+  const isCont=cant ? (ricavo > (getBudget(cant.id,nome)||0)+0.5) : false;   // rolling effettivo: fatturato > previsto
   const totale=costi.totale;
   const margine=ricavo-totale;
   const margPct=ricavo>0?(margine/ricavo*100):null;
@@ -5328,7 +5331,7 @@ function rDettEco(cant, nome){
     <span style="color:var(--text2)">${lbl}</span><span class="mn" style="font-weight:700${extra||''}">${fmt(val)}</span></div>`;
   box.innerHTML=`<div style="background:var(--card);border:1px solid var(--brd);border-radius:12px;padding:14px 16px">
     <div style="font-size:14px;font-weight:800;margin-bottom:10px">📊 Conto del cantiere <span style="font-size:11px;color:var(--text2);font-weight:400">· dai dati reali registrati</span></div>
-    ${riga(isCont?'Ricavo maturato (continuativa · fatturato)':'Ricavo (previsto/concordato)', ricavo, ';color:var(--teal)')}
+    ${riga(isCont?'Ricavo maturato (fatturato > previsto)':'Ricavo (previsto/concordato)', ricavo, ';color:var(--teal)')}
     ${riga('Manodopera (netto giornate)', -costi.personale)}
     ${riga('Oneri giornalieri (contributi e spese personale)', -costi.oneri)}
     ${riga('Carburante', -costi.carburante)}
@@ -8073,7 +8076,7 @@ async function rGrafici(){
   const daPagareDip=(DB.saldi||[]).reduce((s,x)=>s+Math.max(0,x.saldo||0),0);
   const scadute=(_fatture||[]).filter(f=>{const s=fattStatoScadenza(f);return s&&s.cls==='scaduta';});
   const scadTot=scadute.reduce((s,f)=>s+_fattResiduo(f),0);
-  const cant=(DB.cantieri||[]).map(c=>{ const ric=_ricavoCommessa(c); const co=_getCostiCantiere(c.nome); return {nome:c.nome, ricavo:ric, costi:co.totale||0, margine:ric-(co.totale||0), cont:!!c.continuativa}; }).filter(x=>x.ricavo>0||x.costi>0);
+  const cant=(DB.cantieri||[]).map(c=>{ const prev=getBudget(c.id,c.nome)||0; const ric=_ricavoCommessa(c); const co=_getCostiCantiere(c.nome); return {nome:c.nome, ricavo:ric, costi:co.totale||0, margine:ric-(co.totale||0), cont:ric>prev+0.5}; }).filter(x=>x.ricavo>0||x.costi>0);
   const margineTot=cant.reduce((s,x)=>s+x.margine,0);
   const kpi=document.getElementById('cru-kpi');
   if(kpi) kpi.innerHTML=`
@@ -8091,7 +8094,7 @@ async function rGrafici(){
   // ── Margine per commessa (perdite in cima) ──
   const mrg=document.getElementById('cru-margine');
   const sorted=cant.slice().sort((a,b)=>a.margine-b.margine);
-  if(mrg) mrg.innerHTML=cant.length?`<div style="overflow-x:auto"><table style="width:100%;font-size:12.5px"><thead><tr><th>Commessa</th><th style="text-align:right">Ricavo</th><th style="text-align:right">Costi</th><th style="text-align:right">Margine</th><th style="text-align:right">%</th></tr></thead><tbody>${sorted.map(x=>`<tr><td><b>${esc(x.nome)}</b>${x.cont?' <span style="font-size:9px;font-weight:700;color:var(--teal);border:1px solid var(--teal);border-radius:4px;padding:0 3px" title="Continuativa: ricavo = maturato (fatturato), non previsto fisso">ROLLING</span>':''}</td><td class="mn" style="text-align:right">${x.ricavo?fmt(x.ricavo):'—'}</td><td class="mn" style="text-align:right;color:var(--red)">${x.costi?fmt(x.costi):'—'}</td><td class="mn" style="text-align:right;font-weight:800;color:${x.margine>=0?'var(--green)':'var(--red)'}">${fmt(x.margine)}</td><td class="mn" style="text-align:right;color:var(--text2)">${x.ricavo>0?Math.round(x.margine/x.ricavo*100)+'%':'—'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty" style="padding:16px">Nessuna commessa con ricavo o costi nel periodo.</div>';
+  if(mrg) mrg.innerHTML=cant.length?`<div style="overflow-x:auto"><table style="width:100%;font-size:12.5px"><thead><tr><th>Commessa</th><th style="text-align:right">Ricavo</th><th style="text-align:right">Costi</th><th style="text-align:right">Margine</th><th style="text-align:right">%</th></tr></thead><tbody>${sorted.map(x=>`<tr><td><b>${esc(x.nome)}</b>${x.cont?' <span style="font-size:9px;font-weight:700;color:var(--teal);border:1px solid var(--teal);border-radius:4px;padding:0 3px" title="Ricavo maturato: il fatturato ha superato il previsto, uso il fatturato reale">ROLLING</span>':''}</td><td class="mn" style="text-align:right">${x.ricavo?fmt(x.ricavo):'—'}</td><td class="mn" style="text-align:right;color:var(--red)">${x.costi?fmt(x.costi):'—'}</td><td class="mn" style="text-align:right;font-weight:800;color:${x.margine>=0?'var(--green)':'var(--red)'}">${fmt(x.margine)}</td><td class="mn" style="text-align:right;color:var(--text2)">${x.ricavo>0?Math.round(x.margine/x.ricavo*100)+'%':'—'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty" style="padding:16px">Nessuna commessa con ricavo o costi nel periodo.</div>';
   // ── Costo personale per mese ──
   const mesi={};
   Object.keys(DB.presenze||{}).filter(d=>d.length===10&&inRange(d)).forEach(d=>{ const m=d.slice(0,7); if(!(m in mesi))mesi[m]=0; (DB.personale||[]).forEach(p=>{ const pr=(DB.presenze[d]||{})[p.id]; if(pr)mesi[m]+=pr.totale||0; }); });
@@ -10958,14 +10961,9 @@ function _pcCompute(){
     const nome = (c.clienteId && cliById[c.clienteId]) ? cliById[c.clienteId].ragioneSociale : (nomeAnag[key]||c.committente||'(cliente da assegnare)');
     const e=get(key,nome);
     const incC = (typeof _pcCantIncassi==='function') ? _pcCantIncassi(c.id) : 0;   // incassi registrati SENZA fattura sul cantiere (contanti/sponsor/compensazione)
-    // CONTINUATIVI: il ricavo matura mese per mese, quindi il "previsto" fisso NON è
-    // un "da fatturare". Niente da-fatturare fantasma dal previsto; i periodi ancora
-    // da emettere si gestiscono via fatture da_emettere / interventi. Gli incassi
-    // senza fattura restano contabilizzati come incassato.
-    if(c.continuativa){
-      if(incC>0) e.incassato += Math.min(incC, r||incC);
-      return;
-    }
+    // "da fatturare" = previsto MENO gli incassi senza fattura, mai negativo, e solo
+    // per i cantieri non ancora coperti da fattura (matched() sopra li ha già esclusi).
+    // Così i continuativi già fatturati oltre il previsto non generano numeri fantasma.
     const rNet = Math.max(0, r - incC);
     if(incC>0) e.incassato += Math.min(incC, r||incC);                                // ciò che hai già preso senza fattura conta come incassato
     if(rNet>0){ e.daFatt.push({c, r:rNet, inc:incC}); e.daFattTot+=rNet; }             // da fatturare = budget MENO quanto già incassato senza fattura
