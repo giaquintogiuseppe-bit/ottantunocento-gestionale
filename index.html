@@ -2137,6 +2137,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="md" style="max-width:640px">
     <div class="mh"><h3>📁 Importa fatture da XML</h3><button class="mc" onclick="closeModal('modal-import-fatt')">✕</button></div>
     <div style="padding:0 20px 8px">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Riconosce da solo emesse e ricevute: le <b style="color:#4a8fd0">clienti</b> vanno in Fatture, le <b style="color:#c9862a">fornitori</b> in Da pagare fornitori. I doppioni (anche quelli già entrati dalla banca) vengono saltati.</div>
       <div id="imp-riepilogo" style="font-size:13px;margin-bottom:12px"></div>
       <div id="imp-lista"></div>
     </div>
@@ -3503,11 +3504,14 @@ async function fattImportaXML(input){
   const utili=files.filter(f=>!/_MT_|metadat/i.test(f.name));
   const scartatiMT=files.length-utili.length;
   toast('⏳ Lettura di '+utili.length+' file...');
-  // carica le fatture già presenti per l'anti-doppione
-  let esistenti=[];
-  try{ const F=_FAPI(); const r=await fetch(F.url+'?select=numero,cliente&limit=5000',{headers:F.h,cache:'no-cache'}); esistenti=await r.json(); }catch(e){}
+  // carica le fatture già presenti per l'anti-doppione: clienti in `fatture`,
+  // fornitori in `fatture_acquisto` (alimentata anche dalla riconciliazione banca).
   const _nrm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
-  const chiaveEsist=new Set(esistenti.map(f=>_nrm(String(f.numero||'').split('/')[0])+'|'+_nrm(f.cliente)));
+  let esistenti=[], esistentiFA=[];
+  try{ const F=_FAPI(); const r=await fetch(F.url+'?select=numero,cliente&limit=5000',{headers:F.h,cache:'no-cache'}); esistenti=await r.json(); }catch(e){}
+  try{ const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=numero,rif_fornitore,fornitore&limit=8000',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'}); esistentiFA=await r.json(); }catch(e){}
+  const chiaveCli=new Set(esistenti.map(f=>_nrm(String(f.numero||'').split('/')[0])+'|'+_nrm(f.cliente)));
+  const chiaveFor=new Set(); (esistentiFA||[]).forEach(f=>{ const nf=_nrm(f.fornitore); chiaveFor.add(nf+'|'+_nrm(f.rif_fornitore)); chiaveFor.add(nf+'|'+_nrm(String(f.numero||'').split('/').pop())); });
   const nuove=[], doppie=[], errori=[];
   for(const file of utili){
     try{
@@ -3515,8 +3519,10 @@ async function fattImportaXML(input){
       if(!xml){ errori.push(file.name); continue; }
       const d=_estraiDatiFattura(xml);
       if(!d.numero){ errori.push(file.name); continue; }
-      const chiave=_nrm(String(d.numero||'').split('/')[0])+'|'+_nrm(d.controparte);
-      if(chiaveEsist.has(chiave)){ doppie.push(d); continue; }
+      const isFor = d.tipo==='fornitore';
+      const chiave = isFor ? (_nrm(d.controparte)+'|'+_nrm(d.numero))
+                           : (_nrm(String(d.numero||'').split('/')[0])+'|'+_nrm(d.controparte));
+      if(isFor ? chiaveFor.has(chiave) : chiaveCli.has(chiave)){ doppie.push(d); continue; }
       // suggerisce cantiere dalla descrizione (cerca un nome cantiere citato)
       d._cantiereSugg='';
       const desc=(d.descrizione||'').toLowerCase();
@@ -3571,34 +3577,56 @@ async function fattImportaConferma(){
   _impInCorso=true;
   const btn=document.getElementById('imp-conferma-btn'); if(btn) btn.disabled=true;
   const F=_FAPI();
+  const faURL=SUPABASE_URL+'/rest/v1/fatture_acquisto';
+  const faH={apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'};
+  const _n2=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
   try{
-    // ricontrollo doppioni un istante prima di scrivere (contro modal riaperti e importazioni parallele)
-    let esistenti=[];
-    try{ const r=await fetch(F.url+'?select=numero,cliente&limit=5000',{headers:F.h,cache:'no-cache'}); esistenti=await r.json(); }catch(e){}
-    const _n2=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
-    const gia=new Set(esistenti.map(f=>_n2(String(f.numero||'').split('/')[0])+'|'+_n2(f.cliente)));
-    const daInserire=_impDaImportare.filter(d=>!gia.has(_n2(String(d.numero||'').split('/')[0])+'|'+_n2(d.controparte)));
-    const saltate=_impDaImportare.length-daInserire.length;
-    if(!daInserire.length){
-      _impDaImportare=[]; closeModal('modal-import-fatt');
-      toast('⊘ Tutte già presenti: nessun doppione creato'); renderFatture(); return;
+    // instrada: EMESSE (clienti) → tabella `fatture`; RICEVUTE (fornitori) → `fatture_acquisto`.
+    const clienti=_impDaImportare.filter(d=>d.tipo!=='fornitore');
+    const forn   =_impDaImportare.filter(d=>d.tipo==='fornitore');
+    let insCli=0, insFor=0, skip=0;
+
+    // ---- CLIENTI → fatture ----
+    if(clienti.length){
+      let es=[]; try{ const r=await fetch(F.url+'?select=numero,cliente&limit=5000',{headers:F.h,cache:'no-cache'}); es=await r.json(); }catch(e){}
+      const gia=new Set(es.map(f=>_n2(String(f.numero||'').split('/')[0])+'|'+_n2(f.cliente)));
+      const da=clienti.filter(d=>!gia.has(_n2(String(d.numero||'').split('/')[0])+'|'+_n2(d.controparte)));
+      skip += clienti.length-da.length;
+      if(da.length){
+        const payload=da.map(d=>{ const cant=(DB.cantieri||[]).find(c=>c.id===d._cantiereFinale); return {
+          numero:d.numero, data_fattura:d.data||null, cliente:d.controparte,
+          cantiere_id:d._cantiereFinale||null, cantiere_nome:cant?cant.nome:null,
+          importo:d.importo, tipo:'unica', scadenza:d._scadenzaFinale||null, preavviso_giorni:d._preavviso||7,
+          stato:d._statoFinale||'emessa', data_pagamento:(d._statoFinale==='pagata'?(d.data||null):null),
+          note:(d.descrizione||'') }; });
+        await fetch(F.url,{method:'POST',headers:{...F.h,Prefer:'return=minimal'},body:JSON.stringify(payload)});
+        insCli=payload.length;
+      }
     }
-    const payload=daInserire.map(d=>{
-      const cant=(DB.cantieri||[]).find(c=>c.id===d._cantiereFinale);
-      return {
-        numero:d.numero, data_fattura:d.data||null, cliente:d.controparte,
-        cantiere_id:d._cantiereFinale||null, cantiere_nome:cant?cant.nome:null,
-        importo:d.importo, tipo:'unica',
-        scadenza:d._scadenzaFinale||null, preavviso_giorni:d._preavviso||7,
-        stato:d._statoFinale||'emessa',
-        data_pagamento:(d._statoFinale==='pagata'? (d.data||null) : null),
-        note:(d.tipo==='fornitore'?'[Fornitore] ':'')+(d.descrizione||'')
-      };
-    });
-    await fetch(F.url,{method:'POST',headers:{...F.h,Prefer:'return=minimal'},body:JSON.stringify(payload)});
+
+    // ---- FORNITORI → fatture_acquisto (dedup su fornitore + numero del fornitore) ----
+    if(forn.length){
+      let es=[]; try{ const r=await fetch(faURL+'?select=numero,rif_fornitore,fornitore&limit=8000',{headers:faH,cache:'no-cache'}); es=await r.json(); }catch(e){}
+      const gia=new Set(); (es||[]).forEach(f=>{ const nf=_n2(f.fornitore); gia.add(nf+'|'+_n2(f.rif_fornitore)); gia.add(nf+'|'+_n2(String(f.numero||'').split('/').pop())); });
+      const da=forn.filter(d=>!gia.has(_n2(d.controparte)+'|'+_n2(d.numero)));
+      skip += forn.length-da.length;
+      if(da.length){
+        const payload=da.map(d=>{ const cant=(DB.cantieri||[]).find(c=>c.id===d._cantiereFinale); return {
+          numero:d.numero||'(s.n.)', rif_fornitore:d.numero||null, fornitore:d.controparte||'(fornitore)',
+          data_fattura:d.data||null, importo:d.importo, residuo:d.importo,
+          stato_smart:'Da verificare', stato_verificato:'da_verificare', fonte_conferma:'import_xml',
+          cantiere_id:d._cantiereFinale||null, cantiere_nome:cant?cant.nome:null,
+          note:(d.descrizione||'')||null }; });
+        await fetch(faURL,{method:'POST',headers:{...faH,Prefer:'return=minimal'},body:JSON.stringify(payload)});
+        insFor=payload.length;
+      }
+    }
+
     _impDaImportare=[];                        // mai riusabile per un secondo inserimento
+    _faRows=null;                              // forza il ricarico dei fornitori nel cruscotto
     closeModal('modal-import-fatt');
-    toast('✓ Importate '+payload.length+' fatture'+(saltate?' · '+saltate+' già presenti saltate':''));
+    const parts=[]; if(insCli) parts.push(insCli+' clienti'); if(insFor) parts.push(insFor+' fornitori');
+    toast(parts.length? ('✓ Importate: '+parts.join(' + ')+(skip?' · '+skip+' già presenti saltate':'')) : ('⊘ Tutte già presenti: nessun doppione creato'));
     renderFatture();
   }catch(e){ toast('⚠ Errore import: '+String(e.message||e).slice(0,50)); }
   finally{ _impInCorso=false; if(btn) btn.disabled=false; }
