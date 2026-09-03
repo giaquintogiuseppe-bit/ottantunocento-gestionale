@@ -569,6 +569,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="ni" onclick="nav('referenti')">🔗 Referenti</div>
   <div class="ni" onclick="nav('posizione-clienti')">📊 Posizione clienti</div>
   <div class="ni" onclick="nav('posizione-fornitori')">📊 Posizione fornitori</div>
+  <div class="ni" onclick="nav('fatture-fornitori')">🧾 Fatture Fornitori</div>
   <div class="ni" onclick="nav('coerenza')">🔍 Coerenza cantieri</div>
   <div class="ni" onclick="nav('saldi')">💶 Saldi Dipendenti</div>
   <div class="ni" onclick="nav('riepilogo')">📋 Riepilogo settimanale</div>
@@ -987,6 +988,22 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <input type="file" id="bank-file" accept=".xlsx,.xls" style="display:none" onchange="bankImportFile(this)">
     </div>
     <div id="pc-list"></div>
+  </div>
+
+  <!-- FATTURE FORNITORI (elenco + gestione) -->
+  <div id="pg-fatture-fornitori" class="pg">
+    <div class="pt">🧾 Fatture Fornitori</div>
+    <div class="ps">Tutte le fatture di acquisto ricevute — assegna ogni fattura a un cantiere e gestiscile. Fonte: tabella fatture_acquisto.</div>
+    <div class="sg" id="fff-kpi"></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0">
+      <input id="fff-q" oninput="fffRender()" placeholder="Cerca fornitore, numero o cantiere…" style="flex:1;min-width:200px;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:9px 12px">
+      <button class="pf-flt fff-flt on" data-flt="tutte" onclick="fffFiltra('tutte')">Tutte</button>
+      <button class="pf-flt fff-flt" data-flt="senza" onclick="fffFiltra('senza')">Senza cantiere</button>
+      <button class="pf-flt fff-flt" data-flt="con" onclick="fffFiltra('con')">Con cantiere</button>
+      <button class="pf-flt fff-flt" data-flt="aperte" onclick="fffFiltra('aperte')">Da pagare</button>
+      <button onclick="fffExport()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text2);cursor:pointer;font-size:13px;padding:8px 12px">⬇ Esporta</button>
+    </div>
+    <div id="fff-list"></div>
   </div>
 
   <!-- POSIZIONE FORNITORI -->
@@ -3162,7 +3179,7 @@ function nav(pg){
 function render(p){
   if(p==='cantieri'||p==='clienti-gest'){ caricaRifornimentiCloud().then(()=>{ if(p==='cantieri') rCant(); }); }
   if(p==='clienti-gest'){ refLoad(); }
-  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:rAttrezzeria,saldi:rSaldi,riepilogo:rRiepilogo,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,coerenza:rCoerenza}[p]||(() =>{}))();
+  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:rAttrezzeria,saldi:rSaldi,riepilogo:rRiepilogo,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,'fatture-fornitori':rFattureFornitori,coerenza:rCoerenza}[p]||(() =>{}))();
 }
 
 // ============================================================
@@ -11324,6 +11341,117 @@ function _incSalvaCantiere(cid, imp, data, metodo, descr){
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════
+// 🧾 FATTURE FORNITORI — elenco piatto + gestione (assegnazione cantiere, nota)
+// Fonte: tabella fatture_acquisto (id uuid). Scrive cantiere_id/cantiere_nome/note.
+// ══════════════════════════════════════════════════════════════════════════
+let _fffRows=null; let _fffFiltro='tutte'; let _fffCant=[];
+const _FFF_STATI={pagata_confermata:['Pagata','#3fb98a'],aperta:['Da pagare','#e0a23f'],parziale:['Acconto','#e0a23f'],da_verificare:['Da verificare','#8a95a8'],probabile_pagata_da_confermare:['Prob. pagata','#8a95a8']};
+function _fffBadge(r){ const v=r.stato_verificato||''; const d=_FFF_STATI[v]||[v||'—','#8a95a8']; return '<span style="display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;background:'+d[1]+'22;color:'+d[1]+';white-space:nowrap">'+esc(d[0])+'</span>'; }
+function _fffBuildCant(){
+  _fffCant=(DB.cantieri||[]).filter(c=>c.nome).slice().sort((a,b)=>(b.periodoInizio||'').localeCompare(a.periodoInizio||''));
+}
+function _fffCantOptions(selNome){
+  let h='<option value="">— Nessun cantiere —</option>';
+  _fffCant.forEach((c,i)=>{ const lbl=esc(c.nome)+(c.committente?' — '+esc(c.committente):''); const sel=(selNome&&c.nome===selNome)?' selected':''; h+='<option value="'+i+'"'+sel+'>'+lbl+'</option>'; });
+  return h;
+}
+async function rFattureFornitori(){
+  _fffBuildCant();
+  const el=document.getElementById('fff-list'); if(el) el.innerHTML='<div style="color:var(--text2);padding:16px">Carico le fatture fornitori…</div>';
+  try{
+    const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=*&order=data_fattura.desc.nullslast&limit=8000',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'});
+    _fffRows=await r.json(); if(!Array.isArray(_fffRows)) _fffRows=[];
+  }catch(e){ if(el) el.innerHTML='<div class="fc" style="color:#e0645f;padding:16px">Errore nel caricamento: '+esc(e.message||e)+'</div>'; return; }
+  fffRender();
+}
+function fffFiltra(f){ _fffFiltro=f; document.querySelectorAll('.fff-flt').forEach(b=>b.classList.toggle('on',b.dataset.flt===f)); fffRender(); }
+function _fffHasCant(r){ return !!(r.cantiere_id||r.cantiere_nome); }
+function _fffFiltered(){
+  const q=(document.getElementById('fff-q')?document.getElementById('fff-q').value:'').trim().toLowerCase();
+  return (_fffRows||[]).filter(r=>{
+    if(_fffFiltro==='senza' && _fffHasCant(r)) return false;
+    if(_fffFiltro==='con' && !_fffHasCant(r)) return false;
+    if(_fffFiltro==='aperte' && !(r.stato_verificato==='aperta'||r.stato_verificato==='parziale')) return false;
+    if(q){ const hay=((r.fornitore||'')+' '+(r.numero||'')+' '+(r.rif_fornitore||'')+' '+(r.cantiere_nome||'')).toLowerCase(); if(!hay.includes(q)) return false; }
+    return true;
+  });
+}
+function _fffDate(d){ if(!d) return '—'; const p=String(d).slice(0,10).split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0].slice(2)):esc(String(d)); }
+function fffRender(){
+  const box=document.getElementById('fff-list'); if(!box) return;
+  const rows=_fffRows||[];
+  const senza=rows.filter(r=>!_fffHasCant(r)).length;
+  const aperte=rows.filter(r=>r.stato_verificato==='aperta'||r.stato_verificato==='parziale');
+  const totAperte=aperte.reduce((a,r)=>a+(parseFloat(r.residuo!=null?r.residuo:r.importo)||0),0);
+  const totImp=rows.reduce((a,r)=>a+(parseFloat(r.importo)||0),0);
+  const K=document.getElementById('fff-kpi');
+  if(K) K.innerHTML=
+    '<div class="sc"><div class="lb">Fatture</div><div class="vl">'+rows.length+'</div></div>'+
+    '<div class="sc"><div class="lb">Totale importi</div><div class="vl">'+fmtE(totImp)+'</div></div>'+
+    '<div class="sc" onclick="fffFiltra(\'senza\')" style="cursor:pointer" title="Mostra solo le fatture senza cantiere"><div class="lb">Senza cantiere 🔍</div><div class="vl" style="color:#e0a23f">'+senza+'</div></div>'+
+    '<div class="sc" onclick="fffFiltra(\'aperte\')" style="cursor:pointer" title="Mostra solo le fatture da pagare"><div class="lb">Da pagare (residuo)</div><div class="vl" style="color:#e0645f">'+fmtE(totAperte)+'</div></div>';
+  const list=_fffFiltered();
+  if(!list.length){ box.innerHTML='<div style="color:var(--text2);padding:24px;text-align:center">Nessuna fattura per questo filtro.</div>'; return; }
+  let h='<div style="color:var(--text2);font-size:12px;margin-bottom:6px">'+list.length+' fatture</div>';
+  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:860px">'+
+    '<thead><tr style="text-align:left;color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.03em">'+
+    '<th style="padding:8px 10px">Data</th><th style="padding:8px 10px">Numero</th><th style="padding:8px 10px">Fornitore</th><th style="padding:8px 10px;text-align:right">Importo</th><th style="padding:8px 10px">Stato</th><th style="padding:8px 10px;min-width:240px">Cantiere</th><th style="padding:8px 10px">Nota</th></tr></thead><tbody>';
+  list.forEach(r=>{
+    const id=esc(String(r.id));
+    const cant = r.cantiere_nome ? '<span style="color:var(--text)">'+esc(r.cantiere_nome)+'</span>' : '<span style="color:var(--text2)">— nessuno —</span>';
+    h+='<tr style="border-top:1px solid var(--brd)">'+
+      '<td style="padding:8px 10px;white-space:nowrap;color:var(--text2)">'+_fffDate(r.data_fattura)+'</td>'+
+      '<td style="padding:8px 10px;white-space:nowrap">'+esc(r.rif_fornitore||r.numero||'')+'</td>'+
+      '<td style="padding:8px 10px;font-weight:600">'+esc(r.fornitore||'')+'</td>'+
+      '<td style="padding:8px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">'+fmtE(r.importo)+'</td>'+
+      '<td style="padding:8px 10px">'+_fffBadge(r)+'</td>'+
+      '<td style="padding:8px 10px" class="fff-cant">'+cant+' <button onclick="fffEdit(this,\''+id+'\')" style="background:none;border:1px solid var(--brd);border-radius:6px;color:var(--text2);cursor:pointer;font-size:11px;padding:2px 7px;margin-left:6px">✏️</button></td>'+
+      '<td style="padding:8px 10px;max-width:200px;color:var(--text2)"><span onclick="fffNota(\''+id+'\')" title="Modifica nota" style="cursor:pointer;display:inline-block">'+(r.note?esc(r.note):'<span style="opacity:.45">＋ nota</span>')+'</span></td>'+
+    '</tr>';
+  });
+  h+='</tbody></table></div>';
+  box.innerHTML=h;
+}
+function fffEdit(btn,id){
+  const td=btn.closest('.fff-cant'); if(!td) return;
+  const r=(_fffRows||[]).find(x=>String(x.id)===String(id)); if(!r) return;
+  td.innerHTML='<select onchange="fffAssegna(this,\''+esc(String(id))+'\')" onblur="if(!this._done)fffRender()" style="width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:7px 9px">'+_fffCantOptions(r.cantiere_nome)+'</select>';
+  const sel=td.querySelector('select'); if(sel){ try{sel.focus();}catch(e){} }
+}
+async function fffAssegna(sel,id){
+  sel._done=true;
+  const r=(_fffRows||[]).find(x=>String(x.id)===String(id)); if(!r){ fffRender(); return; }
+  const v=sel.value; const c=(v==='')?null:_fffCant[parseInt(v,10)];
+  const body={ cantiere_id: c?(c.id||null):null, cantiere_nome: c?(c.nome||null):null, aggiornato_il:new Date().toISOString() };
+  sel.disabled=true;
+  try{
+    const res=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(body)});
+    if(!res.ok){ throw new Error('HTTP '+res.status); }
+    r.cantiere_id=body.cantiere_id; r.cantiere_nome=body.cantiere_nome;
+    toast(c?('✓ Assegnata a '+c.nome):'✓ Cantiere rimosso');
+    fffRender();
+  }catch(e){ sel.disabled=false; toast('⚠ Errore nel salvataggio: '+(e.message||e)); }
+}
+async function fffNota(id){
+  const r=(_fffRows||[]).find(x=>String(x.id)===String(id)); if(!r) return;
+  const nv=prompt('Nota — '+(r.fornitore||'')+' '+(r.rif_fornitore||r.numero||''), r.note||''); if(nv===null) return;
+  try{
+    const res=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({note:(nv||null),aggiornato_il:new Date().toISOString()})});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    r.note=nv||null; toast('✓ Nota salvata'); fffRender();
+  }catch(e){ toast('⚠ Errore: '+(e.message||e)); }
+}
+function fffExport(){
+  const list=_fffFiltered();
+  const head=['Numero','Data','Fornitore','Importo','Stato','Cantiere','Nota'];
+  const body=list.map(r=>[r.rif_fornitore||r.numero||'',r.data_fattura||'',r.fornitore||'',String(r.importo==null?'':r.importo).replace('.',','),(_FFF_STATI[r.stato_verificato]||[r.stato_verificato||''])[0],r.cantiere_nome||'',(r.note||'').replace(/\n/g,' ')]);
+  const all=[head].concat(body);
+  const csv=all.map(row=>row.map(c=>{ c=String(c==null?'':c); return /[";\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c; }).join(';')).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}); const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='fatture_fornitori.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+
 // 📊 POSIZIONE FORNITORI — debito verso fornitori (tabella fatture_acquisto)
 // ══════════════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════════════
