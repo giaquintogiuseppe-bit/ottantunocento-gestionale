@@ -1060,6 +1060,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
           <button class="bs fatt-flt" data-flt="parziali" onclick="fattFiltra('parziali')" style="font-size:12px;padding:6px 12px">◐ Parziali</button>
           <button class="bs fatt-flt" data-flt="scadute" onclick="fattFiltra('scadute')" style="font-size:12px;padding:6px 12px">⚠ Scadute</button>
           <button class="bs fatt-flt" data-flt="pagata" onclick="fattFiltra('pagata')" style="font-size:12px;padding:6px 12px">Pagate</button>
+          <button class="bs fatt-flt" data-flt="duplicati" onclick="fattFiltra('duplicati')" style="font-size:12px;padding:6px 12px;color:var(--red)">⚠ Duplicati</button>
         </div>
         <div style="display:flex;gap:8px">
           <input type="file" id="fatt-import-file" accept=".xml,.p7m" multiple style="display:none" onchange="fattImportaXML(this)">
@@ -3701,8 +3702,10 @@ function fattFiltra(f){
 function fattRenderLista(){
   const cont=document.getElementById('fatt-lista'); if(!cont) return;
   let lista=[..._fatture];
+  const dupSet=_fattDupSet();
   if(_fattFiltro==='scadute') lista=lista.filter(f=>{const s=fattStatoScadenza(f);return s&&s.cls==='scaduta';});
   else if(_fattFiltro==='parziali') lista=lista.filter(f=>f.stato==='emessa' && _fattAccTot(f)>0);
+  else if(_fattFiltro==='duplicati') lista=lista.filter(f=>dupSet.has(String(f.id)));
   else if(_fattFiltro!=='tutte') lista=lista.filter(f=>f.stato===_fattFiltro);
   // ── ricerca testuale (cliente / cantiere / numero / note) ──
   const _q=(document.getElementById('fatt-search')?.value||'').toLowerCase().trim();
@@ -3736,14 +3739,16 @@ function fattRenderLista(){
       const [bt,bc]=statoBadge[f.stato]||['?','#888'];
       const scadTxt=f.scadenza?f.scadenza.split('-').reverse().join('/'):'—';
       const scadCol=s?(s.cls==='scaduta'?'var(--red)':'var(--gold)'):'var(--text)';
-      return `<tr onclick="fattApri(${f.id})" style="border-top:1px solid var(--brd);cursor:pointer">
-        <td style="padding:8px"><div style="font-weight:600">${esc(f.cliente||'—')}</div>${f.cantiere_nome?`<div style="font-size:11px;color:var(--text2)">${esc(f.cantiere_nome)}</div>`:'<div style="font-size:11px;color:var(--text2)">libera</div>'}</td>
+      const isDup=dupSet.has(String(f.id));
+      const dupTag=isDup?' <span title="Possibile doppione: stesso cliente e numero, o stesso importo e data di un\'altra" style="font-size:9px;font-weight:700;color:var(--red);border:1px solid var(--red);border-radius:4px;padding:0 3px">DOPPIONE</span>':'';
+      return `<tr onclick="fattApri(${f.id})" style="border-top:1px solid var(--brd);cursor:pointer${isDup?';background:rgba(232,75,75,.05)':''}">
+        <td style="padding:8px"><div style="font-weight:600">${esc(f.cliente||'—')}${dupTag}</div>${f.cantiere_nome?`<div style="font-size:11px;color:var(--text2)">${esc(f.cantiere_nome)}</div>`:'<div style="font-size:11px;color:var(--text2)">libera</div>'}</td>
         <td style="padding:8px">${esc(f.numero||'—')}</td>
         <td style="padding:8px">${f.tipo||''}</td>
         <td style="padding:8px;color:var(--text2)">${f.data_fattura?f.data_fattura.split('-').reverse().join('/'):'—'}</td>
         <td style="padding:8px;color:${scadCol}">${scadTxt}${s?`<div style="font-size:10px">${s.txt}</div>`:''}</td>
         <td style="padding:8px"><span style="background:${bc}22;color:${bc};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">${bt}</span>${f.stato==='pagata'&&f.data_pagamento?`<div style="font-size:10px;color:var(--text2)">il ${f.data_pagamento.split('-').reverse().join('/')}</div>`:''}${f.note?`<div style="font-size:10px;color:var(--text2)" title="${esc(f.note)}">${esc(f.note.length>28?f.note.slice(0,26)+'…':f.note)}</div>`:''}</td>
-        <td style="padding:8px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600">${fmtE(f.importo)}${_fattResiduoRiga(f)}</td>
+        <td style="padding:8px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;white-space:nowrap">${fmtE(f.importo)}${_fattResiduoRiga(f)}${isDup?` <button onclick="event.stopPropagation();fattEliminaId(${f.id})" title="Elimina doppione" style="background:none;border:1px solid rgba(232,75,75,.4);border-radius:6px;color:var(--red);cursor:pointer;font-size:11px;padding:2px 6px;margin-left:6px">🗑</button>`:''}</td>
       </tr>`;
     }).join('')}</tbody></table></div>`;
 }
@@ -3879,6 +3884,31 @@ async function fattElimina(){
   if(!confirm('Eliminare questa fattura dal tracciamento?')) return;
   const F=_FAPI();
   try{ await fetch(F.url+'?id=eq.'+_fattEditId,{method:'DELETE',headers:F.h}); closeModal('modal-fattura'); toast('✓ Eliminata'); renderFatture(); }
+  catch(e){ toast('⚠ Errore'); }
+}
+// Possibili doppioni: stesso cliente + stesso numero (base), oppure stesso
+// cliente + stesso importo + stessa data. Flag per revisione, non auto-cancella.
+function _fattDupSet(){
+  const norm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
+  const base=s=>String(s||'').split('/')[0].replace(/[^a-z0-9]/gi,'').toLowerCase();
+  const byNum={}, byImp={}, s=new Set();
+  (_fatture||[]).forEach(f=>{
+    if(f.stato==='annullata'||(f.tipo||'')==='nota di credito') return;   // le NC/annullate non sono doppioni
+    const cli=norm(f.cliente), nb=base(f.numero);
+    if(cli && nb){ const k=cli+'|'+nb; (byNum[k]=byNum[k]||[]).push(f.id); }
+    const k2=cli+'|'+(parseFloat(f.importo)||0).toFixed(2)+'|'+(f.data_fattura||'');
+    (byImp[k2]=byImp[k2]||[]).push(f.id);
+  });
+  Object.values(byNum).forEach(ids=>{ if(ids.length>1) ids.forEach(i=>s.add(String(i))); });
+  Object.values(byImp).forEach(ids=>{ if(ids.length>1) ids.forEach(i=>s.add(String(i))); });
+  return s;
+}
+// Elimina rapido di una fattura per id (dalla lista, per i doppioni)
+async function fattEliminaId(id){
+  const f=(_fatture||[]).find(x=>String(x.id)===String(id));
+  if(!confirm('Eliminare questa fattura?\n\n'+(f?((f.cliente||'')+' · '+(f.numero||'')+' · '+fmtE(f.importo)):''))) return;
+  const F=_FAPI();
+  try{ await fetch(F.url+'?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:F.h}); toast('✓ Eliminata'); renderFatture(); }
   catch(e){ toast('⚠ Errore'); }
 }
 function fmtE(n){ return '€ '+parseFloat(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2}); }
