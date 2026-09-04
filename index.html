@@ -3889,12 +3889,11 @@ async function fattElimina(){
 // Possibili doppioni: stesso cliente + stesso numero (base), oppure stesso
 // cliente + stesso importo + stessa data. Flag per revisione, non auto-cancella.
 function _fattDupSet(){
-  const norm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
   const base=s=>String(s||'').split('/')[0].replace(/[^a-z0-9]/gi,'').toLowerCase();
   const byNum={}, byImp={}, s=new Set();
   (_fatture||[]).forEach(f=>{
     if(f.stato==='annullata'||(f.tipo||'')==='nota di credito') return;   // le NC/annullate non sono doppioni
-    const cli=norm(f.cliente), nb=base(f.numero);
+    const cli=_nomeSort(f.cliente), nb=base(f.numero);   // nome indipendente dall'ordine delle parole
     if(cli && nb){ const k=cli+'|'+nb; (byNum[k]=byNum[k]||[]).push(f.id); }
     const k2=cli+'|'+(parseFloat(f.importo)||0).toFixed(2)+'|'+(f.data_fattura||'');
     (byImp[k2]=byImp[k2]||[]).push(f.id);
@@ -11430,10 +11429,20 @@ function _fffIsPagata(r){
   return (r.residuo!=null && parseFloat(r.residuo)===0);
 }
 // chiave duplicato: fornitore + importo + data
-function _fffDupKey(r){ return (r.fornitore||'').toLowerCase().replace(/\s+/g,' ').trim()+'|'+(parseFloat(r.importo)||0).toFixed(2)+'|'+(r.data_fattura||''); }
+// Nome normalizzato INDIPENDENTE dall'ordine delle parole: "Merola Domenico"
+// e "Domenico Merola" diventano la stessa chiave (parole ordinate).
+function _nomeSort(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(Boolean).sort().join(' '); }
+function _fffNumBase(r){ return String(r.rif_fornitore||r.numero||'').split('/').pop().replace(/[^a-z0-9]/gi,'').toLowerCase(); }
 function _fffDupSet(){
-  const m={}; (_fffRows||[]).forEach(r=>{ const k=_fffDupKey(r); m[k]=(m[k]||0)+1; });
-  const s=new Set(); (_fffRows||[]).forEach(r=>{ if(m[_fffDupKey(r)]>1) s.add(String(r.id)); });
+  const byNum={}, byImp={}, s=new Set();
+  (_fffRows||[]).forEach(r=>{
+    const nm=_nomeSort(r.fornitore), nb=_fffNumBase(r);
+    if(nm && nb){ const k=nm+'|'+nb; (byNum[k]=byNum[k]||[]).push(r.id); }   // stesso fornitore + stesso numero
+    const k2=nm+'|'+(parseFloat(r.importo)||0).toFixed(2)+'|'+(r.data_fattura||'');   // stesso fornitore + importo + data
+    (byImp[k2]=byImp[k2]||[]).push(r.id);
+  });
+  Object.values(byNum).forEach(ids=>{ if(ids.length>1) ids.forEach(i=>s.add(String(i))); });
+  Object.values(byImp).forEach(ids=>{ if(ids.length>1) ids.forEach(i=>s.add(String(i))); });
   return s;
 }
 // Segna pagata / da pagare
