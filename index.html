@@ -1001,6 +1001,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <button class="pf-flt fff-flt" data-flt="senza" onclick="fffFiltra('senza')">Senza cantiere</button>
       <button class="pf-flt fff-flt" data-flt="con" onclick="fffFiltra('con')">Con cantiere</button>
       <button class="pf-flt fff-flt" data-flt="aperte" onclick="fffFiltra('aperte')">Da pagare</button>
+      <button class="pf-flt fff-flt" data-flt="duplicati" onclick="fffFiltra('duplicati')">Duplicati</button>
       <button onclick="fffExport()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text2);cursor:pointer;font-size:13px;padding:8px 12px">⬇ Esporta</button>
     </div>
     <div id="fff-list"></div>
@@ -4972,7 +4973,17 @@ const _origSave = typeof save === 'function' ? save : null;
 
 function _getCostiCantiere(nome){
   if(!_costiCache) _buildCostiCache();
-  return _costiCache[nome.toLowerCase().trim().replace(/\s+/g,' ')] || {personale:0,oneri:0,carburante:0,spese:0,totale:0};
+  return _costiCache[nome.toLowerCase().trim().replace(/\s+/g,' ')] || {personale:0,oneri:0,carburante:0,spese:0,fornitori:0,totale:0};
+}
+
+// Carica una volta le fatture fornitori (per includerle nei costi commessa) e
+// invalida la cache costi. _faRows è condiviso con cruscotto e pagina Fatture Fornitori.
+async function _ensureFaRows(force){
+  if(Array.isArray(_faRows) && !force) return _faRows;
+  try{ const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=*&limit=8000',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'}); _faRows=r.ok?await r.json():[]; }
+  catch(e){ _faRows=_faRows||[]; }
+  invalidaCache();
+  return _faRows;
 }
 
 // ── Rifornimenti dal modulo riconciliazione (tabella Supabase 'rifornimenti') ──
@@ -4991,7 +5002,7 @@ function _buildCostiCache(){
   const reg = (nome, key, val) => {
     const k = (nome||'').toLowerCase().trim().replace(/\s+/g,' ');
     if(!k) return;
-    if(!_costiCache[k]) _costiCache[k]={personale:0,oneri:0,carburante:0,spese:0,totale:0};
+    if(!_costiCache[k]) _costiCache[k]={personale:0,oneri:0,carburante:0,spese:0,fornitori:0,totale:0};
     _costiCache[k][key] += parseFloat(val)||0;
     _costiCache[k].totale += parseFloat(val)||0;
   };
@@ -5019,6 +5030,14 @@ function _buildCostiCache(){
   // NB: la vecchia tabella cloud 'rifornimenti' (pipeline dismessa) NON viene più sommata:
   // avrebbe contato due volte le stesse spese già importate via ⛽ Importa DKV.
   (DB.speseCantiere||[]).forEach(s=>reg(s.cantiere,'spese',s.importo||0));
+  // Fatture fornitori (tabella fatture_acquisto) assegnate a un cantiere → costo diretto
+  // della commessa. Usa le righe caricate dalla pagina Fatture Fornitori o dal cruscotto.
+  const _fa=(typeof _faRows!=='undefined'&&Array.isArray(_faRows))?_faRows:((typeof _fffRows!=='undefined'&&Array.isArray(_fffRows))?_fffRows:[]);
+  _fa.forEach(f=>{
+    let nome=f.cantiere_nome||'';
+    if(!nome && f.cantiere_id){ const c=(DB.cantieri||[]).find(x=>x.id===f.cantiere_id); if(c) nome=c.nome; }
+    if(nome) reg(nome,'fornitori', f.importo||0);
+  });
 }
 
 function invalidaCache(){ _costiCache=null; }
@@ -5381,6 +5400,7 @@ function rDettEco(cant, nome){
     ${riga('Oneri giornalieri (contributi e spese personale)', -costi.oneri)}
     ${riga('Carburante', -costi.carburante)}
     ${riga('Costi diretti (spese, materiali, scontrini)', -costi.spese)}
+    ${(costi.fornitori||0)?riga('Fatture fornitori', -(costi.fornitori||0)):''}
     <div style="display:flex;justify-content:space-between;padding:7px 0 3px;font-size:13px">
       <span style="font-weight:700">Totale costi</span><span class="mn" style="font-weight:800;color:var(--gold)">${fmt(totale)}</span></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding:10px 12px;border-radius:10px;background:${ricavo>0?(margine>=0?'rgba(63,185,80,.12)':'rgba(232,84,84,.12)'):'var(--brd)'}">
@@ -5487,6 +5507,8 @@ function rDettCant(){
   rDettOre(_c, nome);
   rDettEco(_c, nome);
   rDettInterventi(_c);
+  // include le fatture fornitori assegnate a questo cantiere nei costi, poi ricalcola il Conto
+  _ensureFaRows().then(()=>{ if((window._dettCantNome||'')===nome) rDettEco(_c, nome); });
 
   const da=document.getElementById('dett-da')?.value||'';
   const al=document.getElementById('dett-al')?.value||'';
@@ -8115,6 +8137,7 @@ function rPagHist(){
 // ============================================================
 async function rGrafici(){
   if(!_fatture||!_fatture.length){ try{ const F=_FAPI(); const r=await fetch(F.url+'?select=*',{headers:F.h,cache:'no-cache'}); if(r.ok)_fatture=await r.json(); }catch(e){} }
+  await _ensureFaRows();   // fatture fornitori nei costi commessa (margine per commessa)
   ricalcolaSaldi();
   // ── KPI cassa ──
   const daIncassare=(_fatture||[]).filter(f=>f.stato==='emessa').reduce((s,f)=>s+_fattResiduo(f),0);
@@ -11362,17 +11385,59 @@ async function rFattureFornitori(){
   try{
     const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=*&order=data_fattura.desc.nullslast&limit=8000',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'});
     _fffRows=await r.json(); if(!Array.isArray(_fffRows)) _fffRows=[];
+    _faRows=_fffRows; invalidaCache();   // condivide i dati coi costi commessa / cruscotto
   }catch(e){ if(el) el.innerHTML='<div class="fc" style="color:#e0645f;padding:16px">Errore nel caricamento: '+esc(e.message||e)+'</div>'; return; }
   fffRender();
 }
 function fffFiltra(f){ _fffFiltro=f; document.querySelectorAll('.fff-flt').forEach(b=>b.classList.toggle('on',b.dataset.flt===f)); fffRender(); }
 function _fffHasCant(r){ return !!(r.cantiere_id||r.cantiere_nome); }
+// Pagata? (accetta le varie convenzioni presenti in tabella)
+function _fffIsPagata(r){
+  const v=(r.stato_verificato||'').toLowerCase(), s=(r.stato_smart||'').toLowerCase();
+  if(v==='pagata_confermata') return true;
+  if(v==='aperta'||v==='parziale'||v==='da_verificare') return false;
+  if(s.indexOf('pagat')>=0) return true;
+  return (r.residuo!=null && parseFloat(r.residuo)===0);
+}
+// chiave duplicato: fornitore + importo + data
+function _fffDupKey(r){ return (r.fornitore||'').toLowerCase().replace(/\s+/g,' ').trim()+'|'+(parseFloat(r.importo)||0).toFixed(2)+'|'+(r.data_fattura||''); }
+function _fffDupSet(){
+  const m={}; (_fffRows||[]).forEach(r=>{ const k=_fffDupKey(r); m[k]=(m[k]||0)+1; });
+  const s=new Set(); (_fffRows||[]).forEach(r=>{ if(m[_fffDupKey(r)]>1) s.add(String(r.id)); });
+  return s;
+}
+// Segna pagata / da pagare
+async function fffPagata(id, paga){
+  const r=(_fffRows||[]).find(x=>String(x.id)===String(id)); if(!r) return;
+  const body = paga
+    ? { stato_verificato:'pagata_confermata', stato_smart:'Pagata', residuo:0, aggiornato_il:new Date().toISOString() }
+    : { stato_verificato:'aperta', stato_smart:'Da pagare', residuo:(parseFloat(r.importo)||0), aggiornato_il:new Date().toISOString() };
+  try{
+    const res=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(body)});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    Object.assign(r, body); invalidaCache();
+    toast(paga?'✓ Segnata pagata':'✓ Segnata da pagare'); fffRender();
+  }catch(e){ toast('⚠ Errore: '+(e.message||e)); }
+}
+// Elimina una fattura fornitore (usato per i doppioni)
+async function fffElimina(id){
+  const r=(_fffRows||[]).find(x=>String(x.id)===String(id)); if(!r) return;
+  if(!confirm('Eliminare definitivamente questa fattura fornitore?\n\n'+(r.fornitore||'')+' · '+(r.rif_fornitore||r.numero||'')+' · '+fmtE(r.importo))) return;
+  try{
+    const res=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'}});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    _fffRows=(_fffRows||[]).filter(x=>String(x.id)!==String(id)); _faRows=_fffRows; invalidaCache();
+    toast('✓ Eliminata'); fffRender();
+  }catch(e){ toast('⚠ Errore: '+(e.message||e)); }
+}
 function _fffFiltered(){
   const q=(document.getElementById('fff-q')?document.getElementById('fff-q').value:'').trim().toLowerCase();
+  const dup = _fffFiltro==='duplicati' ? _fffDupSet() : null;
   return (_fffRows||[]).filter(r=>{
     if(_fffFiltro==='senza' && _fffHasCant(r)) return false;
     if(_fffFiltro==='con' && !_fffHasCant(r)) return false;
-    if(_fffFiltro==='aperte' && !(r.stato_verificato==='aperta'||r.stato_verificato==='parziale')) return false;
+    if(_fffFiltro==='aperte' && _fffIsPagata(r)) return false;
+    if(_fffFiltro==='duplicati' && !dup.has(String(r.id))) return false;
     if(q){ const hay=((r.fornitore||'')+' '+(r.numero||'')+' '+(r.rif_fornitore||'')+' '+(r.cantiere_nome||'')).toLowerCase(); if(!hay.includes(q)) return false; }
     return true;
   });
@@ -11381,8 +11446,9 @@ function _fffDate(d){ if(!d) return '—'; const p=String(d).slice(0,10).split('
 function fffRender(){
   const box=document.getElementById('fff-list'); if(!box) return;
   const rows=_fffRows||[];
+  const dupSet=_fffDupSet();
   const senza=rows.filter(r=>!_fffHasCant(r)).length;
-  const aperte=rows.filter(r=>r.stato_verificato==='aperta'||r.stato_verificato==='parziale');
+  const aperte=rows.filter(r=>!_fffIsPagata(r));
   const totAperte=aperte.reduce((a,r)=>a+(parseFloat(r.residuo!=null?r.residuo:r.importo)||0),0);
   const totImp=rows.reduce((a,r)=>a+(parseFloat(r.importo)||0),0);
   const K=document.getElementById('fff-kpi');
@@ -11390,7 +11456,8 @@ function fffRender(){
     '<div class="sc"><div class="lb">Fatture</div><div class="vl">'+rows.length+'</div></div>'+
     '<div class="sc"><div class="lb">Totale importi</div><div class="vl">'+fmtE(totImp)+'</div></div>'+
     '<div class="sc" onclick="fffFiltra(\'senza\')" style="cursor:pointer" title="Mostra solo le fatture senza cantiere"><div class="lb">Senza cantiere 🔍</div><div class="vl" style="color:#e0a23f">'+senza+'</div></div>'+
-    '<div class="sc" onclick="fffFiltra(\'aperte\')" style="cursor:pointer" title="Mostra solo le fatture da pagare"><div class="lb">Da pagare (residuo)</div><div class="vl" style="color:#e0645f">'+fmtE(totAperte)+'</div></div>';
+    '<div class="sc" onclick="fffFiltra(\'aperte\')" style="cursor:pointer" title="Mostra solo le fatture da pagare"><div class="lb">Da pagare (residuo) 🔍</div><div class="vl" style="color:#e0645f">'+fmtE(totAperte)+'</div></div>'+
+    (dupSet.size?'<div class="sc" onclick="fffFiltra(\'duplicati\')" style="cursor:pointer;border-color:rgba(232,75,75,.4)" title="Possibili doppioni: stesso fornitore, importo e data"><div class="lb">Possibili doppioni 🔍</div><div class="vl" style="color:#e0645f">'+dupSet.size+'</div></div>':'');
   const list=_fffFiltered();
   if(!list.length){ box.innerHTML='<div style="color:var(--text2);padding:24px;text-align:center">Nessuna fattura per questo filtro.</div>'; return; }
   let h='<div style="color:var(--text2);font-size:12px;margin-bottom:6px">'+list.length+' fatture</div>';
@@ -11399,13 +11466,19 @@ function fffRender(){
     '<th style="padding:8px 10px">Data</th><th style="padding:8px 10px">Numero</th><th style="padding:8px 10px">Fornitore</th><th style="padding:8px 10px;text-align:right">Importo</th><th style="padding:8px 10px">Stato</th><th style="padding:8px 10px;min-width:240px">Cantiere</th><th style="padding:8px 10px">Nota</th></tr></thead><tbody>';
   list.forEach(r=>{
     const id=esc(String(r.id));
+    const isDup=dupSet.has(String(r.id));
+    const pagata=_fffIsPagata(r);
     const cant = r.cantiere_nome ? '<span style="color:var(--text)">'+esc(r.cantiere_nome)+'</span>' : '<span style="color:var(--text2)">— nessuno —</span>';
-    h+='<tr style="border-top:1px solid var(--brd)">'+
+    const togglePag = pagata
+      ? '<button onclick="fffPagata(\''+id+'\',false)" title="Segna come da pagare" style="background:none;border:1px solid var(--brd);border-radius:6px;color:var(--text2);cursor:pointer;font-size:11px;padding:2px 7px">↩ da pagare</button>'
+      : '<button onclick="fffPagata(\''+id+'\',true)" title="Segna come pagata" style="background:rgba(63,185,138,.14);border:1px solid rgba(63,185,138,.4);border-radius:6px;color:#2f8f5f;cursor:pointer;font-size:11px;font-weight:700;padding:2px 7px">€ paga</button>';
+    const dupTag = isDup ? ' <span title="Stesso fornitore, importo e data di un\'altra: possibile doppione" style="font-size:9px;font-weight:700;color:var(--red);border:1px solid var(--red);border-radius:4px;padding:0 3px">DOPPIONE</span> <button onclick="fffElimina(\''+id+'\')" title="Elimina doppione" style="background:none;border:1px solid rgba(232,75,75,.4);border-radius:6px;color:var(--red);cursor:pointer;font-size:11px;padding:2px 6px">🗑</button>' : '';
+    h+='<tr style="border-top:1px solid var(--brd)'+(isDup?';background:rgba(232,75,75,.05)':'')+'">'+
       '<td style="padding:8px 10px;white-space:nowrap;color:var(--text2)">'+_fffDate(r.data_fattura)+'</td>'+
-      '<td style="padding:8px 10px;white-space:nowrap">'+esc(r.rif_fornitore||r.numero||'')+'</td>'+
+      '<td style="padding:8px 10px;white-space:nowrap">'+esc(r.rif_fornitore||r.numero||'')+dupTag+'</td>'+
       '<td style="padding:8px 10px;font-weight:600">'+esc(r.fornitore||'')+'</td>'+
       '<td style="padding:8px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">'+fmtE(r.importo)+'</td>'+
-      '<td style="padding:8px 10px">'+_fffBadge(r)+'</td>'+
+      '<td style="padding:8px 10px;white-space:nowrap">'+_fffBadge(r)+' '+togglePag+'</td>'+
       '<td style="padding:8px 10px" class="fff-cant">'+cant+' <button onclick="fffEdit(this,\''+id+'\')" style="background:none;border:1px solid var(--brd);border-radius:6px;color:var(--text2);cursor:pointer;font-size:11px;padding:2px 7px;margin-left:6px">✏️</button></td>'+
       '<td style="padding:8px 10px;max-width:200px;color:var(--text2)"><span onclick="fffNota(\''+id+'\')" title="Modifica nota" style="cursor:pointer;display:inline-block">'+(r.note?esc(r.note):'<span style="opacity:.45">＋ nota</span>')+'</span></td>'+
     '</tr>';
@@ -11429,7 +11502,8 @@ async function fffAssegna(sel,id){
     const res=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(body)});
     if(!res.ok){ throw new Error('HTTP '+res.status); }
     r.cantiere_id=body.cantiere_id; r.cantiere_nome=body.cantiere_nome;
-    toast(c?('✓ Assegnata a '+c.nome):'✓ Cantiere rimosso');
+    invalidaCache();   // il costo rientra subito nella commessa
+    toast(c?('✓ Assegnata a '+c.nome+' — costo aggiunto alla commessa'):'✓ Cantiere rimosso');
     fffRender();
   }catch(e){ sel.disabled=false; toast('⚠ Errore nel salvataggio: '+(e.message||e)); }
 }
