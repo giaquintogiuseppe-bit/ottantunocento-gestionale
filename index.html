@@ -12200,7 +12200,8 @@ async function fattImportaWebDesk(input){
   _wdLeggi(file, rows=>_wdProcessFatt(rows));
 }
 // Elabora le righe (emesse) — usato sia da Web Desk (file) sia da Genya (Storage).
-async function _wdProcessFatt(rows){
+async function _wdProcessFatt(rows, opt){
+    opt=opt||{}; const annoMin=parseInt(opt.annoMin,10)||0; let _fuoriAnno=0;
     const H=_wdHeader(rows,['numero','cliente','totale']);
     if(!H){ toast('⚠ Non riconosco il formato (manca Numero/Cliente/Totale)'); return; }
     const iAnno=H.exa('anno'), iNum=H.exa('numero'), iSuf=H.exa('suffisso'), iData=H.exa('data'),
@@ -12211,6 +12212,7 @@ async function _wdProcessFatt(rows){
     for(let r=H.row+1;r<rows.length;r++){
       const row=rows[r]; if(!row || !String(row[iNum]||'').trim()) continue;
       const anno=String(row[iAnno]||'').trim(), num=String(row[iNum]||'').trim(), suf=String(row[iSuf]||'').trim();
+      if(annoMin){ const dd=_wdData(row[iData]); const y=(parseInt(anno,10))||(dd?parseInt(dd.slice(0,4),10):0); if(y && y<annoMin){ _fuoriAnno++; continue; } }
       const key=anno+'|'+num+'|'+suf;
       if(!inv[key]){
         inv[key]={
@@ -12247,6 +12249,7 @@ async function _wdProcessFatt(rows){
     });
     nuove.sort((a,b)=>(parseInt(a.numero)||0)-(parseInt(b.numero)||0));
     _impDaImportare=nuove;
+    if(_fuoriAnno) toast('ℹ '+_fuoriAnno+' fatture di anni precedenti ignorate (filtro anno '+annoMin+')');
     _fattMostraImport(nuove, doppie, [], 0);
 }
 
@@ -12259,7 +12262,8 @@ async function fornImportaWebDesk(input){
 // Elabora le righe (ricevute) — usato sia da Web Desk (file) sia da Genya (Storage).
 // Chiave documento e anti-doppione: RIF. FORNITORE + FORNITORE (il numero interno
 // su Genya è spesso 0), con fallback al numero interno se il rif manca.
-async function _wdProcessForn(rows, srcName){
+async function _wdProcessForn(rows, srcName, opt){
+    opt=opt||{}; const annoMin=parseInt(opt.annoMin,10)||0; let _fuoriAnno=0;
     const H=_wdHeader(rows,['numero','fornitore','totale']);
     if(!H){ toast('⚠ Non riconosco il formato (manca Numero/Fornitore/Totale)'); return; }
     const iAnno=H.exa('anno'), iNum=H.exa('numero'), iSuf=H.exa('suffisso'), iData=H.exa('data'),
@@ -12276,6 +12280,7 @@ async function _wdProcessForn(rows, srcName){
       const anno=String(row[iAnno]||'').trim(), num=String(row[iNum]||'').trim(), suf=String(row[iSuf]||'').trim();
       const rif=String(row[iRif>=0?iRif:iNum]||'').trim();
       if(!rif && !num) continue; // riga senza identificativo
+      if(annoMin){ const dd=_wdData(row[iData]); const y=(dd?parseInt(dd.slice(0,4),10):0)||parseInt(anno,10)||0; if(y && y<annoMin){ _fuoriAnno++; continue; } }
       const key=docKey(rif,num,anno,forn);
       if(!inv[key]){
         inv[key]={
@@ -12299,7 +12304,7 @@ async function _wdProcessForn(rows, srcName){
     if(!nuove.length){ toast('⊘ Tutte le '+Object.keys(inv).length+' fatture fornitore sono già presenti'); return; }
     nuove.sort((a,b)=>(a.data_fattura||'').localeCompare(b.data_fattura||''));
     const anteprima=nuove.slice(0,12).map(d=>'• '+(d.rif_fornitore||d.numero)+'  '+(d.fornitore||'').slice(0,28)+'  '+fmtE(d.importo)).join('\n');
-    if(!confirm('📥 Import fornitori da "'+srcName+'":\n\n'+nuove.length+' fatture NUOVE da aggiungere'+(saltate?('\n'+saltate+' già presenti (non toccate)'):'')+'\n\n'+anteprima+(nuove.length>12?('\n… e altre '+(nuove.length-12)):'')+'\n\nConfermi l\'inserimento?')) return;
+    if(!confirm('📥 Import fornitori da "'+srcName+'":\n\n'+nuove.length+' fatture NUOVE da aggiungere'+(saltate?('\n'+saltate+' già presenti (non toccate)'):'')+(_fuoriAnno?('\n'+_fuoriAnno+' di anni precedenti ignorate (filtro anno '+annoMin+')'):'')+'\n\n'+anteprima+(nuove.length>12?('\n… e altre '+(nuove.length-12)):'')+'\n\nConfermi l\'inserimento?')) return;
     const payload=nuove.map(d=>{
       const pagata=/pagat/i.test(d._statoWD);
       return {
@@ -12343,12 +12348,15 @@ async function genyaInfo(){
     if(el) el.textContent = d ? ('Ultimo export: '+d.toLocaleString('it-IT')) : 'Manifest presente';
   }catch(e){ const el=document.getElementById('genya-info'); if(el) el.textContent='Nessun export trovato sullo Storage'; }
 }
+// Genya esporta TUTTO lo storico: qui importiamo solo l'anno corrente per non
+// riversare fatture di anni precedenti nel gestionale (modificabile su GENYA_ANNO_MIN).
+const GENYA_ANNO_MIN = new Date().getFullYear();
 async function genyaImportClienti(){
-  try{ toast('⏳ Scarico l\'export emesse da Genya…'); const rows=await _genyaFetchRows('emesse'); await _wdProcessFatt(rows); }
+  try{ toast('⏳ Scarico l\'export emesse da Genya…'); const rows=await _genyaFetchRows('emesse'); await _wdProcessFatt(rows,{annoMin:GENYA_ANNO_MIN}); }
   catch(e){ toast('⚠ '+String(e.message||e).slice(0,80)); }
 }
 async function genyaImportFornitori(){
-  try{ toast('⏳ Scarico l\'export ricevute da Genya…'); const rows=await _genyaFetchRows('ricevute'); await _wdProcessForn(rows,'Genya'); }
+  try{ toast('⏳ Scarico l\'export ricevute da Genya…'); const rows=await _genyaFetchRows('ricevute'); await _wdProcessForn(rows,'Genya',{annoMin:GENYA_ANNO_MIN}); }
   catch(e){ toast('⚠ '+String(e.message||e).slice(0,80)); }
 }
 
