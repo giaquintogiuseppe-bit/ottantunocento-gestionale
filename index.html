@@ -1049,6 +1049,21 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <!-- CRUSCOTTO ALERT -->
     <div id="fatt-alert" style="margin-bottom:16px"></div>
 
+    <!-- 📥 IMPORT DA GENYA (agente automatico) -->
+    <div class="fc" style="margin-bottom:16px;border:1px solid var(--teal)">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-weight:600;color:var(--teal)">📥 Importa da ultimo export Genya</div>
+          <div id="genya-info" style="font-size:12px;color:var(--text2);margin-top:3px">Controllo export sullo Storage…</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="bs" onclick="genyaInfo()" title="Ricontrolla data ultimo export" style="font-size:12px;padding:7px 11px">🔄</button>
+          <button class="bs" onclick="genyaImportClienti()" title="Importa le fatture EMESSE (clienti) dall'ultimo export Genya — con conferma" style="font-size:12px;padding:7px 13px;background:var(--teal);border-color:var(--teal)">📥 Clienti (emesse)</button>
+          <button class="bs" onclick="genyaImportFornitori()" title="Importa le fatture RICEVUTE (fornitori) dall'ultimo export Genya — con conferma" style="font-size:12px;padding:7px 13px;background:var(--teal);border-color:var(--teal)">📥 Fornitori (ricevute)</button>
+        </div>
+      </div>
+    </div>
+
     <!-- FILTRI + AZIONI -->
     <div class="fc">
       <input type="text" id="fatt-search" placeholder="🔍 Cerca fattura per cliente, cantiere o numero…" oninput="fattRenderLista()" style="width:100%;box-sizing:border-box;background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-size:13px;padding:9px 12px;outline:none;margin-bottom:12px">
@@ -12182,7 +12197,10 @@ function _wdNum(v){
 async function fattImportaWebDesk(input){
   const file=input.files[0]; input.value=''; if(!file) return;
   toast('⏳ Leggo l\'export Web Desk…');
-  _wdLeggi(file, async rows=>{
+  _wdLeggi(file, rows=>_wdProcessFatt(rows));
+}
+// Elabora le righe (emesse) — usato sia da Web Desk (file) sia da Genya (Storage).
+async function _wdProcessFatt(rows){
     const H=_wdHeader(rows,['numero','cliente','totale']);
     if(!H){ toast('⚠ Non riconosco il formato (manca Numero/Cliente/Totale)'); return; }
     const iAnno=H.exa('anno'), iNum=H.exa('numero'), iSuf=H.exa('suffisso'), iData=H.exa('data'),
@@ -12230,47 +12248,58 @@ async function fattImportaWebDesk(input){
     nuove.sort((a,b)=>(parseInt(a.numero)||0)-(parseInt(b.numero)||0));
     _impDaImportare=nuove;
     _fattMostraImport(nuove, doppie, [], 0);
-  });
 }
 
 // ── FORNITORI: fatture RICEVUTE → tabella fatture_acquisto (SOLO additivo) ──
 async function fornImportaWebDesk(input){
   const file=input.files[0]; input.value=''; if(!file) return;
   toast('⏳ Leggo l\'export fornitori…');
-  _wdLeggi(file, async rows=>{
+  _wdLeggi(file, rows=>_wdProcessForn(rows, file.name));
+}
+// Elabora le righe (ricevute) — usato sia da Web Desk (file) sia da Genya (Storage).
+// Chiave documento e anti-doppione: RIF. FORNITORE + FORNITORE (il numero interno
+// su Genya è spesso 0), con fallback al numero interno se il rif manca.
+async function _wdProcessForn(rows, srcName){
     const H=_wdHeader(rows,['numero','fornitore','totale']);
     if(!H){ toast('⚠ Non riconosco il formato (manca Numero/Fornitore/Totale)'); return; }
     const iAnno=H.exa('anno'), iNum=H.exa('numero'), iSuf=H.exa('suffisso'), iData=H.exa('data'),
           iRif=H.idx('rif. fornit'), iForn=H.exa('fornitore'), iTot=H.idx('totale (val'),
           iStato=H.exa('stato'), iPag=H.exa('pagamento');
-    if(iTot<0 || iNum<0 || iForn<0){ toast('⚠ Colonne chiave mancanti'); return; }
+    if(iTot<0 || iForn<0){ toast('⚠ Colonne chiave mancanti'); return; }
+    const _nrm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
+    // chiave documento per il RAGGRUPPAMENTO delle righe di dettaglio
+    const docKey=(rif,num,anno,forn)=>{ const r=_nrm(rif); const base = r || _nrm((anno?anno+'/':'')+num); return base+'|'+_nrm(forn); };
     const inv={};
     for(let r=H.row+1;r<rows.length;r++){
-      const row=rows[r]; if(!row || !String(row[iNum]||'').trim()) continue;
+      const row=rows[r]; if(!row) continue;
+      const forn=String(row[iForn]||'').trim(); if(!forn) continue;
       const anno=String(row[iAnno]||'').trim(), num=String(row[iNum]||'').trim(), suf=String(row[iSuf]||'').trim();
-      const key=anno+'|'+num+'|'+suf;
+      const rif=String(row[iRif>=0?iRif:iNum]||'').trim();
+      if(!rif && !num) continue; // riga senza identificativo
+      const key=docKey(rif,num,anno,forn);
       if(!inv[key]){
         inv[key]={
-          numero: (anno?anno+'/':'')+num,
-          rif_fornitore: String(row[iRif>=0?iRif:iNum]||num).trim(),
-          fornitore: String(row[iForn]||'').trim(),
+          numero: (num && num!=='0') ? ((anno?anno+'/':'')+num) : (rif||num),
+          rif_fornitore: rif || null,
+          fornitore: forn,
           data_fattura: _wdData(row[iData]),
-          importo: _wdNum(row[iTot]),
+          importo: _wdNum(row[iTot]),   // Totale (val): totale documento ripetuto su ogni riga
           _statoWD: String(row[iStato]||'').trim(),
-          metodo_pagamento: String(row[iPag]||'').trim()||null
+          metodo_pagamento: String(row[iPag]||'').trim()||null,
+          _key:key
         };
       }
     }
-    // esistenti: dedup per NUMERO esatto (non tocco MAI le righe già presenti/riconciliate)
+    // esistenti: dedup su RIF+FORNITORE (fallback numero+fornitore). Non tocco MAI le righe già presenti.
     let esistenti=[];
-    try{ const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=numero&limit=6000',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'}); esistenti=await r.json(); }catch(e){}
-    const gia=new Set((esistenti||[]).map(f=>String(f.numero||'').trim().toLowerCase()));
-    const nuove=Object.values(inv).filter(d=>!gia.has(String(d.numero||'').trim().toLowerCase()));
+    try{ const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=numero,rif_fornitore,fornitore&limit=8000',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'}); esistenti=await r.json(); }catch(e){}
+    const gia=new Set((esistenti||[]).map(f=>docKey(f.rif_fornitore, f.numero, '', f.fornitore)));
+    const nuove=Object.values(inv).filter(d=>!gia.has(d._key));
     const saltate=Object.keys(inv).length-nuove.length;
     if(!nuove.length){ toast('⊘ Tutte le '+Object.keys(inv).length+' fatture fornitore sono già presenti'); return; }
     nuove.sort((a,b)=>(a.data_fattura||'').localeCompare(b.data_fattura||''));
-    const anteprima=nuove.slice(0,12).map(d=>'• '+d.numero+'  '+(d.fornitore||'').slice(0,28)+'  '+fmtE(d.importo)+(/pagat/i.test(d._statoWD)?'  ✓pagata':'')).join('\n');
-    if(!confirm('📥 Import fornitori da "'+file.name+'":\n\n'+nuove.length+' fatture NUOVE da aggiungere'+(saltate?('\n'+saltate+' già presenti (non toccate)'):'')+'\n\n'+anteprima+(nuove.length>12?('\n… e altre '+(nuove.length-12)):'')+'\n\nConfermi l\'inserimento?')) return;
+    const anteprima=nuove.slice(0,12).map(d=>'• '+(d.rif_fornitore||d.numero)+'  '+(d.fornitore||'').slice(0,28)+'  '+fmtE(d.importo)).join('\n');
+    if(!confirm('📥 Import fornitori da "'+srcName+'":\n\n'+nuove.length+' fatture NUOVE da aggiungere'+(saltate?('\n'+saltate+' già presenti (non toccate)'):'')+'\n\n'+anteprima+(nuove.length>12?('\n… e altre '+(nuove.length-12)):'')+'\n\nConfermi l\'inserimento?')) return;
     const payload=nuove.map(d=>{
       const pagata=/pagat/i.test(d._statoWD);
       return {
@@ -12280,7 +12309,7 @@ async function fornImportaWebDesk(input){
         stato_verificato: pagata?'pagata_confermata':'aperta',
         residuo: pagata?0:d.importo,
         metodo_pagamento:d.metodo_pagamento,
-        note:'Import Web Desk '+_oggi()
+        note:'Import '+srcName+' '+_oggi()
       };
     });
     try{
@@ -12289,7 +12318,38 @@ async function fornImportaWebDesk(input){
       toast('✓ '+payload.length+' fatture fornitore importate'+(saltate?(' · '+saltate+' saltate'):''));
       rPosizioneFornitori();
     }catch(e){ toast('⚠ Errore rete: '+String(e.message||e).slice(0,60)); }
-  });
+}
+
+// ============================================================
+// IMPORT DA GENYA (Storage Supabase) — legge gli xlsx caricati dall'agente
+// e riusa gli importatori sopra (con conferma dell'utente).
+// ============================================================
+const GENYA_BUCKET_URL = SUPABASE_URL+'/storage/v1/object/public/genya-export';
+async function _genyaFetchRows(nome){
+  const r=await fetch(GENYA_BUCKET_URL+'/'+nome+'.xlsx?t='+Date.now(),{cache:'no-cache'});
+  if(!r.ok) throw new Error('HTTP '+r.status+' su '+nome+'.xlsx');
+  const buf=await r.arrayBuffer();
+  const wb=XLSX.read(buf,{type:'array',cellDates:true});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
+}
+async function genyaInfo(){
+  try{
+    const r=await fetch(GENYA_BUCKET_URL+'/ultimo-export.json?t='+Date.now(),{cache:'no-cache'});
+    if(!r.ok) throw 0;
+    const m=await r.json();
+    const d=m.aggiornato_il?new Date(m.aggiornato_il):null;
+    const el=document.getElementById('genya-info');
+    if(el) el.textContent = d ? ('Ultimo export: '+d.toLocaleString('it-IT')) : 'Manifest presente';
+  }catch(e){ const el=document.getElementById('genya-info'); if(el) el.textContent='Nessun export trovato sullo Storage'; }
+}
+async function genyaImportClienti(){
+  try{ toast('⏳ Scarico l\'export emesse da Genya…'); const rows=await _genyaFetchRows('emesse'); await _wdProcessFatt(rows); }
+  catch(e){ toast('⚠ '+String(e.message||e).slice(0,80)); }
+}
+async function genyaImportFornitori(){
+  try{ toast('⏳ Scarico l\'export ricevute da Genya…'); const rows=await _genyaFetchRows('ricevute'); await _wdProcessForn(rows,'Genya'); }
+  catch(e){ toast('⚠ '+String(e.message||e).slice(0,80)); }
 }
 
 // ============================================================
@@ -12305,6 +12365,8 @@ nav('dash');
 
 // Verifica connessione cloud all'avvio (silenzioso, non blocca l'app)
 setTimeout(()=>{ cloudVerificaConnessione(); }, 500);
+// Data ultimo export Genya (per la card import fatture)
+setTimeout(()=>{ try{ genyaInfo(); }catch(e){} }, 800);
 // Backup automatico: snapshot all'apertura + ogni 15 min (rete di sicurezza)
 setTimeout(()=>backupSnapshot('apertura'), 3000);
 setInterval(()=>backupSnapshot('periodico'), 15*60*1000);
