@@ -5628,9 +5628,10 @@ function rDettCant(){
   document.getElementById('dett-body').innerHTML=html||'<div class="ri"><div class="rls">Nessuna attività nel periodo selezionato.</div></div>';
 }
 
-function esportaDettExcel(){
+async function esportaDettExcel(){
   const nome=window._dettCantNome||'';
   if(!nome){toast('Nessun cantiere selezionato');return;}
+  try{ if(typeof _ensureFaRows==='function') await _ensureFaRows(); }catch(e){}
   const da=document.getElementById('dett-da')?.value||'';
   const al=document.getElementById('dett-al')?.value||'';
   const GG=['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
@@ -5650,7 +5651,16 @@ function esportaDettExcel(){
   });
   const ocDett=_oreCostoPerCantiere(da||null, al||null);
   const totOneri=(ocDett[nome.toLowerCase()]||{}).oneri||0;
-  const totTot=totP+totS+totC+totOneri;
+  // Fatture fornitori agganciate al cantiere (stessa sorgente della schermata), filtrate per periodo
+  const _kNomeFaX=(nome||'').toLowerCase().trim().replace(/\s+/g,' ');
+  const _faAllX=(typeof _faRows!=='undefined'&&Array.isArray(_faRows))?_faRows:((typeof _fffRows!=='undefined'&&Array.isArray(_fffRows))?_fffRows:[]);
+  const faList=_faAllX.filter(f=>{
+    let n=f.cantiere_nome||''; if(!n && f.cantiere_id){ const c=(DB.cantieri||[]).find(x=>x.id===f.cantiere_id); if(c) n=c.nome; }
+    if((n||'').toLowerCase().trim().replace(/\s+/g,' ')!==_kNomeFaX) return false;
+    return (!da||(f.data_fattura&&f.data_fattura>=da)) && (!al||(f.data_fattura&&f.data_fattura<=al));
+  }).sort((a,b)=>(a.data_fattura||'').localeCompare(b.data_fattura||''));
+  let totF=0; faList.forEach(f=>totF+=parseFloat(f.importo||0));
+  const totTot=totP+totS+totC+totOneri+totF;
   const pct=v=>totTot>0?((v/totTot)*100).toFixed(1)+'%':'—';
   const ws0=XLSX.utils.aoa_to_sheet([
     ['RIEPILOGO — '+nome],[`Periodo: ${periodo}`],
@@ -5660,6 +5670,7 @@ function esportaDettExcel(){
     ['🧾 Oneri giornalieri (contributi e spese personale)',totOneri,pct(totOneri)],
     ['💳 Spese dirette (incl. scontrini contabilizzati)',totS,pct(totS)],
     ['⛽ Carburante',totC,pct(totC)],
+    ['🧾 Fatture fornitori',totF,pct(totF)],
     ['TOTALE COSTI',totTot,'100%']
   ]);
   ws0['!cols']=[{wch:20},{wch:14},{wch:12}];
@@ -5707,6 +5718,19 @@ function esportaDettExcel(){
   const ws3=XLSX.utils.aoa_to_sheet(rowsC);
   ws3['!cols']=[{wch:12},{wch:6},{wch:12},{wch:8},{wch:12},{wch:18},{wch:8}];
   XLSX.utils.book_append_sheet(wb,ws3,'Carburante');
+
+  // ── FOGLIO: Fatture Fornitori (agganciate al cantiere) ────────
+  const rowsF=[['FATTURE FORNITORI — '+nome],[`Periodo: ${periodo}`],[],
+    ['Data','Giorno','Fornitore','Rif./Numero','Importo (€)','Stato','Residuo (€)','Pagamento','Note']];
+  faList.forEach(f=>rowsF.push([
+    fd(f.data_fattura),fg(f.data_fattura),f.fornitore||'',f.rif_fornitore||f.numero||'',
+    parseFloat(f.importo||0),f.stato_verificato||'',parseFloat(f.residuo||0),f.metodo_pagamento||'',f.note||''
+  ]));
+  rowsF.push(['TOTALE','','','',totF,'','','','']);
+  if(faList.length===0) rowsF.push(['Nessuna fattura fornitore assegnata a questo cantiere']);
+  const wsF=XLSX.utils.aoa_to_sheet(rowsF);
+  wsF['!cols']=[{wch:12},{wch:6},{wch:24},{wch:14},{wch:12},{wch:16},{wch:12},{wch:16},{wch:30}];
+  XLSX.utils.book_append_sheet(wb,wsF,'Fatture Fornitori');
 
   // ── FOGLIO 5: Scontrini (archivio documenti giustificativi) ───
   const tuttiScont=(DB.scontrini||[]).filter(s=>{
