@@ -5440,6 +5440,18 @@ function rDettEco(cant, nome){
   const margPct=ricavo>0?(margine/ricavo*100):null;
   const riga=(lbl,val,extra)=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--brd);font-size:13px">
     <span style="color:var(--text2)">${lbl}</span><span class="mn" style="font-weight:700${extra||''}">${fmt(val)}</span></div>`;
+  // Elenco fatture fornitori agganciate a questo cantiere (voce per voce, senza doppio conteggio: leggo le stesse righe già sommate nel totale)
+  const _kNomeFa=(nome||'').toLowerCase().trim().replace(/\s+/g,' ');
+  const _faList=((typeof _faRows!=='undefined'&&Array.isArray(_faRows))?_faRows:((typeof _fffRows!=='undefined'&&Array.isArray(_fffRows))?_fffRows:[]))
+    .filter(f=>{ let n=f.cantiere_nome||''; if(!n && f.cantiere_id){ const c=(DB.cantieri||[]).find(x=>x.id===f.cantiere_id); if(c) n=c.nome; } return (n||'').toLowerCase().trim().replace(/\s+/g,' ')===_kNomeFa; })
+    .sort((a,b)=>(parseFloat(b.importo)||0)-(parseFloat(a.importo)||0));
+  const rigaForn=(costi.fornitori||0)
+    ? riga('Fatture fornitori', -(costi.fornitori||0))
+      + (_faList.length?`<div style="padding:1px 0 6px 12px">`+_faList.map(f=>{
+          const _num=f.rif_fornitore||f.numero||''; const _im=parseFloat(f.importo)||0;
+          return `<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);padding:2px 0"><span>· ${f.fornitore||'—'}${_num?` <span style="opacity:.65">${_num}</span>`:''}</span><span class="mn">${fmt(-_im)}</span></div>`;
+        }).join('')+`</div>`:'')
+    : '';
   box.innerHTML=`<div style="background:var(--card);border:1px solid var(--brd);border-radius:12px;padding:14px 16px">
     <div style="font-size:14px;font-weight:800;margin-bottom:10px">📊 Conto del cantiere <span style="font-size:11px;color:var(--text2);font-weight:400">· dai dati reali registrati</span></div>
     ${riga(isCont?'Ricavo maturato (fatturato > previsto)':'Ricavo (previsto/concordato)', ricavo, ';color:var(--teal)')}
@@ -5447,7 +5459,7 @@ function rDettEco(cant, nome){
     ${riga('Oneri giornalieri (contributi e spese personale)', -costi.oneri)}
     ${riga('Carburante', -costi.carburante)}
     ${riga('Costi diretti (spese, materiali, scontrini)', -costi.spese)}
-    ${(costi.fornitori||0)?riga('Fatture fornitori', -(costi.fornitori||0)):''}
+    ${rigaForn}
     <div style="display:flex;justify-content:space-between;padding:7px 0 3px;font-size:13px">
       <span style="font-weight:700">Totale costi</span><span class="mn" style="font-weight:800;color:var(--gold)">${fmt(totale)}</span></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding:10px 12px;border-radius:10px;background:${ricavo>0?(margine>=0?'rgba(63,185,80,.12)':'rgba(232,84,84,.12)'):'var(--brd)'}">
