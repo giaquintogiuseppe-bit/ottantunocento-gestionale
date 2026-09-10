@@ -806,6 +806,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
       </div>
     </div>
 
+    <!-- Forniture / voci di ricavo (composizione del ricavo previsto) -->
+    <div id="dett-forn-box" style="margin-bottom:14px"></div>
+
     <!-- Interventi della commessa (perno · lungo periodo) -->
     <div id="dett-interventi" style="margin-bottom:14px"></div>
 
@@ -5551,10 +5554,77 @@ function fattNuovaPerCantiere(cid,nome){
   },150);
 }
 
+// ── FORNITURE / VOCI DI RICAVO (scritte da Mobile e Preventivi integrativi) ──
+const FORN_TIPO_META_G = {
+  fornitura:   {ic:'📦', lbl:'Fornitura'},
+  servizio:    {ic:'🚚', lbl:'Servizio'},
+  allestimento:{ic:'🎪', lbl:'Allestimento'}
+};
+function fornituraTotaleG(c){ return (c&&Array.isArray(c.forniture)?c.forniture:[]).reduce((a,v)=>a+parseFloat(v.importo||0),0); }
+function rDettForniture(c){
+  const box=document.getElementById('dett-forn-box'); if(!box) return;
+  const voci=(c&&Array.isArray(c.forniture))?c.forniture:[];
+  if(!voci.length){ box.innerHTML=''; return; }
+  const totF=fornituraTotaleG(c);
+  const ricavo=c?getBudget(c.id,c.nome):0;
+  const base=Math.max(0, ricavo-totF);
+  box.innerHTML=`<div style="background:rgba(232,184,75,.06);border:1px solid rgba(232,184,75,.3);border-radius:12px;padding:14px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gold);margin-bottom:8px">📦 Forniture / voci di ricavo <span style="font-weight:400;color:var(--text2);text-transform:none">— composizione del ricavo previsto</span></div>
+    ${base>0?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--brd);font-size:13px"><span style="color:var(--text2)">Ricavo base</span><span style="font-family:'IBM Plex Mono',monospace">${fmt(base)}</span></div>`:''}
+    ${voci.map(v=>{
+      const m=FORN_TIPO_META_G[v.tipo]||FORN_TIPO_META_G.fornitura;
+      return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--brd)">
+        <div style="min-width:0"><div style="font-size:13px;font-weight:700">${m.ic} ${esc(v.descrizione||m.lbl)}</div>
+        <div style="font-size:11px;color:var(--text2)">${m.lbl}${v.preventivoRef?' · 🧾 '+esc(v.preventivoRef):''}${v.fonte?' · '+esc(v.fonte):''}${v.note?' · '+esc(v.note):''}</div></div>
+        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+          <span style="color:var(--gold);font-weight:800;font-family:'IBM Plex Mono',monospace">${fmt(v.importo)}</span>
+          <button class="bd" style="font-size:11px;padding:3px 7px" onclick="eliminaFornituraGest('${c.id}','${v.id}')">✕</button>
+        </div>
+      </div>`;
+    }).join('')}
+    <div style="display:flex;justify-content:space-between;padding-top:8px;font-size:14px;font-weight:800"><span>Totale ricavo previsto</span><span style="color:var(--teal);font-family:'IBM Plex Mono',monospace">${fmt(base+totF)}</span></div>
+  </div>`;
+}
+function eliminaFornituraGest(cantId, voceId){
+  const c=(DB.cantieri||[]).find(x=>x.id===cantId); if(!c) return;
+  const voce=(c.forniture||[]).find(x=>x.id===voceId); if(!voce) return;
+  if(!confirm('Eliminare la voce "'+(voce.descrizione||'')+'" ('+fmt(voce.importo)+')?\nIl ricavo previsto verrà ridotto di conseguenza.')) return;
+  c.forniture=(c.forniture||[]).filter(x=>x.id!==voceId);
+  const nuovo=Math.max(0, (getBudget(c.id,c.nome)||0)-parseFloat(voce.importo||0));
+  setBudget(c.id, c.nome, nuovo);
+  save();
+  rDettCant();
+  toast('Voce eliminata');
+}
+// ── RICONCILIAZIONE SPESE (anti-duplicazione con l'allineamento fatture) ──
+function _gRicBadge(s){
+  const st=s.statoRic || ((s.fonte==='mobile'||s.fonte==='diario')?'da_riconciliare':'');
+  if(st==='riconciliata')     return `<span title="Fattura ${esc(s.fattura||'')}" style="font-size:10px;font-weight:800;color:#3fbf7f;background:rgba(63,191,127,.14);border:1px solid rgba(63,191,127,.4);border-radius:6px;padding:1px 6px;white-space:nowrap">✅ ${s.fattura?esc(s.fattura):'fatturata'}</span>`;
+  if(st==='definitiva')       return `<span style="font-size:10px;font-weight:800;color:var(--text2);background:rgba(120,140,160,.14);border:1px solid var(--brd);border-radius:6px;padding:1px 6px;white-space:nowrap">🔒 senza fatt.</span>`;
+  if(st==='da_riconciliare')  return `<span style="font-size:10px;font-weight:800;color:#e8a34b;background:rgba(232,163,75,.14);border:1px solid rgba(232,163,75,.4);border-radius:6px;padding:1px 6px;white-space:nowrap">⏳ da riconc.</span>`;
+  return '';
+}
+// Aggiorna lo stato di riconciliazione di una spesa (speseCantiere) e allinea lo scontrino collegato.
+function riconciliaSpesaGest(id){
+  const s=(DB.speseCantiere||[]).find(x=>x.id===id);
+  if(!s){ toast('Spesa non trovata'); return; }
+  const scelta=prompt('Spesa: '+(s.fornitore||'—')+' · '+fmt(s.importo)+'\n\nDigita:\n • il N° FATTURA per riconciliarla (es. FT123/2026)\n • "0" per tenerla DEFINITIVA senza fattura\n • vuoto/Annulla per rimetterla "da riconciliare"', s.fattura||'');
+  if(scelta===null){ s.statoRic='da_riconciliare'; }
+  else if(scelta.trim()==='0'){ s.statoRic='definitiva'; s.fattura=''; }
+  else if(scelta.trim()===''){ s.statoRic='da_riconciliare'; }
+  else { s.fattura=scelta.trim(); s.statoRic='riconciliata'; }
+  if(s.scontrinoRef){ const sc=(DB.scontrini||[]).find(x=>x.id===s.scontrinoRef); if(sc){ sc.statoRic=s.statoRic; sc.fattura=s.fattura||''; } }
+  save();
+  if(typeof curPg!=='undefined' && curPg==='dettaglio-cant') rDettCant();
+  else if(typeof curPg!=='undefined' && curPg==='coerenza') rCoerenza();
+  toast(s.statoRic==='riconciliata'?'Fattura collegata ✓':s.statoRic==='definitiva'?'Spesa definitiva ✓':'Rimessa da riconciliare');
+}
+
 function rDettCant(){
   const nome=window._dettCantNome||'';
   if(!nome) return;
   document.getElementById('dett-title').textContent=nome;
+  rDettForniture((DB.cantieri||[]).find(x=>x.nome===nome));
 
   // Aggiorna display budget
   const _c=(DB.cantieri||[]).find(x=>x.nome===nome);
@@ -5602,10 +5672,11 @@ function rDettCant(){
           <div style="display:flex;justify-content:space-between"><b style="font-size:13px">👷 ${x.nome}</b><span class="or" style="font-weight:700">${fmt(x.tot)}</span></div>
           ${(x.turni||[]).map(t=>`<div style="font-size:11px;color:var(--text2);padding-left:14px;margin-top:2px">${t.oraI}–${t.oraF}${t.notturno?' 🌙 (comp. giorno succ.)':''} · ${fmt(t.importo)}</div>`).join('')}
         </div>`).join('')}
-        ${g.s.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--brd)">
-          <span>💳 <b>${x.fornitore||'—'}</b>${x.categoria?' ['+x.categoria+']':''}${x.descrizione?' '+x.descrizione:''}${x.scontrinoId?` <span style="font-size:11px;color:var(--teal)">🧾</span>`:''}</span>
+        ${g.s.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--brd)">
+          <span style="min-width:0">💳 <b>${x.fornitore||'—'}</b>${x.categoria?' ['+x.categoria+']':''}${x.descrizione?' '+x.descrizione:''}${x.scontrinoId?` <span style="font-size:11px;color:var(--teal)">🧾</span>`:''}${_gRicBadge(x)?' '+_gRicBadge(x):''}</span>
           <div style="display:flex;gap:5px;align-items:center;flex-shrink:0">
             <span class="rr" style="font-weight:700">${fmt(x.importo)}</span>
+            ${(x.statoRic||x.fonte==='mobile'||x.fonte==='diario')?`<button class="bs" title="Riconcilia con fattura" style="font-size:11px;padding:3px 6px" onclick="riconciliaSpesaGest('${x.id}')">🔗</button>`:''}
             <button class="bs" style="font-size:11px;padding:3px 6px" onclick="modificaSpesaDaDett('${x.id}')">✏️</button>
             <button class="bd" style="font-size:11px;padding:3px 6px" onclick="eliminaSpesaDaDett('${x.id}')">✕</button>
           </div>
@@ -12019,6 +12090,14 @@ async function rCoerenza(){
   h+=sez('👥','Cantieri doppioni',duplicati.length,
     'Stesso nome e committente su più cantieri: unifica o rinomina dal planning per non spezzare presenze/fatture.',
     duplicati.map(g=>'<div style="padding:6px 0;border-top:1px solid var(--brd)"><b>'+esc(g[0].nome)+'</b> <span style="font-size:11px;color:var(--text2)">'+esc(g[0].committente||'')+'</span> <span style="font-size:11px;color:#e0645f">×'+g.length+'</span> <span style="font-size:10px;color:var(--text2)">('+g.map(c=>(c.interventi&&c.interventi.length?c.interventi.length+' interv.':'vuoto')).join(', ')+')</span></div>').join(''),'#e0645f');
+
+  // 6) SPESE AL VOLO DA RICONCILIARE — checklist per l'allineamento fatture (anti-doppione)
+  const daRic=(DB.speseCantiere||[]).filter(s=>s.statoRic==='da_riconciliare' || (!s.statoRic && (s.fonte==='mobile'||s.fonte==='diario')));
+  const totDaRic=daRic.reduce((a,s)=>a+parseFloat(s.importo||0),0);
+  h+=sez('⏳','Spese al volo da riconciliare',daRic.length,
+    'Spese registrate al volo (Mobile/Diario) in attesa della fattura. Quando importi/allinei le fatture, riconciliale qui (collega il n° fattura) invece di reinserirle: così non si duplicano. Se una fattura non arriverà, marcala definitiva.',
+    (daRic.length?`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">Totale sospeso: <b style="color:#e8a34b">${fmtE(totDaRic)}</b></div>`:'')+
+    daRic.slice(0,60).map(s=>'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--brd)"><div style="min-width:0"><b>'+esc(s.fornitore||'—')+'</b> <span style="font-size:11px;color:var(--text2)">'+esc(s.categoria||'')+(s.cantiere?' · '+esc(s.cantiere):'')+' · '+esc(fdate(s.data))+'</span></div><div style="display:flex;gap:6px;align-items:center;flex-shrink:0"><b style="font-family:\'DM Mono\',monospace;color:#e8a34b;white-space:nowrap">'+fmtE(s.importo)+'</b><button class="bs" style="font-size:11px;padding:4px 9px" onclick="riconciliaSpesaGest(\''+esc(s.id)+'\')">🔗 Riconcilia</button></div></div>').join('')+(daRic.length>60?'<div style="font-size:11px;color:var(--text2);margin-top:6px">…e altre '+(daRic.length-60)+'</div>':''));
 
   box.innerHTML=h;
 }
