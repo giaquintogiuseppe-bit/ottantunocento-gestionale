@@ -1088,6 +1088,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
           <button class="bs" onclick="document.getElementById('fatt-import-file').click()" title="Importa fatture dai file XML/P7M ministeriali">📁 Importa da XML</button>
           <input type="file" id="fatt-wd-file" accept=".xlsx,.xls" style="display:none" onchange="fattImportaWebDesk(this)">
           <button class="bs" onclick="document.getElementById('fatt-wd-file').click()" title="Importa l'elenco fatture EMESSE esportato da Web Desk (Excel)" style="background:var(--teal);border-color:var(--teal)">📥 Web Desk</button>
+          <button class="bs" onclick="apriCollegaCommessa()" title="Collega in blocco le fatture (clienti e fornitori) alle commesse">🔗 Collega a commessa</button>
           <button class="bp" onclick="fattNuova()">+ Nuova fattura</button>
         </div>
       </div>
@@ -11713,6 +11714,93 @@ async function fffNota(id){
     if(!res.ok) throw new Error('HTTP '+res.status);
     r.note=nv||null; toast('✓ Nota salvata'); fffRender();
   }catch(e){ toast('⚠ Errore: '+(e.message||e)); }
+}
+// ══════════════════════════════════════════════════════════════════════════
+// 🔗 COLLEGA FATTURE A COMMESSA (in blocco) — clienti + fornitori non collegati
+// Riusa _fffCant/_fffCantOptions; salva al volo (PATCH) su fatture e fatture_acquisto.
+// ══════════════════════════════════════════════════════════════════════════
+let _ccCli=[], _ccForn=[];
+async function apriCollegaCommessa(){
+  _fffBuildCant();
+  const old=document.getElementById('modal-collega'); if(old) old.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    `<div class="mo" id="modal-collega" style="display:flex" onclick="if(event.target.id==='modal-collega')this.remove()">
+      <div class="md" style="max-width:900px;width:97%;max-height:92dvh;display:flex;flex-direction:column">
+        <div class="mh"><h3>🔗 Collega fatture a commessa</h3><button class="mc" onclick="document.getElementById('modal-collega').remove()">✕</button></div>
+        <div class="mb" style="overflow:auto" id="cc-body"><div style="color:var(--text2);padding:20px">Carico le fatture non collegate…</div></div>
+      </div></div>`);
+  const F=_FAPI();
+  try{
+    const [rc,rf]=await Promise.all([
+      fetch(F.url+'?select=id,numero,cliente,importo,data_fattura,cantiere_id,cantiere_nome&limit=8000',{headers:F.h,cache:'no-cache'}).then(r=>r.json()),
+      fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=id,numero,rif_fornitore,fornitore,importo,data_fattura,cantiere_id,cantiere_nome&limit=8000',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'}).then(r=>r.json())
+    ]);
+    const noc=f=>!f.cantiere_id && !String(f.cantiere_nome||'').trim();
+    const byDate=(a,b)=>String(b.data_fattura||'').localeCompare(String(a.data_fattura||''));
+    _ccCli=(Array.isArray(rc)?rc:[]).filter(noc).sort(byDate);
+    _ccForn=(Array.isArray(rf)?rf:[]).filter(noc).sort(byDate);
+  }catch(e){ const b=document.getElementById('cc-body'); if(b) b.innerHTML='<div style="color:#e0645f;padding:20px">Errore nel caricamento: '+esc(e.message||e)+'</div>'; return; }
+  _ccRender();
+}
+function _ccRighe(list, tipo){
+  if(!list.length) return '<tr><td colspan="4" style="padding:12px;color:var(--text2)">Nessuna fattura da collegare 🎉</td></tr>';
+  return list.map(f=>{
+    const nome = tipo==='cli' ? (f.cliente||'—') : (f.fornitore||'—');
+    const num  = tipo==='cli' ? (f.numero||'') : (f.rif_fornitore||f.numero||'');
+    const hay=(nome+' '+num).toLowerCase();
+    return '<tr data-h="'+esc(hay)+'" style="border-top:1px solid var(--brd)">'+
+      '<td style="padding:7px 9px;white-space:nowrap;color:var(--text2)">'+_fffDate(f.data_fattura)+'</td>'+
+      '<td style="padding:7px 9px"><b>'+esc(nome)+'</b>'+(num?' <span style="color:var(--text2);font-size:11px">'+esc(num)+'</span>':'')+'</td>'+
+      '<td style="padding:7px 9px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">'+fmtE(f.importo)+'</td>'+
+      '<td style="padding:7px 9px;min-width:230px"><select onchange="_ccAssegna(this,\''+tipo+'\',\''+esc(String(f.id))+'\')" style="width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:6px 8px">'+_fffCantOptions('')+'</select></td>'+
+    '</tr>';
+  }).join('');
+}
+function _ccRender(){
+  const b=document.getElementById('cc-body'); if(!b) return;
+  const sez=(tit,idc,list,tipo)=>
+    '<div style="font-size:13px;font-weight:800;margin:6px 0 4px">'+tit+' — <span id="'+idc+'">'+list.length+'</span> da collegare</div>'+
+    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'+
+    '<thead><tr style="text-align:left;color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.03em"><th style="padding:6px 9px">Data</th><th style="padding:6px 9px">'+(tipo==='cli'?'Cliente':'Fornitore')+' / N°</th><th style="padding:6px 9px;text-align:right">Importo</th><th style="padding:6px 9px">Commessa</th></tr></thead>'+
+    '<tbody>'+_ccRighe(list,tipo)+'</tbody></table></div>';
+  b.innerHTML=
+    (_fffCant.length?'':'<div style="color:#e0a23f;padding:8px 0">⚠ Non ci sono cantieri: creane prima uno in "Cantieri".</div>')+
+    '<input id="cc-q" oninput="_ccFilterRows()" placeholder="🔎 Filtra per cliente / fornitore / numero…" style="width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:8px 10px;margin-bottom:12px">'+
+    '<div style="font-size:11px;color:var(--text2);margin-bottom:10px">Scegli la commessa dalla tendina: la fattura si collega subito e sparisce dalla lista. Il costo/ricavo entra nel “Conto del cantiere”.</div>'+
+    sez('🧾 Fatture clienti (in uscita)','cc-cnt-cli',_ccCli,'cli')+
+    '<div style="height:16px"></div>'+
+    sez('📥 Fatture fornitori (in entrata)','cc-cnt-forn',_ccForn,'forn');
+}
+function _ccFilterRows(){
+  const q=(document.getElementById('cc-q')?document.getElementById('cc-q').value:'').trim().toLowerCase();
+  document.querySelectorAll('#cc-body tr[data-h]').forEach(tr=>{ tr.hidden = !!q && !tr.getAttribute('data-h').includes(q); });
+}
+function _ccAggiornaConteggi(){
+  const a=document.getElementById('cc-cnt-cli'); if(a) a.textContent=_ccCli.length;
+  const b=document.getElementById('cc-cnt-forn'); if(b) b.textContent=_ccForn.length;
+}
+async function _ccAssegna(sel, tipo, id){
+  const v=sel.value; if(v==='') return;
+  const c=_fffCant[parseInt(v,10)]; if(!c) return;
+  const body={ cantiere_id:c.id||null, cantiere_nome:c.nome||null, aggiornato_il:new Date().toISOString() };
+  const base = tipo==='cli' ? _FAPI().url : SUPABASE_URL+'/rest/v1/fatture_acquisto';
+  const h = { apikey:SUPABASE_KEY, Authorization:'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'return=minimal' };
+  sel.disabled=true;
+  try{
+    const res=await fetch(base+'?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:h,body:JSON.stringify(body)});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    if(tipo==='cli'){
+      const f=(_fatture||[]).find(x=>String(x.id)===String(id)); if(f){ f.cantiere_id=body.cantiere_id; f.cantiere_nome=body.cantiere_nome; }
+      _ccCli=_ccCli.filter(x=>String(x.id)!==String(id));
+    } else {
+      [_fffRows,_faRows].forEach(arr=>{ if(Array.isArray(arr)){ const f=arr.find(x=>String(x.id)===String(id)); if(f){ f.cantiere_id=body.cantiere_id; f.cantiere_nome=body.cantiere_nome; } } });
+      _ccForn=_ccForn.filter(x=>String(x.id)!==String(id));
+    }
+    invalidaCache();
+    const tr=sel.closest('tr'); if(tr) tr.remove();
+    _ccAggiornaConteggi();
+    toast('✓ Collegata a '+c.nome);
+  }catch(e){ sel.disabled=false; toast('⚠ Errore nel salvataggio: '+(e.message||e)); }
 }
 function fffExport(){
   const list=_fffFiltered();
