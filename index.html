@@ -6800,24 +6800,25 @@ function ricalcolaSaldi(){
 function _lunediDiEc(d){ const x=new Date(d+'T12:00'); const g=(x.getDay()+6)%7; x.setDate(x.getDate()-g); return x.toISOString().slice(0,10); }
 function estrattoConto(dipId){
   const mov=[];
-  // maturato AGGREGATO PER SETTIMANA (competenza: notturni contano già nel giorno giusto via getTurniRaw)
-  const sett={};
+  // maturato AGGREGATO PER MESE (competenza: notturni contano già nel giorno giusto via getTurniRaw)
+  const _nomiMese=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+  const _nomeMese=mk=>{ const [y,m]=mk.split('-'); return (_nomiMese[(parseInt(m,10)||1)-1]||mk)+' '+y; };
+  const mesi={};
   Object.keys(DB.presenze||{}).forEach(d=>{
     getTurniRaw(d, dipId).forEach(t=>{
       const imp=parseFloat(t.importo||0); if(!imp) return;
-      const lun=_lunediDiEc(d);
-      if(!sett[lun]) sett[lun]={imp:0, gg:{}};
-      sett[lun].imp+=imp; sett[lun].gg[d]=(sett[lun].gg[d]||0)+imp;
+      const mk=d.slice(0,7);                              // YYYY-MM
+      if(!mesi[mk]) mesi[mk]={imp:0, gg:{}};
+      mesi[mk].imp+=imp; mesi[mk].gg[d]=(mesi[mk].gg[d]||0)+imp;
     });
   });
-  Object.keys(sett).forEach(lun=>{
-    const dom=new Date(new Date(lun+'T12:00').getTime()+6*864e5).toISOString().slice(0,10);
-    const giorni=Object.keys(sett[lun].gg).sort();       // giorni lavorati della settimana
-    const ultimoGiorno=giorni[giorni.length-1];          // il maturato matura quando si lavora
+  Object.keys(mesi).forEach(mk=>{
+    const giorni=Object.keys(mesi[mk].gg).sort();         // giorni lavorati del mese
+    const ultimoGiorno=giorni[giorni.length-1];           // il maturato matura quando si lavora
     mov.push({data:ultimoGiorno, ord:0, tipo:'maturato',
-      descr:'Giornate settimana '+fdate(lun)+' – '+fdate(dom)+' ('+giorni.length+' gg)',
-      avere:sett[lun].imp, dare:0,
-      giorni:giorni.map(g=>({data:g, imp:sett[lun].gg[g]}))});
+      descr:'Maturato '+_nomeMese(mk)+' ('+giorni.length+' gg)',
+      avere:mesi[mk].imp, dare:0,
+      giorni:giorni.map(g=>({data:g, imp:mesi[mk].gg[g]}))});
   });
   (DB.anticipi||[]).filter(a=>a.dipId===dipId && a.metodo!=='Anticipo da pagamento').forEach(a=>{
     mov.push({data:a.data, ord:1, tipo:'anticipo', descr:'Pagamento'+(a.note?' — '+a.note:'')+(a.metodo?' ('+a.metodo+')':''), dare:parseFloat(a.importo||0), avere:0});
@@ -6839,6 +6840,11 @@ function estrattoConto(dipId){
   let saldo=0; mov.forEach(m=>{ saldo+=(m.avere||0)-(m.dare||0); m.saldo=saldo; });
   return mov;
 }
+function _ecToggleDet(id, rowEl){
+  const el=document.getElementById(id); if(!el) return;
+  el.hidden=!el.hidden;
+  const a=rowEl&&rowEl.querySelector('.ec-arrow'); if(a) a.textContent=el.hidden?'▸':'▾';
+}
 function apriEstrattoConto(dipId){
   const p=(DB.personale||[]).find(x=>x.id===dipId); if(!p) return;
   const mov=estrattoConto(dipId);
@@ -6846,21 +6852,22 @@ function apriEstrattoConto(dipId){
   const residuoDanni=s.addebiti||0;
   const _gg=['dom','lun','mar','mer','gio','ven','sab'];
   const _fgg=iso=>{ try{ return _gg[new Date(iso+'T12:00').getDay()]; }catch(e){ return ''; } };
-  const righe=mov.map(m=>{
+  const righe=mov.map((m,idx)=>{
     const icona=m.tipo==='apertura'?'📌':m.tipo==='maturato'?'🔨':m.tipo==='anticipo'?'💸':m.tipo==='pagamento'?'💶':'⚖️';
-    let r=`<tr>
+    const hasDet=(m.tipo==='maturato' && m.giorni && m.giorni.length); const detId='ecd-'+idx;
+    let r=`<tr${hasDet?` style="cursor:pointer" onclick="_ecToggleDet('${detId}',this)" title="Clic per vedere le giornate"`:''}>
     <td style="white-space:nowrap">${fdate(m.data)}</td>
-    <td style="font-size:11.5px">${icona} ${m.descr}</td>
+    <td style="font-size:11.5px">${hasDet?`<span class="ec-arrow" style="display:inline-block;width:11px;color:var(--text2)">▸</span> `:''}${icona} ${m.descr}</td>
     <td style="text-align:right;color:var(--red)">${m.dare?fmt(m.dare):''}</td>
     <td style="text-align:right;color:var(--green)">${m.avere?fmt(m.avere):''}</td>
     <td style="text-align:right;font-weight:800;color:${m.saldo>=0?'var(--green)':'var(--red)'}">${fmt(m.saldo)}</td>
   </tr>`;
-    // Dettaglio giorno-per-giorno del maturato (elenco con corrispettivo per giornata)
-    if(m.tipo==='maturato' && m.giorni && m.giorni.length){
+    // Dettaglio giorno-per-giorno del maturato (richiudibile — chiuso di default)
+    if(hasDet){
       const voci=m.giorni.map(g=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:2px 0">
         <span style="color:var(--text2)">· ${_fgg(g.data)} ${fdate(g.data)}</span>
         <span class="mn" style="color:var(--green);font-weight:600">${fmt(g.imp)}</span></div>`).join('');
-      r+=`<tr class="ec-det"><td></td><td colspan="4" style="padding:2px 14px 10px 14px"><div style="font-size:11.5px;max-width:340px">${voci}</div></td></tr>`;
+      r+=`<tr class="ec-det" id="${detId}" hidden><td></td><td colspan="4" style="padding:2px 14px 10px 14px"><div style="font-size:11.5px;max-width:340px">${voci}</div></td></tr>`;
     }
     return r;
   }).join('');
@@ -6874,7 +6881,7 @@ function apriEstrattoConto(dipId){
       </div>
       <div style="overflow:auto"><table style="width:100%"><thead><tr><th>Data</th><th>Movimento</th><th style="text-align:right">Dare €</th><th style="text-align:right">Avere €</th><th style="text-align:right">Saldo €</th></tr></thead>
       <tbody>${righe||'<tr><td colspan="5" style="color:var(--text2);padding:10px">Nessun movimento.</td></tr>'}</tbody></table></div>
-      <div style="font-size:10px;color:var(--text2);margin-top:8px">Avere = maturato dal lavoro (sotto ogni settimana, il dettaglio giorno-per-giorno) · Dare = anticipi, pagamenti e trattenute · il saldo corre dall'inizio della storia.</div>
+      <div style="font-size:10px;color:var(--text2);margin-top:8px">Maturato raggruppato per mese — clic su un mese (▸) per vedere le singole giornate · Avere = maturato · Dare = anticipi, pagamenti e trattenute · il saldo corre dall'inizio della storia.</div>
       </div>
     </div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
