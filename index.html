@@ -6798,14 +6798,18 @@ function estrattoConto(dipId){
     getTurniRaw(d, dipId).forEach(t=>{
       const imp=parseFloat(t.importo||0); if(!imp) return;
       const lun=_lunediDiEc(d);
-      if(!sett[lun]) sett[lun]={imp:0, gg:new Set()};
-      sett[lun].imp+=imp; sett[lun].gg.add(d);
+      if(!sett[lun]) sett[lun]={imp:0, gg:{}};
+      sett[lun].imp+=imp; sett[lun].gg[d]=(sett[lun].gg[d]||0)+imp;
     });
   });
   Object.keys(sett).forEach(lun=>{
     const dom=new Date(new Date(lun+'T12:00').getTime()+6*864e5).toISOString().slice(0,10);
-    const ultimoGiorno=[...sett[lun].gg].sort().pop(); // il maturato matura quando si lavora
-    mov.push({data:ultimoGiorno, ord:0, tipo:'maturato', descr:'Giornate settimana '+fdate(lun)+' – '+fdate(dom)+' ('+sett[lun].gg.size+' gg)', avere:sett[lun].imp, dare:0});
+    const giorni=Object.keys(sett[lun].gg).sort();       // giorni lavorati della settimana
+    const ultimoGiorno=giorni[giorni.length-1];          // il maturato matura quando si lavora
+    mov.push({data:ultimoGiorno, ord:0, tipo:'maturato',
+      descr:'Giornate settimana '+fdate(lun)+' – '+fdate(dom)+' ('+giorni.length+' gg)',
+      avere:sett[lun].imp, dare:0,
+      giorni:giorni.map(g=>({data:g, imp:sett[lun].gg[g]}))});
   });
   (DB.anticipi||[]).filter(a=>a.dipId===dipId && a.metodo!=='Anticipo da pagamento').forEach(a=>{
     mov.push({data:a.data, ord:1, tipo:'anticipo', descr:'Pagamento'+(a.note?' — '+a.note:'')+(a.metodo?' ('+a.metodo+')':''), dare:parseFloat(a.importo||0), avere:0});
@@ -6832,23 +6836,38 @@ function apriEstrattoConto(dipId){
   const mov=estrattoConto(dipId);
   const s=(DB.saldi||[]).find(x=>x.dipId===dipId)||{};
   const residuoDanni=s.addebiti||0;
-  const righe=mov.map(m=>`<tr>
+  const _gg=['dom','lun','mar','mer','gio','ven','sab'];
+  const _fgg=iso=>{ try{ return _gg[new Date(iso+'T12:00').getDay()]; }catch(e){ return ''; } };
+  const righe=mov.map(m=>{
+    const icona=m.tipo==='apertura'?'📌':m.tipo==='maturato'?'🔨':m.tipo==='anticipo'?'💸':m.tipo==='pagamento'?'💶':'⚖️';
+    let r=`<tr>
     <td style="white-space:nowrap">${fdate(m.data)}</td>
-    <td style="font-size:11.5px">${m.tipo==='apertura'?'📌':m.tipo==='maturato'?'🔨':m.tipo==='anticipo'?'💸':m.tipo==='pagamento'?'💶':'⚖️'} ${m.descr}</td>
+    <td style="font-size:11.5px">${icona} ${m.descr}</td>
     <td style="text-align:right;color:var(--red)">${m.dare?fmt(m.dare):''}</td>
     <td style="text-align:right;color:var(--green)">${m.avere?fmt(m.avere):''}</td>
     <td style="text-align:right;font-weight:800;color:${m.saldo>=0?'var(--green)':'var(--red)'}">${fmt(m.saldo)}</td>
-  </tr>`).join('');
+  </tr>`;
+    // Dettaglio giorno-per-giorno del maturato (elenco con corrispettivo per giornata)
+    if(m.tipo==='maturato' && m.giorni && m.giorni.length){
+      const voci=m.giorni.map(g=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:2px 0">
+        <span style="color:var(--text2)">· ${_fgg(g.data)} ${fdate(g.data)}</span>
+        <span class="mn" style="color:var(--green);font-weight:600">${fmt(g.imp)}</span></div>`).join('');
+      r+=`<tr class="ec-det"><td></td><td colspan="4" style="padding:2px 14px 10px 14px"><div style="font-size:11.5px;max-width:340px">${voci}</div></td></tr>`;
+    }
+    return r;
+  }).join('');
   const html=`<div class="mo" id="modal-ec" style="display:flex" onclick="if(event.target.id==='modal-ec')this.remove()">
-    <div class="mb" style="max-width:760px;width:96%">
+    <div class="md" style="max-width:760px;width:96%;max-height:92dvh;display:flex;flex-direction:column">
       <div class="mh"><h3>📒 Estratto conto — ${p.nome}</h3><button class="mc" onclick="document.getElementById('modal-ec').remove()">✕</button></div>
+      <div class="mb" style="overflow:auto">
       <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;align-items:baseline">
         <div style="font-size:22px;font-weight:900;color:${(s.saldo||0)>=0?'var(--green)':'var(--red)'}">${fmt(s.saldo||0)}</div>
         <div style="font-size:11px;color:var(--text2)">${(s.saldo||0)>=0?'a credito del dipendente':'a debito del dipendente'}${residuoDanni?` · ⚠ danni ancora da trattenere: ${fmt(residuoDanni)}`:''}</div>
       </div>
-      <div style="max-height:56vh;overflow:auto"><table style="width:100%"><thead><tr><th>Data</th><th>Movimento</th><th style="text-align:right">Dare €</th><th style="text-align:right">Avere €</th><th style="text-align:right">Saldo €</th></tr></thead>
+      <div style="overflow:auto"><table style="width:100%"><thead><tr><th>Data</th><th>Movimento</th><th style="text-align:right">Dare €</th><th style="text-align:right">Avere €</th><th style="text-align:right">Saldo €</th></tr></thead>
       <tbody>${righe||'<tr><td colspan="5" style="color:var(--text2);padding:10px">Nessun movimento.</td></tr>'}</tbody></table></div>
-      <div style="font-size:10px;color:var(--text2);margin-top:8px">Avere = maturato dal lavoro · Dare = anticipi, pagamenti e trattenute · il saldo corre dall'inizio della storia.</div>
+      <div style="font-size:10px;color:var(--text2);margin-top:8px">Avere = maturato dal lavoro (sotto ogni settimana, il dettaglio giorno-per-giorno) · Dare = anticipi, pagamenti e trattenute · il saldo corre dall'inizio della storia.</div>
+      </div>
     </div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
 }
