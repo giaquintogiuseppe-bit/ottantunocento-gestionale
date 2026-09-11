@@ -4146,7 +4146,15 @@ function esportaPresenzeExcel(){
     if(!nel.length && !prima.length) return;
     const saldoIniz=prima.length?prima[prima.length-1].saldo:0;
     hEc.push(['— '+p.nome.toUpperCase()+' —','','SALDO PREGRESSO (storia precedente al '+fdata(da)+')','','',saldoIniz]);
-    nel.forEach(m=>hEc.push(['', fdata(m.data), m.descr, m.dare||'', m.avere||'', m.saldo]));
+    const _ggEc=['dom','lun','mar','mer','gio','ven','sab'];
+    const _fggEc=iso=>{ try{ return _ggEc[new Date(iso+'T12:00').getDay()]; }catch(e){ return ''; } };
+    nel.forEach(m=>{
+      hEc.push(['', fdata(m.data), m.descr, m.dare||'', m.avere||'', m.saldo]);
+      // dettaglio giorno-per-giorno del maturato (importo come testo, per non falsare le somme di colonna)
+      if(m.tipo==='maturato' && m.giorni && m.giorni.length){
+        m.giorni.forEach(g=>hEc.push(['','', '     · '+_fggEc(g.data)+' '+fdata(g.data)+'  →  '+fmt(g.imp), '', '', '']));
+      }
+    });
     const fin=nel.length?nel[nel.length-1].saldo:saldoIniz;
     const risPeriodo=fin-saldoIniz;
     hEc.push(['','','Risultato del solo periodo (maturato − ricevuto nel periodo)','','',risPeriodo]);
