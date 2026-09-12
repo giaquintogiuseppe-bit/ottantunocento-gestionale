@@ -583,6 +583,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="ns">Sistema</div>
   <div class="ni" onclick="nav('scontrini')">🧾 Scontrini & Foto</div>
   <div class="ni" onclick="nav('sync')">☁️ Sync iCloud</div>
+  <div class="ni" onclick="if(confirm('Aggiornare la app all\'ultima versione? Verrà svuotata la cache e ricaricata.'))location.href='aggiorna.html?v='+Date.now()" title="Svuota la cache e ricarica la versione aggiornata">🔄 Aggiorna app</div>
   <div id="sbf">
     <button class="btn-sb btn-gold" onclick="openExportModal()">📊 Esporta Excel</button>
     <button class="btn-sb btn-teal" onclick="openModal('modal-import-xl')">📂 Importa Excel</button>
