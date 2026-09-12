@@ -6800,27 +6800,27 @@ function ricalcolaSaldi(){
 }
 // ═══ ESTRATTO CONTO DIPENDENTE: tutti i movimenti in ordine, saldo progressivo ═══
 function _lunediDiEc(d){ const x=new Date(d+'T12:00'); const g=(x.getDay()+6)%7; x.setDate(x.getDate()-g); return x.toISOString().slice(0,10); }
+function _domenicaDiEc(d){ const x=new Date(d+'T12:00'); x.setDate(x.getDate()-x.getDay()); return x.toISOString().slice(0,10); }
 function estrattoConto(dipId){
   const mov=[];
-  // maturato AGGREGATO PER MESE (competenza: notturni contano già nel giorno giusto via getTurniRaw)
-  const _nomiMese=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
-  const _nomeMese=mk=>{ const [y,m]=mk.split('-'); return (_nomiMese[(parseInt(m,10)||1)-1]||mk)+' '+y; };
-  const mesi={};
+  // maturato AGGREGATO PER SETTIMANA (domenica→sabato). Notturni già nel giorno giusto via getTurniRaw.
+  const sett={};
   Object.keys(DB.presenze||{}).forEach(d=>{
     getTurniRaw(d, dipId).forEach(t=>{
       const imp=parseFloat(t.importo||0); if(!imp) return;
-      const mk=d.slice(0,7);                              // YYYY-MM
-      if(!mesi[mk]) mesi[mk]={imp:0, gg:{}};
-      mesi[mk].imp+=imp; mesi[mk].gg[d]=(mesi[mk].gg[d]||0)+imp;
+      const dom=_domenicaDiEc(d);                         // domenica della settimana
+      if(!sett[dom]) sett[dom]={imp:0, gg:{}};
+      sett[dom].imp+=imp; sett[dom].gg[d]=(sett[dom].gg[d]||0)+imp;
     });
   });
-  Object.keys(mesi).forEach(mk=>{
-    const giorni=Object.keys(mesi[mk].gg).sort();         // giorni lavorati del mese
-    const ultimoGiorno=giorni[giorni.length-1];           // il maturato matura quando si lavora
+  Object.keys(sett).forEach(dom=>{
+    const giorni=Object.keys(sett[dom].gg).sort();         // giorni lavorati della settimana
+    const ultimoGiorno=giorni[giorni.length-1];            // il maturato matura quando si lavora
+    const sab=new Date(new Date(dom+'T12:00').getTime()+6*864e5).toISOString().slice(0,10);
     mov.push({data:ultimoGiorno, ord:0, tipo:'maturato',
-      descr:'Maturato '+_nomeMese(mk)+' ('+giorni.length+' gg)',
-      avere:mesi[mk].imp, dare:0,
-      giorni:giorni.map(g=>({data:g, imp:mesi[mk].gg[g]}))});
+      descr:'Maturato sett. '+fdate(dom)+'–'+fdate(sab)+' ('+giorni.length+' gg)',
+      avere:sett[dom].imp, dare:0,
+      giorni:giorni.map(g=>({data:g, imp:sett[dom].gg[g]}))});
   });
   (DB.anticipi||[]).filter(a=>a.dipId===dipId && a.metodo!=='Anticipo da pagamento').forEach(a=>{
     mov.push({data:a.data, ord:1, tipo:'anticipo', descr:'Pagamento'+(a.note?' — '+a.note:'')+(a.metodo?' ('+a.metodo+')':''), dare:parseFloat(a.importo||0), avere:0});
@@ -6849,14 +6849,26 @@ function _ecToggleDet(id, rowEl){
 }
 function _ecToggleMese(mi, el){
   const willOpen = el.getAttribute('data-open')!=='1';
-  document.querySelectorAll('.ecm-'+mi).forEach(r=>{ r.hidden=!willOpen; });
+  // apri/chiudi le intestazioni-settimana del mese
+  document.querySelectorAll('.wkh-'+mi).forEach(w=>{ w.hidden=!willOpen; });
   if(!willOpen){
-    // chiudo il mese: nascondo anche i dettagli-giornate aperti e resetto le frecce
-    document.querySelectorAll('.ecd-'+mi).forEach(d=>{ d.hidden=true; });
-    document.querySelectorAll('.ecm-'+mi+' .ec-arrow').forEach(a=>{ a.textContent='▸'; });
+    // chiudo il mese: nascondo movimenti+dettagli e resetto tutte le frecce interne
+    document.querySelectorAll('.mrow-'+mi).forEach(r=>{ r.hidden=true; });
+    document.querySelectorAll('.wkh-'+mi).forEach(w=>{ w.setAttribute('data-open','0'); const a=w.querySelector('.ec-warrow'); if(a) a.textContent='▸'; });
+    document.querySelectorAll('.mrow-'+mi+' .ec-arrow').forEach(a=>{ a.textContent='▸'; });
   }
   el.setAttribute('data-open', willOpen?'1':'0');
   const ma=el.querySelector('.ec-marrow'); if(ma) ma.textContent=willOpen?'▾':'▸';
+}
+function _ecToggleSett(wi, el){
+  const willOpen = el.getAttribute('data-open')!=='1';
+  document.querySelectorAll('.wrow-'+wi).forEach(r=>{ r.hidden=!willOpen; });
+  if(!willOpen){
+    document.querySelectorAll('.wdet-'+wi).forEach(d=>{ d.hidden=true; });
+    document.querySelectorAll('.wrow-'+wi+' .ec-arrow').forEach(a=>{ a.textContent='▸'; });
+  }
+  el.setAttribute('data-open', willOpen?'1':'0');
+  const a=el.querySelector('.ec-warrow'); if(a) a.textContent=willOpen?'▾':'▸';
 }
 function apriEstrattoConto(dipId){
   const p=(DB.personale||[]).find(x=>x.id===dipId); if(!p) return;
@@ -6865,38 +6877,62 @@ function apriEstrattoConto(dipId){
   const residuoDanni=s.addebiti||0;
   const _gg=['dom','lun','mar','mer','gio','ven','sab'];
   const _fgg=iso=>{ try{ return _gg[new Date(iso+'T12:00').getDay()]; }catch(e){ return ''; } };
-  // ACCORDION PER MESE: una riga-mese (con totali) che apre/chiude tutti i movimenti del mese.
+  // ACCORDION A DUE LIVELLI: mese → settimana (domenica→sabato) → movimenti.
   const _nomiM=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
   const _nomeMeseKey=mk=>{ if(mk==='????') return 'Senza data'; const p=mk.split('-'); return (_nomiM[(parseInt(p[1],10)||1)-1]||mk)+' '+p[0]; };
+  const _sabato=dom=>{ if(dom==='????') return ''; return new Date(new Date(dom+'T12:00').getTime()+6*864e5).toISOString().slice(0,10); };
   const perMese={}, ordineM=[];
-  mov.forEach(m=>{ const mk=(m.data||'').slice(0,7)||'????'; if(!perMese[mk]){ perMese[mk]=[]; ordineM.push(mk); } perMese[mk].push(m); });
-  const _mExpand=ordineM.length-1;   // di default apro SOLO l'ultimo mese
+  mov.forEach(m=>{
+    const mk=(m.data||'').slice(0,7)||'????';
+    if(!perMese[mk]){ perMese[mk]={weeks:{}, worder:[]}; ordineM.push(mk); }
+    const wk=m.data?_domenicaDiEc(m.data):'????';
+    if(!perMese[mk].weeks[wk]){ perMese[mk].weeks[wk]=[]; perMese[mk].worder.push(wk); }
+    perMese[mk].weeks[wk].push(m);
+  });
+  const _mLast=ordineM.length-1;   // di default: aperto l'ultimo mese e la sua ultima settimana
+  let wi=-1;
+  const icoOf=t=> t==='apertura'?'📌':t==='maturato'?'🔨':t==='anticipo'?'💸':t==='pagamento'?'💶':'⚖️';
   const righe=ordineM.map((mk,mi)=>{
-    const list=perMese[mk];
-    let dSum=0,aSum=0; list.forEach(m=>{ dSum+=m.dare||0; aSum+=m.avere||0; });
-    const saldoFine=list[list.length-1].saldo;
-    const aperto=(mi===_mExpand);
-    let h=`<tr class="ec-mh" style="cursor:pointer;background:var(--brd)" data-open="${aperto?'1':'0'}" onclick="_ecToggleMese(${mi},this)">
-      <td style="padding:8px 10px;white-space:nowrap;font-weight:800"><span class="ec-marrow" style="display:inline-block;width:12px">${aperto?'▾':'▸'}</span> ${_nomeMeseKey(mk)}</td>
-      <td style="padding:8px 10px;color:var(--text2);font-size:11px">${list.length} mov.</td>
-      <td style="text-align:right;color:var(--red)">${dSum?fmt(dSum):''}</td>
-      <td style="text-align:right;color:var(--green)">${aSum?fmt(aSum):''}</td>
-      <td style="text-align:right;font-weight:800;color:${saldoFine>=0?'var(--green)':'var(--red)'}">${fmt(saldoFine)}</td>
+    const M=perMese[mk];
+    const mlist=M.worder.reduce((a,wk)=>a.concat(M.weeks[wk]),[]);
+    let dM=0,aM=0; mlist.forEach(m=>{ dM+=m.dare||0; aM+=m.avere||0; });
+    const saldoMese=mlist[mlist.length-1].saldo;
+    const mOpen=(mi===_mLast);
+    let h=`<tr class="ec-mh" style="cursor:pointer;background:var(--brd)" data-open="${mOpen?'1':'0'}" onclick="_ecToggleMese(${mi},this)">
+      <td style="padding:8px 10px;white-space:nowrap;font-weight:800"><span class="ec-marrow" style="display:inline-block;width:12px">${mOpen?'▾':'▸'}</span> ${_nomeMeseKey(mk)}</td>
+      <td style="padding:8px 10px;color:var(--text2);font-size:11px">${mlist.length} mov.</td>
+      <td style="text-align:right;color:var(--red)">${dM?fmt(dM):''}</td>
+      <td style="text-align:right;color:var(--green)">${aM?fmt(aM):''}</td>
+      <td style="text-align:right;font-weight:800;color:${saldoMese>=0?'var(--green)':'var(--red)'}">${fmt(saldoMese)}</td>
     </tr>`;
-    list.forEach((m,li)=>{
-      const icona=m.tipo==='apertura'?'📌':m.tipo==='maturato'?'🔨':m.tipo==='anticipo'?'💸':m.tipo==='pagamento'?'💶':'⚖️';
-      const hasDet=(m.tipo==='maturato' && m.giorni && m.giorni.length); const detId='ecdet-'+mi+'-'+li;
-      h+=`<tr class="ec-row ecm-${mi}"${aperto?'':' hidden'}${hasDet?` style="cursor:pointer" onclick="_ecToggleDet('${detId}',this)" title="Clic per le giornate"`:''}>
-        <td style="white-space:nowrap;padding-left:18px">${fdate(m.data)}</td>
-        <td style="font-size:11.5px">${hasDet?`<span class="ec-arrow" style="display:inline-block;width:11px;color:var(--text2)">▸</span> `:''}${icona} ${m.descr}</td>
-        <td style="text-align:right;color:var(--red)">${m.dare?fmt(m.dare):''}</td>
-        <td style="text-align:right;color:var(--green)">${m.avere?fmt(m.avere):''}</td>
-        <td style="text-align:right;font-weight:800;color:${m.saldo>=0?'var(--green)':'var(--red)'}">${fmt(m.saldo)}</td>
+    M.worder.forEach((wk,localWi)=>{
+      wi++;
+      const wlist=M.weeks[wk];
+      let dW=0,aW=0; wlist.forEach(m=>{ dW+=m.dare||0; aW+=m.avere||0; });
+      const saldoSett=wlist[wlist.length-1].saldo;
+      const wOpen=(mi===_mLast && localWi===M.worder.length-1);
+      const wlabel = wk==='????' ? 'Senza data' : ('Sett. '+fdate(wk)+'–'+fdate(_sabato(wk)));
+      h+=`<tr class="ec-wh wkh-${mi}"${mOpen?'':' hidden'} data-open="${wOpen?'1':'0'}" style="cursor:pointer;background:var(--navy)" onclick="_ecToggleSett(${wi},this)">
+        <td style="padding:6px 10px 6px 22px;white-space:nowrap;font-weight:700;font-size:12px"><span class="ec-warrow" style="display:inline-block;width:11px">${wOpen?'▾':'▸'}</span> ${wlabel}</td>
+        <td style="padding:6px 10px;color:var(--text2);font-size:11px">${wlist.length} mov.</td>
+        <td style="text-align:right;color:var(--red);font-size:12px">${dW?fmt(dW):''}</td>
+        <td style="text-align:right;color:var(--green);font-size:12px">${aW?fmt(aW):''}</td>
+        <td style="text-align:right;font-weight:700;font-size:12px;color:${saldoSett>=0?'var(--green)':'var(--red)'}">${fmt(saldoSett)}</td>
       </tr>`;
-      if(hasDet){
-        const voci=m.giorni.map(g=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:2px 0"><span style="color:var(--text2)">· ${_fgg(g.data)} ${fdate(g.data)}</span><span class="mn" style="color:var(--green);font-weight:600">${fmt(g.imp)}</span></div>`).join('');
-        h+=`<tr class="ec-det ecd-${mi}" id="${detId}" hidden><td></td><td colspan="4" style="padding:2px 14px 10px 26px"><div style="font-size:11.5px;max-width:340px">${voci}</div></td></tr>`;
-      }
+      wlist.forEach((m,li)=>{
+        const hasDet=(m.tipo==='maturato' && m.giorni && m.giorni.length); const detId='ecdet-'+wi+'-'+li;
+        h+=`<tr class="ec-mv mrow-${mi} wrow-${wi}"${wOpen?'':' hidden'}${hasDet?` style="cursor:pointer" onclick="_ecToggleDet('${detId}',this)" title="Clic per le giornate"`:''}>
+          <td style="white-space:nowrap;padding-left:32px">${fdate(m.data)}</td>
+          <td style="font-size:11.5px">${hasDet?`<span class="ec-arrow" style="display:inline-block;width:11px;color:var(--text2)">▸</span> `:''}${icoOf(m.tipo)} ${m.descr}</td>
+          <td style="text-align:right;color:var(--red)">${m.dare?fmt(m.dare):''}</td>
+          <td style="text-align:right;color:var(--green)">${m.avere?fmt(m.avere):''}</td>
+          <td style="text-align:right;font-weight:800;color:${m.saldo>=0?'var(--green)':'var(--red)'}">${fmt(m.saldo)}</td>
+        </tr>`;
+        if(hasDet){
+          const voci=m.giorni.map(g=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:2px 0"><span style="color:var(--text2)">· ${_fgg(g.data)} ${fdate(g.data)}</span><span class="mn" style="color:var(--green);font-weight:600">${fmt(g.imp)}</span></div>`).join('');
+          h+=`<tr class="ec-dt mrow-${mi} wdet-${wi}" id="${detId}" hidden><td></td><td colspan="4" style="padding:2px 14px 10px 38px"><div style="font-size:11.5px;max-width:340px">${voci}</div></td></tr>`;
+        }
+      });
     });
     return h;
   }).join('');
@@ -6910,7 +6946,7 @@ function apriEstrattoConto(dipId){
       </div>
       <div style="overflow:auto"><table style="width:100%"><thead><tr><th>Data</th><th>Movimento</th><th style="text-align:right">Dare €</th><th style="text-align:right">Avere €</th><th style="text-align:right">Saldo €</th></tr></thead>
       <tbody>${righe||'<tr><td colspan="5" style="color:var(--text2);padding:10px">Nessun movimento.</td></tr>'}</tbody></table></div>
-      <div style="font-size:10px;color:var(--text2);margin-top:8px">Raggruppato per mese: clic sul mese per aprirlo/chiuderlo (di default aperto solo l'ultimo). Dentro, clic sulla riga 🔨 del maturato per le singole giornate · Avere = maturato · Dare = anticipi, pagamenti e trattenute · il saldo corre dall'inizio della storia.</div>
+      <div style="font-size:10px;color:var(--text2);margin-top:8px">Raggruppato per mese e per settimana (domenica→sabato): clic sul mese per aprire le settimane, clic sulla settimana per i movimenti (di default aperti l'ultimo mese e la sua ultima settimana). Dentro, clic sulla riga 🔨 del maturato per le singole giornate · Avere = maturato · Dare = anticipi, pagamenti e trattenute · il saldo corre dall'inizio della storia.</div>
       </div>
     </div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
