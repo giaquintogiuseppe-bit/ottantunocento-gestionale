@@ -636,7 +636,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
           <button class="bs" onclick="nav('nuova-giornata')">➕ Nuova giornata</button>
           <button class="bs" onclick="openAddDipModal()" title="Aggiunge un dipendente già in rubrica a questa giornata">👤 Aggiungi dipendente</button>
           <button class="bs" onclick="openModal('modal-pers')" title="Crea una nuova persona e aggiungila subito a questa giornata">🆕 Nuova persona</button>
-          <button class="bs" onclick="openModalExportPresenze()" style="background:var(--green);color:#000" title="Esporta un Excel completo con più fogli di analisi">📊 Export Excel</button>
+          <button class="bs" onclick="openExportModal()" style="background:var(--green);color:#000" title="Export Excel unico: scegli periodo e fogli">📊 Export Excel</button>
         </div>
       </div>
       <div id="pres-info" style="font-size:12px;color:var(--text2);margin-bottom:12px;font-family:'IBM Plex Mono',monospace"></div>
@@ -1866,6 +1866,12 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <label>Al</label>
         <input type="date" id="exp-to">
       </div>
+      <div class="exp-row" style="gap:6px;flex-wrap:wrap">
+        <label>Periodo</label>
+        <button type="button" class="bs" style="font-size:11px;padding:5px 9px" onclick="_expPeriodo('mese')">Mese corrente</button>
+        <button type="button" class="bs" style="font-size:11px;padding:5px 9px" onclick="_expPeriodo('anno')">Anno</button>
+        <button type="button" class="bs" style="font-size:11px;padding:5px 9px" onclick="_expPeriodo('tutto')">Tutto</button>
+      </div>
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;margin-top:4px">Fogli da includere</div>
       <div class="exp-cb-group">
         <label class="exp-cb"><input type="checkbox" id="exp-presenze" checked> Presenze Personale</label>
@@ -1879,6 +1885,11 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <label class="exp-cb"><input type="checkbox" id="exp-pagamenti" checked> Pagamenti fine settimana</label>
         <label class="exp-cb"><input type="checkbox" id="exp-anticipi-det" checked> Pagamenti dettaglio (+ residuo storico)</label>
         <label class="exp-cb"><input type="checkbox" id="exp-addebiti" checked> Addebiti e scalature</label>
+        <label class="exp-cb"><input type="checkbox" id="exp-estratto" checked> 📒 Estratto conto dipendenti (mese/settimana/giornate)</label>
+        <label class="exp-cb"><input type="checkbox" id="exp-ore-cant"> Ore effettive cantiere</label>
+        <label class="exp-cb"><input type="checkbox" id="exp-scontrini"> Scontrini</label>
+        <label class="exp-cb"><input type="checkbox" id="exp-fatt-cli"> 🧾 Fatture clienti (in uscita)</label>
+        <label class="exp-cb"><input type="checkbox" id="exp-fatt-forn"> 📥 Fatture fornitori (in entrata)</label>
       </div>
     </div>
     <div class="mf">
@@ -7414,6 +7425,13 @@ function addPersona(){
 // ============================================================
 // EXPORT EXCEL (SheetJS) — per intervallo di date
 // ============================================================
+function _expPeriodo(k){
+  const ef=document.getElementById('exp-from'), et=document.getElementById('exp-to'); if(!ef||!et) return;
+  const now=new Date(), y=now.getFullYear();
+  if(k==='mese'){ const m=String(now.getMonth()+1).padStart(2,'0'); const last=new Date(y,now.getMonth()+1,0).getDate(); ef.value=y+'-'+m+'-01'; et.value=y+'-'+m+'-'+String(last).padStart(2,'0'); }
+  else if(k==='anno'){ ef.value=y+'-01-01'; et.value=y+'-12-31'; }
+  else if(k==='tutto'){ ef.value='2019-01-01'; et.value=today(); }
+}
 function openExportModal(){
   // Calcola range reale dai dati del DB
   const allDates = Object.keys(DB.presenze).filter(d=>d.length===10).concat(
@@ -7451,7 +7469,7 @@ function btnEsporta(){
 
 function preparaEsporta(){ btnEsporta(); }
 
-function doExport(){
+async function doExport(){
   // Leggi direttamente dal DOM — metodo più affidabile
   const fromEl = document.getElementById('exp-from');
   const toEl   = document.getElementById('exp-to');
@@ -7938,6 +7956,78 @@ function doExport(){
     const wsAdd = XLSX.utils.aoa_to_sheet(rowsAdd);
     wsAdd['!cols'] = [{wch:30},{wch:18},{wch:16},{wch:14},{wch:14}];
     XLSX.utils.book_append_sheet(wb, wsAdd, 'Addebiti e Scalature');
+  }
+
+  // ---- FOGLIO: Estratto conto dipendenti (mese→settimana→giornate, vista distesa) ----
+  const _chk=id=>{ const e=document.getElementById(id); return e&&e.checked; };
+  if(_chk('exp-estratto')){
+    const hEc=[['ESTRATTO CONTO DIPENDENTI  |  '+fdate(from)+' – '+fdate(to)],[],['Dipendente','Data','Movimento','Dare €','Avere €','Saldo progressivo €']];
+    const _ggEc=['dom','lun','mar','mer','gio','ven','sab'];
+    const _fggEc=iso=>{ try{ return _ggEc[new Date(iso+'T12:00').getDay()]; }catch(e){ return ''; } };
+    (DB.personale||[]).slice().sort((x,y)=>x.nome.localeCompare(y.nome)).forEach(p=>{
+      const tutti=estrattoConto(p.id);
+      if(!tutti.length) return;
+      const prima=tutti.filter(m=>m.data<from);
+      const nel=tutti.filter(m=>m.data>=from&&m.data<=to);
+      if(!nel.length && !prima.length) return;
+      const saldoIniz=prima.length?prima[prima.length-1].saldo:0;
+      hEc.push(['— '+p.nome.toUpperCase()+' —','','SALDO PREGRESSO (prima del '+fdate(from)+')','','',saldoIniz]);
+      nel.forEach(m=>{
+        hEc.push(['', fdate(m.data), m.descr, m.dare||'', m.avere||'', m.saldo]);
+        if(m.tipo==='maturato' && m.giorni && m.giorni.length){
+          m.giorni.forEach(g=>hEc.push(['','', '     · '+_fggEc(g.data)+' '+fdate(g.data)+'  →  '+fmt(g.imp), '', '', '']));
+        }
+      });
+      const fin=nel.length?nel[nel.length-1].saldo:saldoIniz;
+      hEc.push(['','','Risultato del periodo (maturato − ricevuto)','','',fin-saldoIniz]);
+      hEc.push(['','','SALDO A FINE PERIODO'+(fin>0.009?' — DA PAGARE':fin<-0.009?' — RICEVUTO IN PIÙ':''),'','',fin]);
+      hEc.push([]);
+    });
+    const wsEc=XLSX.utils.aoa_to_sheet(hEc); wsEc['!cols']=[{wch:24},{wch:11},{wch:54},{wch:11},{wch:11},{wch:16}];
+    XLSX.utils.book_append_sheet(wb,wsEc,'Estratto conto dipendenti');
+  }
+
+  // ---- FOGLIO: Ore effettive cantiere ----
+  if(_chk('exp-ore-cant')){
+    const oc=(typeof _oreCostoPerCantiere==='function'?_oreCostoPerCantiere(from,to):{})||{};
+    const rows=[["L'OTTANTUNOCENTO – ORE EFFETTIVE CANTIERE  |  "+fdate(from)+' – '+fdate(to)],[],['Cantiere','Ore effettive','Netto giornate €','Oneri giornalieri €','Costo pieno €']];
+    Object.values(oc).sort((x,y)=>((y.pieno||y.costo||0)-(x.pieno||x.costo||0))).forEach(c=>{ rows.push([c.nome, c.ore>0?+c.ore.toFixed(1):'', c.costo||0, c.oneri||0, (c.pieno!=null?c.pieno:c.costo)||0]); });
+    const ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:26},{wch:14},{wch:16},{wch:18},{wch:14}];
+    XLSX.utils.book_append_sheet(wb,ws,'Ore effettive cantiere');
+  }
+
+  // ---- FOGLIO: Scontrini ----
+  if(_chk('exp-scontrini')){
+    const sc=(DB.scontrini||[]).filter(s=>{ const d=s.data||''; return (!from||d>=from)&&(!to||d<=to); }).slice().sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+    const rows=[["L'OTTANTUNOCENTO – SCONTRINI  |  "+fdate(from)+' – '+fdate(to)],[],['Data','Cantiere','Fornitore','Categoria','Importo (€)','Metodo','Stato','Note']];
+    let tot=0; sc.forEach(s=>{ tot+=parseFloat(s.importo)||0; rows.push([fdate(s.data), s.cantiere||'', s.fornitore||'', s.categoria||'', parseFloat(s.importo)||0, s.metodo||'', s.contabilizzato?'contabilizzato':'da contabilizzare', (s.note||'').replace(/\n/g,' ')]); });
+    rows.push(['TOTALE','','','',tot,'','','']);
+    const ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:12},{wch:22},{wch:22},{wch:16},{wch:14},{wch:14},{wch:18},{wch:30}];
+    XLSX.utils.book_append_sheet(wb,ws,'Scontrini');
+  }
+
+  // ---- FOGLIO: Fatture clienti (in uscita) ----
+  if(_chk('exp-fatt-cli')){
+    let fc=[];
+    try{ const F=_FAPI(); const r=await fetch(F.url+'?select=*&limit=20000',{headers:F.h,cache:'no-cache'}); fc=await r.json(); if(!Array.isArray(fc)) fc=[]; }catch(e){ fc=[]; }
+    fc=fc.filter(f=>{ const d=f.data_fattura||''; return (!from||d>=from)&&(!to||d<=to); }).sort((a,b)=>(a.data_fattura||'').localeCompare(b.data_fattura||''));
+    const rows=[["L'OTTANTUNOCENTO – FATTURE CLIENTI  |  "+fdate(from)+' – '+fdate(to)],[],['Numero','Data','Cliente','Cantiere','Importo (€)','Stato','Scadenza','Note']];
+    let tot=0; fc.forEach(f=>{ tot+=parseFloat(f.importo)||0; rows.push([f.numero||'', fdate(f.data_fattura), f.cliente||'', f.cantiere_nome||'', parseFloat(f.importo)||0, f.stato||'', f.scadenza?fdate(f.scadenza):'', (f.note||'').replace(/\n/g,' ')]); });
+    rows.push(['TOTALE','','','',tot,'','','']);
+    const ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:12},{wch:12},{wch:28},{wch:24},{wch:14},{wch:14},{wch:12},{wch:30}];
+    XLSX.utils.book_append_sheet(wb,ws,'Fatture Clienti');
+  }
+
+  // ---- FOGLIO: Fatture fornitori (in entrata) ----
+  if(_chk('exp-fatt-forn')){
+    let ff=[];
+    try{ const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=*&limit=20000',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'}); ff=await r.json(); if(!Array.isArray(ff)) ff=[]; }catch(e){ ff=[]; }
+    ff=ff.filter(f=>{ const d=f.data_fattura||''; return (!from||d>=from)&&(!to||d<=to); }).sort((a,b)=>(a.data_fattura||'').localeCompare(b.data_fattura||''));
+    const rows=[["L'OTTANTUNOCENTO – FATTURE FORNITORI  |  "+fdate(from)+' – '+fdate(to)],[],['Rif./Numero','Data','Fornitore','Cantiere','Importo (€)','Residuo (€)','Stato','Pagamento','Note']];
+    let tot=0; ff.forEach(f=>{ tot+=parseFloat(f.importo)||0; rows.push([f.rif_fornitore||f.numero||'', fdate(f.data_fattura), f.fornitore||'', f.cantiere_nome||'', parseFloat(f.importo)||0, parseFloat(f.residuo)||0, f.stato_verificato||'', f.metodo_pagamento||'', (f.note||'').replace(/\n/g,' ')]); });
+    rows.push(['TOTALE','','','',tot,'','','','']);
+    const ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:16},{wch:12},{wch:26},{wch:24},{wch:14},{wch:12},{wch:16},{wch:16},{wch:30}];
+    XLSX.utils.book_append_sheet(wb,ws,'Fatture Fornitori');
   }
 
   // salva file
