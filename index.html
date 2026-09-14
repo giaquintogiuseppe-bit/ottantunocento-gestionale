@@ -860,6 +860,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <!-- Azioni -->
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
       <button class="bp" onclick="esportaDettExcel()" style="font-size:12px">📊 Esporta Excel</button>
+      <button class="bs" onclick="gfDaDettCant()" style="font-size:12px" title="Prepara la scheda dati fattura per questo cantiere (da compilare su Genya). Non invia nulla.">🧾 Prepara fattura Genya</button>
     </div>
 
     <!-- Accordion giornaliero -->
@@ -1090,6 +1091,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
           <input type="file" id="fatt-wd-file" accept=".xlsx,.xls" style="display:none" onchange="fattImportaWebDesk(this)">
           <button class="bs" onclick="document.getElementById('fatt-wd-file').click()" title="Importa l'elenco fatture EMESSE esportato da Web Desk (Excel)" style="background:var(--teal);border-color:var(--teal)">📥 Web Desk</button>
           <button class="bs" onclick="apriCollegaCommessa()" title="Collega in blocco le fatture (clienti e fornitori) alle commesse">🔗 Collega a commessa</button>
+          <button class="bs" onclick="apriGenyaFatt()" title="Prepara la scheda dati fattura da compilare su Genya (Claude in Chrome). Non invia nulla.">🧾 Prepara per Genya</button>
           <button class="bp" onclick="fattNuova()">+ Nuova fattura</button>
         </div>
       </div>
@@ -6021,6 +6023,186 @@ function aprDett(i){
 }
 // Esporta l'Excel costi/ricavi di un cantiere (per id, dalle card) senza aprire il dettaglio
 function _expCant(id){ const c=(DB.cantieri||[]).find(x=>x.id===id); if(!c){ toast('⚠ Cantiere non trovato'); return; } esportaDettExcel(c.nome); }
+
+// ══════════════════════════════════════════════════════════════════════════
+// 🧾 PREPARA FATTURA PER GENYA — genera una "scheda dati" (testo) da incollare
+// a Claude-in-Chrome (skill genya-fattura-smart). NON emette e NON invia nulla:
+// serve solo a compilare Genya. L'invio allo SdI resta un passo manuale con ok.
+// ══════════════════════════════════════════════════════════════════════════
+let _gfRighe=[];
+function _gfEuro(v){ v=Math.round((parseFloat(v)||0)*100)/100; return v.toFixed(2).replace('.',','); }
+function _gfNum(v){ return parseFloat(String(v==null?'':v).replace(',','.'))||0; }
+function _gfClientiOpts(){
+  const cl=(DB.clienti||[]).slice().sort((a,b)=>(a.ragioneSociale||'').localeCompare(b.ragioneSociale||''));
+  return '<option value="">— nuovo / a mano —</option>'+cl.map(c=>`<option value="${esc(c.id)}">${esc(c.ragioneSociale||'—')}</option>`).join('');
+}
+function _gfRigaRow(r,i){
+  return `<div class="gf-riga" style="display:grid;grid-template-columns:1fr 60px 90px 64px 90px 28px;gap:6px;align-items:center;margin-bottom:6px">
+    <input class="gf-r-descr" placeholder="Descrizione" value="${esc(r.descr||'')}">
+    <input class="gf-r-qta" type="text" inputmode="decimal" placeholder="Q.tà" value="${esc(r.qta==null?'1':String(r.qta))}">
+    <input class="gf-r-prezzo" type="text" inputmode="decimal" placeholder="Prezzo" value="${esc(r.prezzo==null?'':String(r.prezzo))}">
+    <input class="gf-r-iva" type="text" inputmode="numeric" placeholder="IVA%" value="${esc(r.iva==null?'22':String(r.iva))}">
+    <select class="gf-r-tipo"><option${(r.tipo!=='Merce')?' selected':''}>Servizio</option><option${(r.tipo==='Merce')?' selected':''}>Merce</option></select>
+    <button class="bs" title="Rimuovi riga" onclick="gfDelRiga(${i})" style="padding:4px 6px">✕</button>
+  </div>`;
+}
+function _gfLeggiRighe(){
+  const rows=document.querySelectorAll('#gf-righe .gf-riga');
+  _gfRighe=Array.from(rows).map(row=>({
+    descr:row.querySelector('.gf-r-descr').value.trim(),
+    qta:row.querySelector('.gf-r-qta').value.trim(),
+    prezzo:row.querySelector('.gf-r-prezzo').value.trim(),
+    iva:row.querySelector('.gf-r-iva').value.trim(),
+    tipo:row.querySelector('.gf-r-tipo').value
+  }));
+}
+function _gfRenderRighe(){
+  const box=document.getElementById('gf-righe'); if(!box) return;
+  box.innerHTML=_gfRighe.map((r,i)=>_gfRigaRow(r,i)).join('');
+}
+function gfAddRiga(){ _gfLeggiRighe(); _gfRighe.push({descr:'',qta:1,prezzo:'',iva:22,tipo:'Servizio'}); _gfRenderRighe(); }
+function gfDelRiga(i){ _gfLeggiRighe(); _gfRighe.splice(i,1); if(!_gfRighe.length) _gfRighe.push({descr:'',qta:1,prezzo:'',iva:22,tipo:'Servizio'}); _gfRenderRighe(); }
+function _gfField(label,id,val,ph,extra){ return `<div style="margin-bottom:8px"><label style="display:block;font-size:11px;color:var(--text2);margin-bottom:3px">${label}</label><input id="${id}" value="${esc(val||'')}" placeholder="${esc(ph||'')}" ${extra||''} style="width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:7px 9px"></div>`; }
+function gfPrefillCliente(){
+  const sel=document.getElementById('gf-cli-sel'); const c=(DB.clienti||[]).find(x=>x.id===(sel&&sel.value)); if(!c) return;
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v||''; };
+  set('gf-rs',c.ragioneSociale); set('gf-piva',c.piva); set('gf-cf',c.piva); set('gf-email',c.email); set('gf-viaNome',c.indirizzo);
+  toast('Dati cliente pre-compilati — controlla PEC, cod. destinatario e indirizzo');
+}
+function apriGenyaFatt(prefill){
+  prefill=prefill||{};
+  document.getElementById('modal-genyafatt')?.remove();
+  _gfRighe = (prefill.righe&&prefill.righe.length) ? prefill.righe.slice()
+           : [{descr:prefill.descr||'', qta:1, prezzo:(prefill.prezzo!=null?prefill.prezzo:''), iva:22, tipo:'Servizio'}];
+  const html=`<div class="mo" id="modal-genyafatt" style="display:flex" onclick="if(event.target.id==='modal-genyafatt')this.remove()">
+    <div class="md" style="max-width:760px;width:97%;max-height:94dvh;display:flex;flex-direction:column">
+      <div class="mh"><h3>🧾 Prepara fattura per Genya</h3><button class="mc" onclick="document.getElementById('modal-genyafatt').remove()">✕</button></div>
+      <div class="mb" style="overflow:auto">
+        <div style="background:rgba(232,84,84,.10);border:1px solid rgba(232,84,84,.35);border-radius:8px;padding:8px 10px;font-size:12px;margin-bottom:12px">
+          ⚠ Questa scheda serve <b>solo a compilare Genya</b> (via Claude in Chrome). <b>NON</b> emette e <b>NON</b> invia nulla allo SdI: l'invio resta un passo manuale, solo dopo tua autorizzazione.
+        </div>
+        <div style="font-weight:800;font-size:13px;margin-bottom:6px">Cliente</div>
+        <div style="margin-bottom:8px"><label style="display:block;font-size:11px;color:var(--text2);margin-bottom:3px">Pre-compila da cliente esistente</label>
+          <select id="gf-cli-sel" onchange="gfPrefillCliente()" style="width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:7px 9px">${_gfClientiOpts()}</select></div>
+        <div style="margin-bottom:8px"><label style="display:block;font-size:11px;color:var(--text2);margin-bottom:3px">Tipo soggetto</label>
+          <select id="gf-tipo-sogg" style="width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:7px 9px">
+            <option value="societa" selected>Società (S.r.l./S.n.c./S.p.A.) — "Soggetto diverso da persona fisica"</option>
+            <option value="pf">Persona fisica con Partita IVA</option>
+          </select></div>
+        ${_gfField('Denominazione / Ragione sociale *','gf-rs',prefill.clienteNome||'','es. Rossi S.r.l.')}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          ${_gfField('Partita IVA','gf-piva','','11 cifre')}
+          ${_gfField('Codice Fiscale (default = P.IVA)','gf-cf','','')}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          ${_gfField('PEC','gf-pec','','pec@...')}
+          ${_gfField('Email (opz.)','gf-email','','')}
+        </div>
+        <div style="display:grid;grid-template-columns:120px 1fr 90px;gap:8px">
+          ${_gfField('Indirizzo (tipo)','gf-viaTipo','Via','Via/Viale/Piazza')}
+          ${_gfField('Via','gf-viaNome','','nome della via')}
+          ${_gfField('Civico','gf-civico','','n°')}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 100px;gap:8px">
+          ${_gfField('Comune','gf-comune','','es. Capua')}
+          ${_gfField('CAP','gf-cap','','')}
+        </div>
+        ${_gfField('Codice Destinatario SdI (7 caratteri; se solo PEC → 0000000)','gf-cod','','0000000')}
+
+        <div style="font-weight:800;font-size:13px;margin:14px 0 6px">Fattura</div>
+        <div style="display:grid;grid-template-columns:130px 1fr;gap:8px">
+          ${_gfField('Data','gf-data',today(),'','type="date"')}
+          ${_gfField('Sezionale / Tipo','gf-sezionale','Fattura - SERVIZI VARI NON ALTROVE CLASSIFICABILI','')}
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin:6px 0 4px">Righe (descrizione · q.tà · prezzo unitario · IVA% · tipo)</div>
+        <div id="gf-righe"></div>
+        <button class="bs" onclick="gfAddRiga()" style="font-size:12px;margin:4px 0 12px">＋ Aggiungi riga</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="margin-bottom:8px"><label style="display:block;font-size:11px;color:var(--text2);margin-bottom:3px">Pagamento *</label>
+            <select id="gf-pag" style="width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:7px 9px">
+              <option>Bonifico</option><option>Contanti</option><option>Assegno</option><option>RiBa</option></select></div>
+          <div style="margin-bottom:8px"><label style="display:block;font-size:11px;color:var(--text2);margin-bottom:3px">Scadenza *</label>
+            <select id="gf-scad" style="width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:7px 9px">
+              <option>Vista fattura</option><option>30 giorni</option><option>60 giorni</option><option>90 giorni</option></select></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button class="bp" onclick="gfGenera()">📄 Genera scheda</button>
+          <button class="bs" onclick="gfCopia()">📋 Copia</button>
+        </div>
+        <textarea id="gf-out" readonly placeholder="Qui comparirà la scheda testo da incollare in Claude-in-Chrome…" style="width:100%;min-height:200px;margin-top:10px;background:var(--card);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;padding:10px;white-space:pre"></textarea>
+      </div>
+    </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  _gfRenderRighe();
+}
+function apriGenyaFattDaCantiere(id){
+  const c=(DB.cantieri||[]).find(x=>x.id===id); if(!c){ toast('⚠ Cantiere non trovato'); return; }
+  const ricavo = (typeof _ricavoCommessa==='function' ? (_ricavoCommessa(c)||0) : 0);
+  apriGenyaFatt({ clienteNome:c.committente||c.clienteNome||'', descr:c.nome||'', prezzo: ricavo>0? _gfEuro(ricavo).replace(',','.') : '' });
+  // se il committente coincide con un cliente in anagrafica, preseleziona e pre-compila
+  const cli=(DB.clienti||[]).find(x=>(x.ragioneSociale||'').trim().toLowerCase()===String(c.committente||'').trim().toLowerCase());
+  if(cli){ const s=document.getElementById('gf-cli-sel'); if(s){ s.value=cli.id; gfPrefillCliente(); } }
+}
+function gfDaDettCant(){ const c=(DB.cantieri||[]).find(x=>x.nome===window._dettCantNome); if(c) apriGenyaFattDaCantiere(c.id); else apriGenyaFatt(); }
+function gfGenera(){
+  _gfLeggiRighe();
+  const g=id=>{ const e=document.getElementById(id); return e?e.value.trim():''; };
+  const rs=g('gf-rs'); if(!rs){ toast('Manca la ragione sociale'); return; }
+  const piva=g('gf-piva'), cf=g('gf-cf')||piva;
+  const tipoSogg=g('gf-tipo-sogg')==='pf'?'Persona fisica con Partita IVA':'Soggetto diverso da persona fisica (società)';
+  const cod=g('gf-cod')|| (g('gf-pec')?'0000000':'');
+  // totali per aliquota
+  let impon=0; const perIva={}; const righeTxt=[];
+  _gfRighe.forEach(r=>{ if(!r.descr && !r.prezzo) return; const q=_gfNum(r.qta||1), p=_gfNum(r.prezzo), iva=_gfNum(r.iva||22); const tot=q*p; impon+=tot; perIva[iva]=(perIva[iva]||0)+tot; righeTxt.push('   • '+(r.descr||'(senza descrizione)')+' — q.tà '+_gfEuro(q)+' × '+_gfEuro(p)+' € · IVA '+(''+iva)+'% · '+(r.tipo||'Servizio')+'  = '+_gfEuro(tot)+' €'); });
+  let imposta=0; Object.keys(perIva).forEach(a=>{ imposta+=perIva[a]*(_gfNum(a)/100); });
+  const totale=impon+imposta;
+  const ivaRiepi=Object.keys(perIva).sort().map(a=>'   - imponibile '+a+'%: '+_gfEuro(perIva[a])+' € → imposta '+_gfEuro(perIva[a]*(_gfNum(a)/100))+' €').join('\n');
+  const dataIt=(function(){ const d=g('gf-data'); if(!d) return _oggi&&_oggi()||''; const p=d.split('-'); return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:d; })();
+  const ind=[g('gf-viaTipo'),g('gf-viaNome')].filter(Boolean).join(' ')+(g('gf-civico')?(' '+g('gf-civico')):'');
+  const out=
+`SCHEDA FATTURA PER GENYA — da compilare con la skill "genya-fattura-smart" (Claude in Chrome)
+⚠ SICUREZZA: crea/salva la fattura ma NON inviarla allo SdI. Mostrami il riepilogo e attendi la mia conferma esplicita prima di qualsiasi trasmissione.
+
+CLIENTE
+   Tipologia:           ${tipoSogg}
+   Ragione sociale:     ${rs}
+   Partita IVA:         ${piva||'—'}
+   Codice Fiscale:      ${cf||'—'}
+   PEC:                 ${g('gf-pec')||'—'}
+   Email:               ${g('gf-email')||'—'}
+   Indirizzo:           ${ind||'—'}
+   Comune / CAP:        ${(g('gf-comune')||'—')}${g('gf-cap')?(' / '+g('gf-cap')):''}
+   Cod. Destinatario:   ${cod||'—'}${(cod==='0000000')?'  (ricezione via PEC)':''}
+
+FATTURA
+   Data:                ${dataIt}
+   Sezionale/Tipo:      ${g('gf-sezionale')||'—'}
+   Righe:
+${righeTxt.join('\n')||'   (nessuna riga)'}
+   Pagamento:           ${g('gf-pag')}
+   Scadenza:            ${g('gf-scad')}
+
+TOTALI
+   Imponibile:          ${_gfEuro(impon)} €
+${ivaRiepi||'   - (nessuna IVA)'}
+   Imposta totale:      ${_gfEuro(imposta)} €
+   TOTALE FATTURA:      ${_gfEuro(totale)} €
+
+ASSUNZIONI (correggimi se sbaglio):
+   - Data fattura = ${dataIt} (odierna salvo diversa indicazione)
+   - Codice Fiscale = Partita IVA (tipico per le S.r.l.)
+   - Aliquota IVA come indicata per riga (default 22%)
+   - Pagamento e scadenza come sopra (obbligatori in Genya)`;
+  const ta=document.getElementById('gf-out'); if(ta){ ta.value=out; ta.scrollTop=0; }
+  toast('Scheda generata — controllala e poi Copia');
+}
+function gfCopia(){
+  const ta=document.getElementById('gf-out'); if(!ta||!ta.value.trim()){ toast('Genera prima la scheda'); return; }
+  const done=()=>toast('✓ Copiato: incollalo nella chat di Claude-in-Chrome');
+  try{ navigator.clipboard.writeText(ta.value).then(done,()=>{ ta.select(); document.execCommand&&document.execCommand('copy'); done(); }); }
+  catch(e){ ta.select(); try{document.execCommand('copy');}catch(_){}
+    done(); }
+}
 
 // apertura diretta della scheda cantiere per ID (usata dal cruscotto della dashboard)
 function apriDett(cid){
