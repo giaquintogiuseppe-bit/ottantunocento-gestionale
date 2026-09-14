@@ -5288,6 +5288,7 @@ function rCant(){
             ${ricavo>0?`<div class="kb-margin" style="color:${margine>=0?'var(--green)':'var(--red)'}">Margine: ${margine>=0?'+':''}${fmt(margine)}</div>`:''}
             <div class="kb-actions" onclick="event.stopPropagation()">
               <button class="bs" onclick="aprDett(${gi})">📋</button>
+              <button class="bs" title="Esporta Excel costi/ricavi del cantiere" onclick="_expCant('${c.id}')">📊</button>
               <button class="bs" onclick="apriModificaCantiere('${c.id}')">✏️</button>
               ${c.preventivoRef
                 ? `<button class="bs" title="Preventivo ${c.preventivoRef}" onclick="toast('Preventivo collegato: ${c.preventivoRef}')">🧾✓</button>`
@@ -5326,6 +5327,7 @@ function rCant(){
                   <div class="kb-periodo">📅 ${c.periodo||c.periodoInizio||'—'}${c.committente?' · '+c.committente:''}</div>
                   <div class="kb-actions" onclick="event.stopPropagation()">
                     <button class="bs" onclick="aprDett(${gi})">📋</button>
+                    <button class="bs" title="Esporta Excel costi/ricavi del cantiere" onclick="_expCant('${c.id}')">📊</button>
                     <button class="bs" onclick="apriModificaCantiere('${c.id}')">✏️ Riapri</button>
                     ${isArch?`<button class="bs" onclick="ripristinaCantiere('${c.id}')">↩</button>`:''}
                     <button class="bd" onclick="elimCantiere('${c.id}')">✕</button>
@@ -5720,9 +5722,10 @@ function rDettCant(){
   document.getElementById('dett-body').innerHTML=html||'<div class="ri"><div class="rls">Nessuna attività nel periodo selezionato.</div></div>';
 }
 
-async function esportaDettExcel(){
-  const nome=window._dettCantNome||'';
+async function esportaDettExcel(nomeArg){
+  const nome=(nomeArg!=null&&nomeArg!=='')?nomeArg:(window._dettCantNome||'');
   if(!nome){toast('Nessun cantiere selezionato');return;}
+  toast('⏳ Preparo l\'Excel di '+nome+'…');
   try{ if(typeof _ensureFaRows==='function') await _ensureFaRows(); }catch(e){}
   const da=document.getElementById('dett-da')?.value||'';
   const al=document.getElementById('dett-al')?.value||'';
@@ -5754,19 +5757,29 @@ async function esportaDettExcel(){
   let totF=0; faList.forEach(f=>totF+=parseFloat(f.importo||0));
   const totTot=totP+totS+totC+totOneri+totF;
   const pct=v=>totTot>0?((v/totTot)*100).toFixed(1)+'%':'—';
+  // Ricavo della commessa (fatturato/previsto) e margine → prospetto costi/ricavi
+  const _cantObj=(DB.cantieri||[]).find(x=>x.nome===nome) || (DB.cantieri||[]).find(x=>(x.nome||'').toLowerCase().trim().replace(/\s+/g,' ')===_kNomeFaX);
+  const ricavo=_cantObj&&typeof _ricavoCommessa==='function' ? (_ricavoCommessa(_cantObj)||0) : 0;
+  const margine=ricavo-totTot;
+  const margPct=ricavo>0?((margine/ricavo)*100).toFixed(1)+'%':'—';
   const ws0=XLSX.utils.aoa_to_sheet([
-    ['RIEPILOGO — '+nome],[`Periodo: ${periodo}`],
+    ['PROSPETTO COSTI / RICAVI — '+nome],[`Periodo: ${periodo}`],
     ['Nota: gli scontrini contabilizzati sono inclusi nelle Spese Dirette'],[],
-    ['Tipologia','Importo (€)','% sul totale'],
+    ['COSTI','Importo (€)','% sui costi'],
     ['👷 Personale (netto giornate)',totP,pct(totP)],
     ['🧾 Oneri giornalieri (contributi e spese personale)',totOneri,pct(totOneri)],
     ['💳 Spese dirette (incl. scontrini contabilizzati)',totS,pct(totS)],
     ['⛽ Carburante',totC,pct(totC)],
     ['🧾 Fatture fornitori',totF,pct(totF)],
-    ['TOTALE COSTI',totTot,'100%']
+    ['TOTALE COSTI',totTot,'100%'],
+    [],
+    ['CONTO ECONOMICO',''],
+    ['💰 Ricavo (commessa)',ricavo,''],
+    ['➖ Totale costi',-totTot,''],
+    ['MARGINE',margine,(ricavo>0?margPct:'')]
   ]);
-  ws0['!cols']=[{wch:20},{wch:14},{wch:12}];
-  XLSX.utils.book_append_sheet(wb,ws0,'Riepilogo');
+  ws0['!cols']=[{wch:24},{wch:14},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws0,'Prospetto costi-ricavi');
 
   // ── FOGLIO 2: Personale ───────────────────────────────────────
   const rowsP=[['PERSONALE — '+nome],[`Periodo: ${periodo}`],[],
@@ -6006,6 +6019,8 @@ function aprDett(i){
   window._dettCantNome = c.nome;
   nav('dettaglio-cant');
 }
+// Esporta l'Excel costi/ricavi di un cantiere (per id, dalle card) senza aprire il dettaglio
+function _expCant(id){ const c=(DB.cantieri||[]).find(x=>x.id===id); if(!c){ toast('⚠ Cantiere non trovato'); return; } esportaDettExcel(c.nome); }
 
 // apertura diretta della scheda cantiere per ID (usata dal cruscotto della dashboard)
 function apriDett(cid){
