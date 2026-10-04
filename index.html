@@ -3306,7 +3306,7 @@ function _daRivedere(){
 }
 function revisioneAzione(cid,az){
   const c=(DB.cantieri||[]).find(x=>x.id===cid); if(!c) return;
-  if(az==='chiudi'){ c.stato='concluso'; toast('✅ "'+c.nome.slice(0,28)+'" chiuso'); }
+  if(az==='chiudi'){ c.stato='concluso'; c._statoManuale=false; toast('✅ "'+c.nome.slice(0,28)+'" chiuso'); }
   else if(az==='fermo'){ c.stato='fermo'; toast('⏸ "'+c.nome.slice(0,28)+'" fermo in attesa'); }
   else if(az==='snooze'){ c.revisioneSnooze=new Date(Date.now()+7*864e5).toISOString().slice(0,10); toast('⏰ Te lo richiedo tra una settimana'); }
   save(); rDash();
@@ -5172,6 +5172,7 @@ function _autoChiudiLeggere(){
     const tipi = cantTipi(c);
     const soloLeggeri = tipi.length && !tipi.includes('evento') && !tipi.includes('interno');
     if(!soloLeggeri || c.continuativa) return;
+    if(c._statoManuale) return; // stato scelto a mano: non si tocca
     if(!(c.stato||'').toLowerCase().includes('corso')) return;
     const fine = (/^\d{4}-\d{2}-\d{2}$/.test(c.periodoFine||'')) ? c.periodoFine
                : (/^\d{4}-\d{2}-\d{2}$/.test(c.periodoInizio||'') ? c.periodoInizio : null);
@@ -9612,7 +9613,12 @@ function salvaModificaCantiere(){
   const nuovoRicavo = parseFloat(document.getElementById('ce-ricavo').value||0);
   setBudget(c.id, nuovoNome, nuovoRicavo); // salva il ricavo nel Gestionale, non nel Planning
   c.note = document.getElementById('ce-note').value;
+  const statoPrec = c.stato||'';
   c.stato = document.getElementById('ce-stato').value; // aggiornato anche sul cloud al prossimo sync
+  // Stato cambiato a mano → nessuna chiusura automatica (Gestionale, Mobile, Planning) lo sovrascrive.
+  // Rimettendolo "concluso" o "perso" la gestione automatica riprende.
+  if(c.stato!==statoPrec) c._statoManuale = !['concluso','perso'].includes(c.stato);
+  if(c.stato!=='concluso') c._autoChiuso=false;
   // Tipo commessa (multipli) + interruttore continuativa
   c.tipoCant = Array.from(document.querySelectorAll('#ce-tipi .ce-tipo.on')).map(b=>b.dataset.t);
   c.continuativa = document.getElementById('ce-continuativa').checked;
