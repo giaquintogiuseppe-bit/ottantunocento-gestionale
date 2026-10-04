@@ -4897,6 +4897,15 @@ function saveNuovaGiornata(){
   const d=gv('ng-data');
   if(!d){alert('Inserisci la data');return;}
   if(DB.presenze[d]&&Object.keys(DB.presenze[d]).length&&!confirm(`La giornata del ${fdate(d)} esiste già.\n\nI lavoratori selezionati verranno AGGIUNTI o aggiornati.\nGli altri e i loro turni restano INVARIATI.\n\nProcedere?`))return;
+  // "➕ Crea nuovo" nelle righe: chiede il nome una sola volta e lo usa per tutte quelle righe
+  let cantNuovoNG;
+  for(const p of DB.personale){
+    const cb=document.getElementById('ngc-'+p.id);
+    if(cb&&cb.checked&&gv('ngcant-'+p.id)==='__nuovo__'){
+      if(cantNuovoNG===undefined) cantNuovoNG=_risolviCantiereScelto('__nuovo__');
+      if(cantNuovoNG===null) return;
+    }
+  }
   if(!DB.presenze[d]) DB.presenze[d]={};
   let count=0;
   DB.personale.forEach(p=>{
@@ -4904,7 +4913,8 @@ function saveNuovaGiornata(){
     if(cb&&cb.checked){
       const base=parseFloat(gv('ngbase-'+p.id)||0);
       const straord=parseFloat(gv('ngstr-'+p.id)||0);
-      const cantP=gv('ngcant-'+p.id)||gv('ng-cantiere')||'';
+      let cantP=gv('ngcant-'+p.id)||gv('ng-cantiere')||'';
+      if(cantP==='__nuovo__') cantP=cantNuovoNG||'';
       const notaP=gv('ngnote-'+p.id)||'';
       // formato NUOVO (turni), in MERGE: mai cancellare quello che c'è già
       if(!DB.presenze[d][p.id]) DB.presenze[d][p.id]={turni:[],totale:0};
@@ -6362,6 +6372,16 @@ function addCantiere(){
 }
 
 // Crea un cantiere "al volo" da qualsiasi punto dell'app (presenze, spese, ecc.)
+// Le select .cantiere-select contengono la voce "➕ Crea nuovo" (valore __nuovo__):
+// non va MAI salvata come nome cantiere. Restituisce il nome da salvare,
+// '' se nessun cantiere, null se l'utente ha annullato la creazione.
+function _risolviCantiereScelto(val){
+  if(val!=='__nuovo__') return val||'';
+  const nome=prompt('Nome del nuovo cantiere:');
+  if(!nome||!nome.trim()) return null;
+  return creaCantiereVeloce(nome.trim());
+}
+
 function creaCantiereVeloce(nome){
   if(!nome || !nome.trim()) return null;
   nome = nome.trim();
@@ -6916,17 +6936,21 @@ function rFlotta(){
 function assegnaCantiereCarburante(id, cantiere){
   const r = DB.carburante.find(x=>x.id===id);
   if(!r) return;
+  cantiere = _risolviCantiereScelto(cantiere);
+  if(cantiere===null){ rFlotta(); return; }
   r.cantiere = cantiere || '';
   save();
   toast(cantiere ? `Assegnato a "${cantiere}" ✓` : 'Cantiere rimosso ✓');
 }
 
 function addRif(){
+  const cantRif=_risolviCantiereScelto(gv('rf-cantiere'));
+  if(cantRif===null) return;
   const r={
     id:uid(), data:gv('rf-data'), prodotto:gv('rf-prod'),
     litri:gv('rf-litri')||'—', prezzo:gv('rf-prezzo')||'—',
     totale:parseFloat(gv('rf-tot')||0), note:gv('rf-note'),
-    cantiere: gv('rf-cantiere')||''
+    cantiere: cantRif
   };
   DB.carburante.push(r);
   save();
@@ -9163,13 +9187,15 @@ function _normalizeScontrino(data){
 }
 
 function addScontrino(){
+  const cantScon=_risolviCantiereScelto(document.getElementById('sm-cantiere').value);
+  if(cantScon===null) return;
   const s = {
     id: uid(),
     data:      document.getElementById('sm-data').value || today(),
     importo:   parseFloat(document.getElementById('sm-importo').value || 0),
     fornitore: document.getElementById('sm-fornitore').value,
     categoria: document.getElementById('sm-cat').value,
-    cantiere:  document.getElementById('sm-cantiere').value,
+    cantiere:  cantScon,
     metodo:    document.getElementById('sm-pag').value,
     note:      document.getElementById('sm-note').value,
     foto:      null,
@@ -9442,7 +9468,8 @@ function apriModificaSpesa(id){
   document.getElementById('se-categoria').value=s.categoria||'Altro';
   // Popola select cantieri
   const sel=document.getElementById('se-cantiere');
-  sel.innerHTML=_optCantByNome(s.cantiere);
+  sel.innerHTML='<option value="">— Nessun cantiere —</option>'+_optCantByNome(s.cantiere);
+  if(!s.cantiere) sel.value='';
   // Avviso se è uno scontrino contabilizzato
   const warn=document.getElementById('se-warn');
   if(s.scontrinoId){
@@ -9460,7 +9487,9 @@ function salvaModificaSpesa(){
   if(!s) return;
   const nuovoImporto=parseFloat(document.getElementById('se-importo').value||0);
   if(!nuovoImporto){ alert('Importo obbligatorio'); return; }
-  s.cantiere   = document.getElementById('se-cantiere').value;
+  const cantSe=_risolviCantiereScelto(document.getElementById('se-cantiere').value);
+  if(cantSe===null) return;
+  s.cantiere   = cantSe;
   s.data       = document.getElementById('se-data').value;
   s.importo    = nuovoImporto;
   s.categoria  = document.getElementById('se-categoria').value;
@@ -9606,27 +9635,40 @@ function salvaModificaCantiere(){
 
   // Se il nome è cambiato, propaga ovunque il vecchio nome sia salvato come testo
   if(vecchioNome !== nuovoNome){
-    let nPres=0, nSpese=0, nCarb=0;
-    // Presenze: il campo cantiere è una stringa libera dentro ogni record presenza
+    let nPres=0, nSpese=0, nCarb=0, nAltri=0;
+    // Confronto come nel resto dell'app (minuscole, spazi esterni ignorati)
+    const vecchioN = vecchioNome.toLowerCase().trim();
+    const eraQui = x => (x||'').toLowerCase().trim() === vecchioN;
+    // Presenze: formato vecchio (pr.cantiere) e formato attuale (pr.turni[].cantiere)
     Object.values(DB.presenze).forEach(giornata=>{
       Object.values(giornata).forEach(pr=>{
-        if(pr.cantiere === vecchioNome){ pr.cantiere = nuovoNome; nPres++; }
+        if(eraQui(pr.cantiere)){ pr.cantiere = nuovoNome; nPres++; }
+        (Array.isArray(pr.turni)?pr.turni:[]).forEach(t=>{
+          if(eraQui(t.cantiere)){ t.cantiere = nuovoNome; nPres++; }
+        });
       });
     });
     // Spese dirette cantiere
     (DB.speseCantiere||[]).forEach(s=>{
-      if(s.cantiere === vecchioNome){ s.cantiere = nuovoNome; nSpese++; }
+      if(eraQui(s.cantiere)){ s.cantiere = nuovoNome; nSpese++; }
     });
-    // Carburante: il nome cantiere è dentro la nota testuale, quindi avvisa ma non sostituisce automaticamente
-    nCarb = DB.carburante.filter(f=>f.note && f.note.includes(vecchioNome)).length;
+    // Carburante e scontrini: il cantiere è salvato per nome nel campo .cantiere
+    (DB.carburante||[]).forEach(f=>{ if(eraQui(f.cantiere)){ f.cantiere = nuovoNome; nAltri++; } });
+    (DB.scontrini||[]).forEach(x=>{ if(eraQui(x.cantiere)){ x.cantiere = nuovoNome; nAltri++; } });
+    // Incassi e budget: legati per ID, si aggiorna solo la copia del nome
+    (DB.incassi||[]).forEach(x=>{ if(x.cantiereId===c.id) x.cantiereName = nuovoNome; });
+    (DB.budgetCantieri||[]).forEach(x=>{ if(x.cantiereId===c.id) x.cantiereName = nuovoNome; });
+    // Carburante con il nome solo dentro la nota libera: avvisa ma non sostituisce
+    nCarb = (DB.carburante||[]).filter(f=>!eraQui(f.cantiere) && f.cantiere!==nuovoNome && f.note && f.note.includes(vecchioNome)).length;
 
+    _costiCache=null;
     sincronizzaCantieri();
     save(); cloudSalva(true); syncCommessePerno();
     closeModal('modal-cant-edit');
     rCant();
 
     let msg = `Cantiere rinominato "${vecchioNome}" → "${nuovoNome}" ✓`;
-    if(nPres||nSpese) msg += ` (${nPres} presenze, ${nSpese} spese aggiornate)`;
+    if(nPres||nSpese||nAltri) msg += ` (${nPres} turni/presenze, ${nSpese} spese, ${nAltri} carburante/scontrini aggiornati)`;
     toast(msg);
     if(nCarb>0){
       setTimeout(()=>alert(`Nota: ${nCarb} rifornimento${nCarb>1?'i':''} carburante contengono "${vecchioNome}" nelle note ma non sono stati rinominati automaticamente (il nome è dentro testo libero). Controllali manualmente in Flotta & Carburante se necessario.`), 300);
