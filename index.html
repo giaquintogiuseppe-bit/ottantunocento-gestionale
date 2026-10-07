@@ -621,6 +621,12 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <button class="bs" style="font-size:12px;padding:5px 12px" onclick="apriOneri()">Gestisci</button>
       <span style="font-size:11px;color:var(--text2)">divisi in parti uguali tra i cantieri del giorno · le giornate senza cantiere restano fuori</span>
     </div>
+    <!-- Inbox presenze dal campo (app Planning di Roberto) -->
+    <div id="pres-campo-box" style="background:rgba(0,180,166,.06);border:1px solid rgba(0,180,166,.28);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span style="font-size:13px">📨 <b>Presenze dal campo</b> — chi è presente / turno intero o parziale, inviate da Roberto</span>
+      <span id="pres-campo-badge" style="display:none;background:var(--gold);color:#000;font-size:12px;font-weight:800;border-radius:10px;padding:2px 9px">0</span>
+      <button class="bs" style="font-size:12px;padding:5px 12px" onclick="apriPresenzeCampo()">Rivedi e applica →</button>
+    </div>
     <div class="ps">Seleziona una data per visualizzare e modificare le presenze</div>
     <div class="fc">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px">
@@ -2060,6 +2066,24 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div class="mf">
       <button class="bs" onclick="closeModal('modal-importa-planning')">Annulla</button>
       <button class="bp" id="btn-conferma-import" onclick="confermImportaPlanning()" disabled style="opacity:.4">💾 Importa selezionati</button>
+    </div>
+  </div>
+</div>
+
+<div class="mo" id="modal-presenze-campo">
+  <div class="md" style="max-width:680px">
+    <div class="mh"><h3>📨 Presenze dal campo — Roberto</h3><button class="mc" onclick="closeModal('modal-presenze-campo')">✕</button></div>
+    <div style="padding:0 20px 4px">
+      <div style="background:rgba(0,180,166,.06);border:1px solid rgba(0,180,166,.2);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text2);margin-bottom:14px">
+        Roberto segna dal campo chi è <b style="color:var(--text)">presente</b> e se fa turno <b style="color:var(--green)">intero</b> o <b style="color:var(--gold)">parziale</b>.
+        <b style="color:var(--text)">Applicando</b> crei i turni nella giornata (importo da compilare, come l'import dal Planning). Gli assenti non generano turni. I turni già presenti non vengono duplicati.
+      </div>
+      <div id="pres-campo-list" style="max-height:420px;overflow-y:auto">
+        <div style="color:var(--text2);font-size:13px;text-align:center;padding:20px">Caricamento…</div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="bs" onclick="closeModal('modal-presenze-campo')">Chiudi</button>
     </div>
   </div>
 </div>
@@ -4240,6 +4264,7 @@ function esportaPresenzeExcel(){
 
 function rPres(){
   _oneriAggiornaBox();
+  rPresenzeCampoBadge();
   const di=document.getElementById('pres-date');
   if(!di.value){
     const dates=Object.keys(DB.presenze).filter(d=>d.length===10).sort();
@@ -4734,6 +4759,148 @@ function confermImportaPlanning(){
   if(nonTrovati.length) msg+=` · Non in anagrafica: ${nonTrovati.join(', ')}`;
   toast(msg);
   nav('presenze'); rPres();
+}
+
+// ── PRESENZE DAL CAMPO (inbox proposte di Roberto) ───────────────
+// Roberto, dall'app Planning, invia il consuntivo giornaliero (chi è
+// presente, turno intero o parziale). Le proposte arrivano nella riga
+// 'roberto_staging' come changeRequest tipo PRESENZE_GIORNO. Qui Giuseppe
+// le rivede e le APPLICA: diventano turni in DB.presenze (importo 0, da
+// compilare — identico all'import dal Planning). Mai sovrascrittivo.
+const _STGAPI=()=>({url:SUPABASE_URL+'/rest/v1/gestionale_dati',h:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'}});
+async function _stgRead(){
+  const a=_STGAPI();
+  const r=await fetch(a.url+'?id=eq.roberto_staging&select=dati',{headers:a.h,cache:'no-cache'});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const rows=await r.json();
+  const d=(rows&&rows[0]&&rows[0].dati)||{changeRequests:[],config:{}};
+  if(!Array.isArray(d.changeRequests)) d.changeRequests=[];
+  return d;
+}
+async function _stgWrite(dati){
+  const a=_STGAPI();
+  const r=await fetch(a.url,{method:'POST',headers:{...a.h,'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:'roberto_staging',dati,aggiornato_il:new Date().toISOString()})});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+}
+
+const _PCAMPO_STYLE={
+  intero:  {col:'var(--green)',bg:'rgba(75,232,122,.12)'},
+  parziale:{col:'var(--gold)', bg:'rgba(240,180,41,.14)'},
+  assente: {col:'var(--red)',  bg:'rgba(232,84,84,.12)'}
+};
+
+function _presCampoBadgeFrom(stg){
+  const n=((stg&&stg.changeRequests)||[]).filter(c=>c.tipo==='PRESENZE_GIORNO'&&c.stato==='pending').length;
+  const b=document.getElementById('pres-campo-badge');
+  if(b){ b.textContent=n; b.style.display=n?'inline-block':'none'; }
+}
+async function rPresenzeCampoBadge(){
+  try{ const stg=await _stgRead(); window._stgCache=stg; _presCampoBadgeFrom(stg); }catch(e){}
+}
+
+async function apriPresenzeCampo(){
+  openModal('modal-presenze-campo');
+  const el=document.getElementById('pres-campo-list');
+  if(el) el.innerHTML='<div style="color:var(--text2);font-size:13px;text-align:center;padding:20px">Caricamento…</div>';
+  try{
+    const stg=await _stgRead();
+    window._stgCache=stg;
+    _rPresenzeCampoList(stg);
+    _presCampoBadgeFrom(stg);
+  }catch(e){
+    if(el) el.innerHTML='<div style="color:var(--red);font-size:13px;text-align:center;padding:20px">Errore di rete: '+e.message+'</div>';
+  }
+}
+
+function _rPresenzeCampoList(stg){
+  const el=document.getElementById('pres-campo-list'); if(!el) return;
+  const crs=((stg&&stg.changeRequests)||[])
+    .filter(c=>c.tipo==='PRESENZE_GIORNO'&&c.stato==='pending')
+    .sort((a,b)=>String(b.timestamp||'').localeCompare(String(a.timestamp||'')));
+  if(!crs.length){ el.innerHTML='<div style="color:var(--text2);font-size:13px;text-align:center;padding:24px">Nessuna presenza in attesa ✓</div>'; return; }
+  el.innerHTML=crs.map(cr=>{
+    const voci=cr.voci||[];
+    const chips=voci.map(v=>{
+      const st=_PCAMPO_STYLE[v.tipo]||_PCAMPO_STYLE.intero;
+      const trovato=v.tipo==='assente'||_matchPersona(v.nome);
+      const ore=v.tipo==='parziale'?` ${v.oraI||''}–${v.oraF||''}`:'';
+      return `<div style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:600;background:${st.bg};color:${st.col};border:1px solid ${st.col}">${trovato?'':'⚠ '}${v.nome} · ${v.cantiere||'—'}${ore} <span style="opacity:.7">(${v.tipo})</span></div>`;
+    }).join('');
+    const nonMatch=voci.filter(v=>v.tipo!=='assente'&&!_matchPersona(v.nome)).length;
+    return `<div style="background:var(--card);border:1px solid var(--brd);border-radius:10px;padding:12px 14px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <div style="font-size:13px;font-weight:700">🗓 ${fdate(cr.data)} <span style="color:var(--text2);font-weight:400;font-size:11px">· ${cr.autore||'Roberto'} · ${cr.timestamp?new Date(cr.timestamp).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</span></div>
+        <div style="font-size:11px;color:var(--text2)">${cr.nInt||0} intero · ${cr.nPar||0} parziale · ${cr.nAss||0} assente</div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">${chips}</div>
+      ${nonMatch?`<div style="font-size:11px;color:var(--gold);margin-bottom:8px">⚠ ${nonMatch} nome non in anagrafica — verrà saltato. Crea la persona o correggi il nome, poi riapplica.</div>`:''}
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="bs" style="font-size:12px;padding:6px 12px;border-color:var(--red);color:var(--red)" onclick="rifiutaPresenzaCampo('${cr.id}')">Rifiuta</button>
+        <button class="bp" style="font-size:12px;padding:6px 14px" onclick="applicaPresenzaCampo('${cr.id}')">✓ Applica alla giornata</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function applicaPresenzaCampo(crId){
+  const stg=window._stgCache;
+  const cr=stg&&(stg.changeRequests||[]).find(c=>c.id===crId);
+  if(!cr||cr.tipo!=='PRESENZE_GIORNO'){ toast('Proposta non trovata — ricarico'); return apriPresenzeCampo(); }
+  const d=cr.data;
+  if(!d){ toast('Proposta senza data'); return; }
+  const _tm=t=>{const[h,m]=String(t||'00:00').split(':').map(Number);return (h||0)*60+(m||0);};
+  let nImp=0,nSalt=0,nAss=0; const nonTrovati=[];
+  (cr.voci||[]).forEach(v=>{
+    if(v.tipo==='assente'){ nAss++; return; }
+    const p=_matchPersona(v.nome);
+    if(!p){ if(!nonTrovati.includes(v.nome)) nonTrovati.push(v.nome); return; }
+    if(!DB.presenze[d]) DB.presenze[d]={};
+    if(!DB.presenze[d][p.id]) DB.presenze[d][p.id]={turni:[],totale:0};
+    if(!Array.isArray(DB.presenze[d][p.id].turni)) DB.presenze[d][p.id].turni=[];
+    const oraI=v.oraI||'08:00', oraF=v.oraF||'18:00';
+    const notturno = (v.notturno!=null)?!!v.notturno:(_tm(oraF)<=_tm(oraI));
+    const esiste=DB.presenze[d][p.id].turni.some(t=>
+      (t.cantiere||'').toLowerCase()===String(v.cantiere||'').toLowerCase()&&t.oraI===oraI&&t.oraF===oraF
+    );
+    if(esiste){ nSalt++; return; }
+    DB.presenze[d][p.id].turni.push({
+      id:uid(), cantiere:v.cantiere||'', oraI, oraF, importo:0, notturno,
+      parziale:v.tipo==='parziale',
+      note:v.tipo==='parziale'?'Turno parziale (dal campo)':''
+    });
+    nImp++;
+  });
+  // ricalcola i totali del giorno
+  Object.values(DB.presenze[d]||{}).forEach(pr=>{ if(pr.turni) pr.totale=pr.turni.reduce((a,t)=>a+parseFloat(t.importo||0),0); });
+  _costiCache=null; save();
+  // marca la proposta come applicata (read-modify-write fresco su staging)
+  try{
+    const fresh=await _stgRead();
+    const fc=(fresh.changeRequests||[]).find(c=>c.id===crId);
+    if(fc){ fc.stato='approved'; fc.applicatoIl=new Date().toISOString(); }
+    await _stgWrite(fresh);
+    window._stgCache=fresh;
+    _rPresenzeCampoList(fresh); _presCampoBadgeFrom(fresh);
+  }catch(e){ toast('Turni salvati, ma stato proposta non aggiornato: '+e.message); }
+  let msg=`✓ ${nImp} turno${nImp!==1?'i':''} applicato${nImp!==1?'i':''}`;
+  if(nSalt) msg+=` · ${nSalt} già present${nSalt!==1?'i':'e'}`;
+  if(nAss) msg+=` · ${nAss} assente${nAss!==1?'i':''}`;
+  if(nonTrovati.length) msg+=` · non in anagrafica: ${nonTrovati.join(', ')}`;
+  toast(msg);
+  if(curPg==='presenze'){ const di=document.getElementById('pres-date'); if(di) di.value=d; loadPres(); rPresHist(); }
+}
+
+async function rifiutaPresenzaCampo(crId){
+  if(!confirm('Rifiutare questa proposta di presenze? Non verrà applicata.')) return;
+  try{
+    const fresh=await _stgRead();
+    const fc=(fresh.changeRequests||[]).find(c=>c.id===crId);
+    if(fc){ fc.stato='rejected'; fc.motivoRifiuto='Rifiutata dal gestionale'; }
+    await _stgWrite(fresh);
+    window._stgCache=fresh;
+    _rPresenzeCampoList(fresh); _presCampoBadgeFrom(fresh);
+    toast('Proposta rifiutata');
+  }catch(e){ toast('Errore: '+e.message); }
 }
 
 function ngDataChanged(){
