@@ -11771,7 +11771,7 @@ function _pcCompute(){
   (DB.clienti||[]).forEach(c=>{ const g=(c.gruppo||'').trim(); if(!g) return; const k=_pcNorm(c.ragioneSociale); const bk='grp:'+_pcNorm(g); if(k) nomeToGruppo[k]=bk; gruppoLabel[bk]=g; });
   const bucket=(k)=> nomeToGruppo[k]||k;
   const get=(key,nome)=>{
-    if(!map[key]) map[key]={key,nome:nome||'—',fatturato:0,incassato:0,residuo:0,fattAperte:[],daFatt:[],daFattTot:0,daEmettere:[],daEmettereTot:0,daQuant:[],gruppo:gruppoLabel[key]||'',membri:{},search:''};
+    if(!map[key]) map[key]={key,nome:nome||'—',fatturato:0,incassato:0,residuo:0,fattAperte:[],daFatt:[],daFattTot:0,daEmettere:[],daEmettereTot:0,daQuant:[],gruppo:gruppoLabel[key]||'',membri:{},perSoc:{},search:''};
     if(nome && map[key].nome==='—') map[key].nome=nome;
     return map[key];
   };
@@ -11786,8 +11786,9 @@ function _pcCompute(){
     const e=get(k, gruppoLabel[k]||socNome);
     addMembro(e, socNome);
     const imp=+f.importo||0, acc=_pcAcc(f);
-    if(f.stato==='pagata'){ e.fatturato+=imp; e.incassato+=imp; }
-    else if(f.stato==='emessa'){ e.fatturato+=imp; e.incassato+=acc; e.residuo+=Math.max(0,imp-acc); e.fattAperte.push(f); }
+    const ps=(e.perSoc[socNome]=e.perSoc[socNome]||{fatturato:0,incassato:0,daIncassare:0,daFatturare:0});
+    if(f.stato==='pagata'){ e.fatturato+=imp; e.incassato+=imp; ps.fatturato+=imp; ps.incassato+=imp; }
+    else if(f.stato==='emessa'){ e.fatturato+=imp; e.incassato+=acc; e.residuo+=Math.max(0,imp-acc); e.fattAperte.push(f); ps.fatturato+=imp; ps.incassato+=acc; ps.daIncassare+=Math.max(0,imp-acc); }
     else if(f.stato==='da_emettere'){ e.daEmettereTot+=imp; e.daEmettere.push(f); }  // preparata ma non ancora emessa → non è "Fatturato"
   });
   // 2) cantieri → da fatturare (budget non ancora fatturato) / da quantificare
@@ -11821,15 +11822,16 @@ function _pcCompute(){
     const r=_pcRicavo(c);
     const e=get(key, gruppoLabel[key]||socNome);
     addMembro(e, socNome);
+    const ps=(e.perSoc[socNome]=e.perSoc[socNome]||{fatturato:0,incassato:0,daIncassare:0,daFatturare:0});
     const incC = (typeof _pcCantIncassi==='function') ? _pcCantIncassi(c.id) : 0;   // incassi registrati SENZA fattura sul cantiere
     const fatt = fattByCant[c.id]||0;                                                // già fatturato (qualsiasi società)
-    if(incC>0) e.incassato += Math.min(incC, r||incC);                               // incassi senza fattura: contano come incassato
+    if(incC>0){ e.incassato += Math.min(incC, r||incC); ps.incassato += Math.min(incC, r||incC); } // incassi senza fattura: contano come incassato
     const quasiCoperto = fatt>0 && (fatt>=r*0.98 || fatt>=(r/1.22)*0.98);            // tollera IVA 22% (budget netto vs fattura lorda)
     if(r>0 && !quasiCoperto){
       if(fatt<=0 && copertoDaFattSciolta(c,key,r)){ /* coperto da fattura sciolta: niente da-fatturare */ }
       else {
         const daF=Math.max(0, r - fatt - incC);                                      // budget MENO già fatturato MENO incassi senza fattura
-        if(daF>Math.max(1,r*0.02)){ e.daFatt.push({c, r:daF, inc:incC}); e.daFattTot+=daF; }
+        if(daF>Math.max(1,r*0.02)){ e.daFatt.push({c, r:daF, inc:incC, soc:socNome}); e.daFattTot+=daF; ps.daFatturare+=daF; }
       }
     } else if(r<=0 && incC<=0 && fatt<=0 && c.stato==='concluso'){
       e.daQuant.push(c);
@@ -11933,8 +11935,96 @@ function _pcCard(e,i){
       '<div style="font-size:11px;color:var(--text2);margin-top:3px">Fatturato '+fmtE(e.fatturato)+' · Incassato '+fmtE(e.incassato)+'</div></div>'+
       '<div style="text-align:right"><div style="font-size:18px;font-weight:800;color:'+(e.residuo>0?'var(--gold)':'var(--text2)')+';font-family:\'DM Mono\',monospace">'+fmtE(e.residuo)+'</div><div style="font-size:10px;color:var(--text2)">da incassare</div></div>'+
     '</div>'+
-    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+(chips.join('')||'<span style="font-size:11px;color:var(--text2)">✓ nulla da incassare</span>')+'</div>'+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px">'+
+      '<button onclick="event.stopPropagation();pcReportPosizione(\''+String(e.key).replace(/'/g,"\\'")+'\')" style="border:1px solid var(--teal);color:var(--teal);background:rgba(0,180,166,.08);border-radius:10px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer">📄 Report '+(e.gruppo?'gruppo':'posizione')+'</button>'+
+      (chips.join('')||'<span style="font-size:11px;color:var(--text2)">✓ nulla da incassare</span>')+'</div>'+
     '<div id="pcd'+i+'" style="display:none">'+det+'</div></div>';
+}
+
+// ── REPORT POSIZIONE (singolo cliente o gruppo) in un'unica schermata ──
+function _pcFindEntry(key){ const {list}=_pcCompute(); return list.find(x=>x.key===key)||null; }
+
+function pcReportPosizione(key){
+  const e=_pcFindEntry(key);
+  if(!e){ toast('Posizione non trovata — ricarico'); rPosizioneClienti(); return; }
+  const money=v=>fmtE(v||0);
+  const soc=Object.keys(e.perSoc||{}).sort();
+  const kpi=[['Fatturato',e.fatturato,'var(--text)'],['Incassato',e.incassato,'var(--green)'],
+    ['Da incassare',e.residuo,e.residuo>0?'var(--gold)':'var(--text2)'],
+    ['Da fatturare',e.daFattTot,e.daFattTot>0?'#c98fd0':'var(--text2)']];
+  const kpiH=kpi.map(k=>`<div style="flex:1;min-width:110px;background:var(--card);border:1px solid var(--brd);border-radius:10px;padding:10px 12px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">${k[0]}</div><div style="font-size:18px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:${k[2]}">${money(k[1])}</div></div>`).join('');
+  let socH='';
+  if(e.gruppo && soc.length){
+    socH=`<div class="sl" style="margin-top:16px">🏢 Per società del gruppo</div>
+      <div style="overflow-x:auto"><table style="width:100%;font-size:12px"><thead><tr>
+        <th style="text-align:left">Società</th><th>Fatturato</th><th>Incassato</th><th>Da incassare</th><th>Da fatturare</th></tr></thead><tbody>`+
+      soc.map(s=>{const p=e.perSoc[s];return `<tr><td style="text-align:left">${esc(s)}</td><td class="mn">${money(p.fatturato)}</td><td class="mn gr">${money(p.incassato)}</td><td class="mn" style="color:${p.daIncassare>0?'var(--gold)':'var(--text2)'}">${money(p.daIncassare)}</td><td class="mn" style="color:${p.daFatturare>0?'#c98fd0':'var(--text2)'}">${money(p.daFatturare)}</td></tr>`;}).join('')+
+      `</tbody></table></div>`;
+  }
+  let apH='';
+  if(e.fattAperte.length){
+    apH=`<div class="sl" style="margin-top:16px">🧾 Fatture aperte (da incassare)</div>`+
+      e.fattAperte.slice().sort((a,b)=>(a.scadenza||'').localeCompare(b.scadenza||'')).map(f=>{
+        const acc=_pcAcc(f), resid=Math.max(0,(+f.importo||0)-acc);
+        return `<div onclick="document.getElementById('modal-pc-report')?.remove();fattApri(${f.id})" style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--brd);cursor:pointer">
+          <div style="min-width:0"><span style="font-weight:600">${esc(f.numero||'—')}</span> <span style="color:var(--text2);font-size:11px">${esc(f.cliente||'')}${f.cantiere_nome?' · '+esc(f.cantiere_nome):''}</span>${f.scadenza?` <span style="color:var(--text2);font-size:11px">· scad. ${fdate(f.scadenza)}</span>`:''}${acc>0?` <span style="color:var(--gold);font-size:11px">· acconti ${money(acc)}</span>`:''}</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--gold);flex-shrink:0">${money(resid)}</div></div>`;
+      }).join('');
+  }
+  let dfH='';
+  if(e.daFatt.length){
+    dfH=`<div class="sl" style="margin-top:16px">📝 Cantieri da fatturare</div>`+
+      e.daFatt.slice().sort((a,b)=>b.r-a.r).map(o=>`<div onclick="document.getElementById('modal-pc-report')?.remove();apriDett('${o.c.id}')" style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--brd);cursor:pointer">
+        <div style="min-width:0"><span style="font-weight:600">${esc(o.c.nome)}</span> <span style="color:var(--text2);font-size:11px">${o.soc?'· '+esc(o.soc):''} · ${esc(o.c.stato||'')}</span></div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:#c98fd0;flex-shrink:0">${money(o.r)}</div></div>`).join('');
+  }
+  let emH='';
+  if(e.daEmettere && e.daEmettere.length){
+    emH=`<div class="sl" style="margin-top:16px">📄 Fatture da emettere</div>`+
+      e.daEmettere.slice().sort((a,b)=>(+b.importo||0)-(+a.importo||0)).map(f=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--brd)">
+        <div style="min-width:0"><span style="font-weight:600">${esc(f.numero||'(senza numero)')}</span> <span style="color:var(--text2);font-size:11px">${esc(f.cliente||'')}${f.cantiere_nome?' · '+esc(f.cantiere_nome):''}</span></div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:#6fb3e0;flex-shrink:0">${money(+f.importo||0)}</div></div>`).join('');
+  }
+  const totDaPrendere=e.residuo+e.daFattTot;
+  const body=`<div style="padding:0 20px 8px">
+      ${e.gruppo?`<div style="font-size:12px;color:var(--text2);margin-bottom:10px">Società del gruppo: <b style="color:var(--text)">${Object.keys(e.membri||{}).map(esc).join(' · ')}</b></div>`:''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">${kpiH}</div>
+      <div style="background:rgba(201,162,39,.07);border:1px solid rgba(201,162,39,.25);border-radius:10px;padding:10px 14px;margin-top:8px;font-size:13px">
+        Totale ancora da prendere: <b style="color:var(--gold);font-family:'IBM Plex Mono',monospace">${money(totDaPrendere)}</b>
+        <span style="color:var(--text2);font-size:11px">(da incassare ${money(e.residuo)} + da fatturare ${money(e.daFattTot)})</span></div>
+      ${socH}${apH}${dfH}${emH}
+      ${(!e.fattAperte.length && !e.daFatt.length && !(e.daEmettere&&e.daEmettere.length))?'<div style="color:var(--text2);padding:14px 0">Nessuna partita aperta: posizione saldata ✓</div>':''}
+    </div>`;
+  document.getElementById('modal-pc-report')?.remove();
+  const m=document.createElement('div'); m.id='modal-pc-report'; m.className='mo open'; m.style.zIndex='210';
+  m.innerHTML=`<div class="md" style="max-width:720px;max-height:92vh;overflow-y:auto">
+    <div class="mh"><h3>📄 Posizione ${e.gruppo?'gruppo':''} — ${esc(e.nome)}</h3><button class="mc" onclick="document.getElementById('modal-pc-report')?.remove()">✕</button></div>
+    ${body}
+    <div class="mf">
+      <button class="bs" onclick="document.getElementById('modal-pc-report')?.remove()">Chiudi</button>
+      <button class="bp" onclick="pcReportExport('${String(key).replace(/'/g,"\\'")}')">📥 Esporta Excel</button>
+    </div></div>`;
+  document.body.appendChild(m);
+}
+
+function pcReportExport(key){
+  const XLSX=window.XLSX; if(!XLSX){ toast('XLSX non disponibile'); return; }
+  const e=_pcFindEntry(key); if(!e){ toast('Posizione non trovata'); return; }
+  const wb=XLSX.utils.book_new();
+  const s1=[['POSIZIONE '+(e.gruppo?'GRUPPO':'CLIENTE')+' — '+e.nome],['Data report',_oggi()]];
+  if(e.gruppo) s1.push(['Società',Object.keys(e.membri||{}).join(' · ')]);
+  s1.push([],['Fatturato',e.fatturato],['Incassato',e.incassato],['Da incassare',e.residuo],['Da fatturare',e.daFattTot],['Da emettere',e.daEmettereTot],['TOTALE DA PRENDERE',e.residuo+e.daFattTot],[]);
+  s1.push(['PER SOCIETÀ','Fatturato','Incassato','Da incassare','Da fatturare']);
+  Object.keys(e.perSoc||{}).sort().forEach(s=>{const p=e.perSoc[s];s1.push([s,p.fatturato,p.incassato,p.daIncassare,p.daFatturare]);});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s1),'Riepilogo');
+  const s2=[['N° fattura','Cliente','Cantiere','Scadenza','Importo','Acconti','Residuo']];
+  e.fattAperte.forEach(f=>{const acc=_pcAcc(f);s2.push([f.numero||'',f.cliente||'',f.cantiere_nome||f.descrizione||'',f.scadenza||'',+f.importo||0,acc,Math.max(0,(+f.importo||0)-acc)]);});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s2),'Fatture aperte');
+  const s3=[['Cantiere / Fattura','Società','Stato','Da fatturare / emettere']];
+  e.daFatt.forEach(o=>s3.push([o.c.nome,o.soc||'',o.c.stato||'',o.r]));
+  (e.daEmettere||[]).forEach(f=>s3.push([f.cantiere_nome||f.descrizione||f.numero||'',f.cliente||'','da emettere',+f.importo||0]));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s3),'Da fatturare');
+  XLSX.writeFile(wb,'Posizione_'+String(e.nome||'cliente').replace(/[^a-z0-9]+/gi,'_')+'_'+_oggi()+'.xlsx');
 }
 
 function pcExport(){
