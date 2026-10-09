@@ -664,7 +664,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <h3>Dati giornata</h3>
       <div class="fg">
         <div><label>Data</label><input type="date" id="ng-data" onchange="ngDataChanged()"></div>
-        <div><label>Cantiere principale</label><select id="ng-cantiere" class="cantiere-select" onchange="ngCantierePrincipale(this)" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"><option value="">— Nessun cantiere —</option></select></div>
+        <div><label>Cantiere principale</label><select id="ng-cantiere" class="cantiere-select" data-sc="nome" data-sc-data="#ng-data" onchange="ngCantierePrincipale(this)" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"><option value="">— Nessun cantiere —</option></select></div>
       </div>
       <div style="margin-top:14px;padding:14px;background:rgba(240,180,41,.06);border:1px solid rgba(240,180,41,.25);border-radius:10px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
@@ -750,7 +750,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">Materiali di consumo, noleggi, acquisti attrezzature, servizi esterni — costi diretti non legati al personale.</p>
       <div class="fg">
         <div><label>Cantiere</label>
-          <select id="sc-cantiere" class="cantiere-select" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none">
+          <select id="sc-cantiere" class="cantiere-select" data-sc="nome" data-sc-data="#sc-data" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none">
             <option value="">— Seleziona —</option>
           </select>
         </div>
@@ -903,7 +903,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <div><label>Totale (€)</label><input type="number" id="rf-tot" placeholder="0.00"></div>
         <div><label>Fornitore / Mezzo</label><input type="text" id="rf-note" placeholder="es. ENI DKV"></div>
         <div><label>Cantiere (opzionale)</label>
-          <select id="rf-cantiere" class="cantiere-select" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none">
+          <select id="rf-cantiere" class="cantiere-select" data-sc="nome" data-sc-data="#rf-data" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none">
             <option value="">— Nessun cantiere —</option>
           </select>
         </div>
@@ -1113,7 +1113,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <h3>➕ Registra incasso</h3>
       <div class="fg">
         <div><label>Cantiere</label>
-          <select id="inc-cant" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 11px;width:100%;outline:none">
+          <select id="inc-cant" data-sc="id" data-sc-profilo="economico" data-sc-data="#inc-data" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 11px;width:100%;outline:none">
             <option value="">— Seleziona cantiere —</option>
           </select>
         </div>
@@ -1684,7 +1684,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
             <option>Pedaggi</option><option>Ufficio</option><option>Altro</option>
           </select>
         </div>
-        <div><label>Cantiere</label><select id="sm-cantiere" class="cantiere-select"><option value="">— Nessun cantiere —</option></select></div>
+        <div><label>Cantiere</label><select id="sm-cantiere" class="cantiere-select" data-sc="nome" data-sc-data="#sm-data"><option value="">— Nessun cantiere —</option></select></div>
         <div><label>Metodo pagamento</label>
           <select id="sm-pag">
             <option>Contanti</option><option>Carta aziendale</option><option>Bonifico</option><option>DKV</option>
@@ -2015,7 +2015,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <input type="hidden" id="se-id">
       <div class="fg">
         <div><label>Cantiere</label>
-          <select id="se-cantiere" class="cantiere-select" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"></select>
+          <select id="se-cantiere" class="cantiere-select" data-sc="nome" data-sc-data="#se-data" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"></select>
         </div>
         <div><label>Data</label><input type="date" id="se-data" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
         <div><label>Importo (€)</label><input type="number" id="se-importo" step="0.01" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:9px 12px;width:100%;outline:none"></div>
@@ -2233,7 +2233,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div style="padding:0 20px 10px;max-height:70vh;overflow-y:auto">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div style="grid-column:1/-1"><label style="font-size:11px;color:var(--text2);font-weight:600;display:block;margin-bottom:4px">Cantiere collegato (opzionale)</label>
-          <select id="ff-cantiere" style="width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:9px 11px"><option value="">— Fattura libera (nessun cantiere) —</option></select></div>
+          <select id="ff-cantiere" data-sc="id" data-sc-profilo="economico" data-sc-data="#ff-data" style="width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:9px 11px"><option value="">— Fattura libera (nessun cantiere) —</option></select></div>
         <div><label style="font-size:11px;color:var(--text2);font-weight:600;display:block;margin-bottom:4px">Cliente</label><input id="ff-cliente" style="width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:9px 11px"></div>
         <div><label style="font-size:11px;color:var(--text2);font-weight:600;display:block;margin-bottom:4px">Importo €</label><input type="number" step="0.01" oninput="ffRenderAcconti()" id="ff-importo" style="width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:9px 11px"></div>
         <div style="grid-column:1/-1"><label style="font-size:11px;color:var(--text2);font-weight:600;display:block;margin-bottom:4px">Descrizione</label><input id="ff-descr" placeholder="Es. Saldo evento ANAS" style="width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:9px 11px"></div>
@@ -3330,7 +3330,7 @@ function _daRivedere(){
 }
 function revisioneAzione(cid,az){
   const c=(DB.cantieri||[]).find(x=>x.id===cid); if(!c) return;
-  if(az==='chiudi'){ c.stato='concluso'; toast('✅ "'+c.nome.slice(0,28)+'" chiuso'); }
+  if(az==='chiudi'){ c.stato='concluso'; c._statoManuale=false; toast('✅ "'+c.nome.slice(0,28)+'" chiuso'); }
   else if(az==='fermo'){ c.stato='fermo'; toast('⏸ "'+c.nome.slice(0,28)+'" fermo in attesa'); }
   else if(az==='snooze'){ c.revisioneSnooze=new Date(Date.now()+7*864e5).toISOString().slice(0,10); toast('⏰ Te lo richiedo tra una settimana'); }
   save(); rDash();
@@ -3637,7 +3637,7 @@ function _fattMostraImport(nuove, doppie, errori, scartatiMT){
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 90px;gap:8px">
         <div><label style="font-size:10px;color:var(--text2)">Cantiere</label>
-          <select onchange="_impDaImportare[${i}]._cantiereFinale=this.value" style="width:100%;background:var(--card);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-size:12px;padding:6px 8px">${optC(d._cantiereSugg)}</select></div>
+          <select data-sc="id" data-sc-profilo="economico" data-sc-giorno="${esc(d.data||'')}" onchange="_impDaImportare[${i}]._cantiereFinale=this.value" style="width:100%;background:var(--card);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-size:12px;padding:6px 8px">${optC(d._cantiereSugg)}</select></div>
         <div><label style="font-size:10px;color:var(--text2)">Scadenza</label>
           <input type="date" value="${d._scadenzaFinale}" onchange="_impDaImportare[${i}]._scadenzaFinale=this.value" style="width:100%;background:var(--card);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-size:12px;padding:5px 8px"></div>
         <div><label style="font-size:10px;color:var(--text2)">Preav. gg</label>
@@ -3668,6 +3668,7 @@ async function fattImportaConferma(){
     // ---- CLIENTI → fatture ----
     if(clienti.length){
       let es=[]; try{ const r=await fetch(F.url+'?select=numero,cliente&limit=5000',{headers:F.h,cache:'no-cache'}); es=await r.json(); }catch(e){}
+      if(!Array.isArray(es) || es.length===0){ toast('⚠ Non leggo le fatture già presenti (sessione scaduta?). Import annullato per non creare doppioni.'); _impInCorso=false; if(btn) btn.disabled=false; return; }
       const gia=new Set(es.map(f=>_n2(String(f.numero||'').split('/')[0])+'|'+_n2(f.cliente)));
       const da=clienti.filter(d=>!gia.has(_n2(String(d.numero||'').split('/')[0])+'|'+_n2(d.controparte)));
       skip += clienti.length-da.length;
@@ -3686,6 +3687,7 @@ async function fattImportaConferma(){
     // ---- FORNITORI → fatture_acquisto (dedup su fornitore + numero del fornitore) ----
     if(forn.length){
       let es=[]; try{ const r=await fetch(faURL+'?select=numero,rif_fornitore,fornitore&limit=8000',{headers:faH,cache:'no-cache'}); es=await r.json(); }catch(e){}
+      if(!Array.isArray(es) || es.length===0){ toast('⚠ Non leggo le fatture fornitore già presenti (sessione scaduta?). Import annullato per non creare doppioni.'); _impInCorso=false; if(btn) btn.disabled=false; return; }
       const gia=new Set(); (es||[]).forEach(f=>{ const nf=_n2(f.fornitore); gia.add(nf+'|'+_n2(f.rif_fornitore)); gia.add(nf+'|'+_n2(String(f.numero||'').split('/').pop())); });
       const da=forn.filter(d=>!gia.has(_n2(d.controparte)+'|'+_n2(d.numero)));
       skip += forn.length-da.length;
@@ -4306,8 +4308,8 @@ function loadPres(){
           ${turni.map((t,ti)=>`
           <div class="turno-row" id="tr-${p.id}-${ti}" style="background:${t.notturno?'rgba(100,150,255,.06)':'var(--navy)'};border:1px solid ${t.notturno?'rgba(100,150,255,.3)':'var(--brd)'};border-radius:8px;padding:8px;margin-bottom:6px">
             <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
-              <select class="ie" style="flex:2;min-width:100px" onchange="updateTurno('${p.id}',${ti},'cantiere',this.value)">
-                ${cantOpzioni.replace(`value="${t.cantiere}"`,`value="${t.cantiere}" selected`)}
+              <select class="ie" style="flex:2;min-width:100px" data-sc="nome" data-sc-data="#pres-date" data-sc-persona="${esc(p.nome)}" onchange="updateTurno('${p.id}',${ti},'cantiere',this.value)">
+                <option value="">— Nessun cantiere —</option>${_optCantByNome(t.cantiere||'')}<option value="__nuovo__">➕ Crea nuovo cantiere...</option>
               </select>
               <input class="ie" type="time" value="${t.oraI||'08:00'}" style="width:76px" onchange="updateTurno('${p.id}',${ti},'oraI',this.value)">
               <span style="font-size:11px;color:var(--text2)">→</span>
@@ -5001,7 +5003,7 @@ function rNuovaGiornata(){
         <tr id="ngr-${p.id}">
           <td style="padding:7px 10px;font-weight:600;font-size:13px">${p.nome.split(' ')[0]} <span style="font-size:11px;color:var(--text2)">${p.nome.split(' ').slice(1).join(' ')}</span></td>
           <td style="text-align:center;padding:7px 6px"><input type="checkbox" id="ngc-${p.id}" style="width:16px;height:16px;accent-color:var(--teal)" onchange="ngToggle('${p.id}')"></td>
-          <td style="padding:7px 4px"><select class="ie cantiere-select" id="ngcant-${p.id}" disabled style="opacity:.4"><option value="">—</option>${_optCantByNome('')}</select></td>
+          <td style="padding:7px 4px"><select class="ie cantiere-select" id="ngcant-${p.id}" data-sc="nome" data-sc-data="#ng-data" data-sc-persona="${esc(p.nome)}" disabled style="opacity:.4"><option value="">—</option>${_optCantByNome('')}</select></td>
           <td style="padding:7px 4px"><input class="ie" type="number" id="ngbase-${p.id}" placeholder="0" disabled style="opacity:.4" oninput="ngCalcTot('${p.id}')"></td>
           <td style="padding:7px 4px"><input class="ie" type="number" id="ngstr-${p.id}" placeholder="0" disabled style="opacity:.4" oninput="ngCalcTot('${p.id}')"></td>
           <td style="padding:7px 4px"><input class="ie" id="ngnote-${p.id}" placeholder="Note" disabled style="opacity:.4"></td>
@@ -5062,6 +5064,15 @@ function saveNuovaGiornata(){
   const d=gv('ng-data');
   if(!d){alert('Inserisci la data');return;}
   if(DB.presenze[d]&&Object.keys(DB.presenze[d]).length&&!confirm(`La giornata del ${fdate(d)} esiste già.\n\nI lavoratori selezionati verranno AGGIUNTI o aggiornati.\nGli altri e i loro turni restano INVARIATI.\n\nProcedere?`))return;
+  // "➕ Crea nuovo" nelle righe: chiede il nome una sola volta e lo usa per tutte quelle righe
+  let cantNuovoNG;
+  for(const p of DB.personale){
+    const cb=document.getElementById('ngc-'+p.id);
+    if(cb&&cb.checked&&gv('ngcant-'+p.id)==='__nuovo__'){
+      if(cantNuovoNG===undefined) cantNuovoNG=_risolviCantiereScelto('__nuovo__');
+      if(cantNuovoNG===null) return;
+    }
+  }
   if(!DB.presenze[d]) DB.presenze[d]={};
   let count=0;
   DB.personale.forEach(p=>{
@@ -5069,7 +5080,8 @@ function saveNuovaGiornata(){
     if(cb&&cb.checked){
       const base=parseFloat(gv('ngbase-'+p.id)||0);
       const straord=parseFloat(gv('ngstr-'+p.id)||0);
-      const cantP=gv('ngcant-'+p.id)||gv('ng-cantiere')||'';
+      let cantP=gv('ngcant-'+p.id)||gv('ng-cantiere')||'';
+      if(cantP==='__nuovo__') cantP=cantNuovoNG||'';
       const notaP=gv('ngnote-'+p.id)||'';
       // formato NUOVO (turni), in MERGE: mai cancellare quello che c'è già
       if(!DB.presenze[d][p.id]) DB.presenze[d][p.id]={turni:[],totale:0};
@@ -5327,6 +5339,7 @@ function _autoChiudiLeggere(){
     const tipi = cantTipi(c);
     const soloLeggeri = tipi.length && !tipi.includes('evento') && !tipi.includes('interno');
     if(!soloLeggeri || c.continuativa) return;
+    if(c._statoManuale) return; // stato scelto a mano: non si tocca
     if(!(c.stato||'').toLowerCase().includes('corso')) return;
     const fine = (/^\d{4}-\d{2}-\d{2}$/.test(c.periodoFine||'')) ? c.periodoFine
                : (/^\d{4}-\d{2}-\d{2}$/.test(c.periodoInizio||'') ? c.periodoInizio : null);
@@ -6538,6 +6551,16 @@ function addCantiere(){
 }
 
 // Crea un cantiere "al volo" da qualsiasi punto dell'app (presenze, spese, ecc.)
+// Le select .cantiere-select contengono la voce "➕ Crea nuovo" (valore __nuovo__):
+// non va MAI salvata come nome cantiere. Restituisce il nome da salvare,
+// '' se nessun cantiere, null se l'utente ha annullato la creazione.
+function _risolviCantiereScelto(val){
+  if(val!=='__nuovo__') return val||'';
+  const nome=prompt('Nome del nuovo cantiere:');
+  if(!nome||!nome.trim()) return null;
+  return creaCantiereVeloce(nome.trim());
+}
+
 function creaCantiereVeloce(nome){
   if(!nome || !nome.trim()) return null;
   nome = nome.trim();
@@ -7078,7 +7101,7 @@ function rFlotta(){
     <td class="mn">${f.prezzo!=='—'?'€'+f.prezzo:'—'}</td>
     <td class="mn rr">${fmt(f.totale)}</td>
     <td>
-      <select class="ie cantiere-select" style="font-size:11px;padding:4px 6px" onchange="assegnaCantiereCarburante('${f.id}',this.value)">
+      <select class="ie cantiere-select" style="font-size:11px;padding:4px 6px" data-sc="nome" data-sc-giorno="${esc(f.data||'')}" onchange="assegnaCantiereCarburante('${f.id}',this.value)">
         <option value="">— Nessuno —</option>
         ${_optCantByNome(f.cantiere)}
       </select>
@@ -7092,17 +7115,21 @@ function rFlotta(){
 function assegnaCantiereCarburante(id, cantiere){
   const r = DB.carburante.find(x=>x.id===id);
   if(!r) return;
+  cantiere = _risolviCantiereScelto(cantiere);
+  if(cantiere===null){ rFlotta(); return; }
   r.cantiere = cantiere || '';
   save();
   toast(cantiere ? `Assegnato a "${cantiere}" ✓` : 'Cantiere rimosso ✓');
 }
 
 function addRif(){
+  const cantRif=_risolviCantiereScelto(gv('rf-cantiere'));
+  if(cantRif===null) return;
   const r={
     id:uid(), data:gv('rf-data'), prodotto:gv('rf-prod'),
     litri:gv('rf-litri')||'—', prezzo:gv('rf-prezzo')||'—',
     totale:parseFloat(gv('rf-tot')||0), note:gv('rf-note'),
-    cantiere: gv('rf-cantiere')||''
+    cantiere: cantRif
   };
   DB.carburante.push(r);
   save();
@@ -9339,13 +9366,15 @@ function _normalizeScontrino(data){
 }
 
 function addScontrino(){
+  const cantScon=_risolviCantiereScelto(document.getElementById('sm-cantiere').value);
+  if(cantScon===null) return;
   const s = {
     id: uid(),
     data:      document.getElementById('sm-data').value || today(),
     importo:   parseFloat(document.getElementById('sm-importo').value || 0),
     fornitore: document.getElementById('sm-fornitore').value,
     categoria: document.getElementById('sm-cat').value,
-    cantiere:  document.getElementById('sm-cantiere').value,
+    cantiere:  cantScon,
     metodo:    document.getElementById('sm-pag').value,
     note:      document.getElementById('sm-note').value,
     foto:      null,
@@ -9618,7 +9647,8 @@ function apriModificaSpesa(id){
   document.getElementById('se-categoria').value=s.categoria||'Altro';
   // Popola select cantieri
   const sel=document.getElementById('se-cantiere');
-  sel.innerHTML=_optCantByNome(s.cantiere);
+  sel.innerHTML='<option value="">— Nessun cantiere —</option>'+_optCantByNome(s.cantiere);
+  if(!s.cantiere) sel.value='';
   // Avviso se è uno scontrino contabilizzato
   const warn=document.getElementById('se-warn');
   if(s.scontrinoId){
@@ -9636,7 +9666,9 @@ function salvaModificaSpesa(){
   if(!s) return;
   const nuovoImporto=parseFloat(document.getElementById('se-importo').value||0);
   if(!nuovoImporto){ alert('Importo obbligatorio'); return; }
-  s.cantiere   = document.getElementById('se-cantiere').value;
+  const cantSe=_risolviCantiereScelto(document.getElementById('se-cantiere').value);
+  if(cantSe===null) return;
+  s.cantiere   = cantSe;
   s.data       = document.getElementById('se-data').value;
   s.importo    = nuovoImporto;
   s.categoria  = document.getElementById('se-categoria').value;
@@ -9759,7 +9791,12 @@ function salvaModificaCantiere(){
   const nuovoRicavo = parseFloat(document.getElementById('ce-ricavo').value||0);
   setBudget(c.id, nuovoNome, nuovoRicavo); // salva il ricavo nel Gestionale, non nel Planning
   c.note = document.getElementById('ce-note').value;
+  const statoPrec = c.stato||'';
   c.stato = document.getElementById('ce-stato').value; // aggiornato anche sul cloud al prossimo sync
+  // Stato cambiato a mano → nessuna chiusura automatica (Gestionale, Mobile, Planning) lo sovrascrive.
+  // Rimettendolo "concluso" o "perso" la gestione automatica riprende.
+  if(c.stato!==statoPrec) c._statoManuale = !['concluso','perso'].includes(c.stato);
+  if(c.stato!=='concluso') c._autoChiuso=false;
   // Tipo commessa (multipli) + interruttore continuativa
   c.tipoCant = Array.from(document.querySelectorAll('#ce-tipi .ce-tipo.on')).map(b=>b.dataset.t);
   c.continuativa = document.getElementById('ce-continuativa').checked;
@@ -9782,27 +9819,40 @@ function salvaModificaCantiere(){
 
   // Se il nome è cambiato, propaga ovunque il vecchio nome sia salvato come testo
   if(vecchioNome !== nuovoNome){
-    let nPres=0, nSpese=0, nCarb=0;
-    // Presenze: il campo cantiere è una stringa libera dentro ogni record presenza
+    let nPres=0, nSpese=0, nCarb=0, nAltri=0;
+    // Confronto come nel resto dell'app (minuscole, spazi esterni ignorati)
+    const vecchioN = vecchioNome.toLowerCase().trim();
+    const eraQui = x => (x||'').toLowerCase().trim() === vecchioN;
+    // Presenze: formato vecchio (pr.cantiere) e formato attuale (pr.turni[].cantiere)
     Object.values(DB.presenze).forEach(giornata=>{
       Object.values(giornata).forEach(pr=>{
-        if(pr.cantiere === vecchioNome){ pr.cantiere = nuovoNome; nPres++; }
+        if(eraQui(pr.cantiere)){ pr.cantiere = nuovoNome; nPres++; }
+        (Array.isArray(pr.turni)?pr.turni:[]).forEach(t=>{
+          if(eraQui(t.cantiere)){ t.cantiere = nuovoNome; nPres++; }
+        });
       });
     });
     // Spese dirette cantiere
     (DB.speseCantiere||[]).forEach(s=>{
-      if(s.cantiere === vecchioNome){ s.cantiere = nuovoNome; nSpese++; }
+      if(eraQui(s.cantiere)){ s.cantiere = nuovoNome; nSpese++; }
     });
-    // Carburante: il nome cantiere è dentro la nota testuale, quindi avvisa ma non sostituisce automaticamente
-    nCarb = DB.carburante.filter(f=>f.note && f.note.includes(vecchioNome)).length;
+    // Carburante e scontrini: il cantiere è salvato per nome nel campo .cantiere
+    (DB.carburante||[]).forEach(f=>{ if(eraQui(f.cantiere)){ f.cantiere = nuovoNome; nAltri++; } });
+    (DB.scontrini||[]).forEach(x=>{ if(eraQui(x.cantiere)){ x.cantiere = nuovoNome; nAltri++; } });
+    // Incassi e budget: legati per ID, si aggiorna solo la copia del nome
+    (DB.incassi||[]).forEach(x=>{ if(x.cantiereId===c.id) x.cantiereName = nuovoNome; });
+    (DB.budgetCantieri||[]).forEach(x=>{ if(x.cantiereId===c.id) x.cantiereName = nuovoNome; });
+    // Carburante con il nome solo dentro la nota libera: avvisa ma non sostituisce
+    nCarb = (DB.carburante||[]).filter(f=>!eraQui(f.cantiere) && f.cantiere!==nuovoNome && f.note && f.note.includes(vecchioNome)).length;
 
+    _costiCache=null;
     sincronizzaCantieri();
     save(); cloudSalva(true); syncCommessePerno();
     closeModal('modal-cant-edit');
     rCant();
 
     let msg = `Cantiere rinominato "${vecchioNome}" → "${nuovoNome}" ✓`;
-    if(nPres||nSpese) msg += ` (${nPres} presenze, ${nSpese} spese aggiornate)`;
+    if(nPres||nSpese||nAltri) msg += ` (${nPres} turni/presenze, ${nSpese} spese, ${nAltri} carburante/scontrini aggiornati)`;
     toast(msg);
     if(nCarb>0){
       setTimeout(()=>alert(`Nota: ${nCarb} rifornimento${nCarb>1?'i':''} carburante contengono "${vecchioNome}" nelle note ma non sono stati rinominati automaticamente (il nome è dentro testo libero). Controllali manualmente in Flotta & Carburante se necessario.`), 300);
@@ -12125,7 +12175,7 @@ function _fffBuildCant(){
 }
 function _fffCantOptions(selNome){
   let h='<option value="">— Nessun cantiere —</option>';
-  _fffCant.forEach((c,i)=>{ const lbl=esc(c.nome)+(c.committente?' — '+esc(c.committente):''); const sel=(selNome&&c.nome===selNome)?' selected':''; h+='<option value="'+i+'"'+sel+'>'+lbl+'</option>'; });
+  _fffCant.forEach(c=>{ const lbl=esc(c.nome)+(c.committente?' — '+esc(c.committente):''); const sel=(selNome&&c.nome===selNome)?' selected':''; h+='<option value="'+esc(c.id)+'"'+sel+'>'+lbl+'</option>'; });
   return h;
 }
 async function rFattureFornitori(){
@@ -12248,13 +12298,15 @@ function fffRender(){
 function fffEdit(btn,id){
   const td=btn.closest('.fff-cant'); if(!td) return;
   const r=(_fffRows||[]).find(x=>String(x.id)===String(id)); if(!r) return;
-  td.innerHTML='<select onchange="fffAssegna(this,\''+esc(String(id))+'\')" onblur="if(!this._done)fffRender()" style="width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:7px 9px">'+_fffCantOptions(r.cantiere_nome)+'</select>';
-  const sel=td.querySelector('select'); if(sel){ try{sel.focus();}catch(e){} }
+  td.innerHTML='<select data-sc="id" data-sc-profilo="economico" data-sc-giorno="'+esc(r.data_fattura||'')+'" onchange="fffAssegna(this,\''+esc(String(id))+'\')" onblur="if(!this._done)fffRender()" style="width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:7px 9px">'+_fffCantOptions(r.cantiere_nome)+'</select>';
+  const sel=td.querySelector('select');
+  // con il Selettore Commessa attivo si apre subito il foglio di scelta; altrimenti la tendina classica
+  if(sel){ if(window.SelettoreCommessa&&!SelettoreCommessa.spento()) SelettoreCommessa.apri(sel); else { try{sel.focus();}catch(e){} } }
 }
 async function fffAssegna(sel,id){
   sel._done=true;
   const r=(_fffRows||[]).find(x=>String(x.id)===String(id)); if(!r){ fffRender(); return; }
-  const v=sel.value; const c=(v==='')?null:_fffCant[parseInt(v,10)];
+  const v=sel.value; const c=(v==='')?null:(_fffCant.find(x=>x.id===v)||(DB.cantieri||[]).find(x=>x.id===v));
   const body={ cantiere_id: c?(c.id||null):null, cantiere_nome: c?(c.nome||null):null, aggiornato_il:new Date().toISOString() };
   sel.disabled=true;
   try{
@@ -12312,7 +12364,7 @@ function _ccRighe(list, tipo){
       '<td style="padding:7px 9px;white-space:nowrap;color:var(--text2)">'+_fffDate(f.data_fattura)+'</td>'+
       '<td style="padding:7px 9px"><b>'+esc(nome)+'</b>'+(num?' <span style="color:var(--text2);font-size:11px">'+esc(num)+'</span>':'')+'</td>'+
       '<td style="padding:7px 9px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">'+fmtE(f.importo)+'</td>'+
-      '<td style="padding:7px 9px;min-width:230px"><select onchange="_ccAssegna(this,\''+tipo+'\',\''+esc(String(f.id))+'\')" style="width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:6px 8px">'+_fffCantOptions('')+'</select></td>'+
+      '<td style="padding:7px 9px;min-width:230px"><select data-sc="id" data-sc-profilo="economico" data-sc-giorno="'+esc(f.data_fattura||'')+'" onchange="_ccAssegna(this,\''+tipo+'\',\''+esc(String(f.id))+'\')" style="width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:6px 8px">'+_fffCantOptions('')+'</select></td>'+
     '</tr>';
   }).join('');
 }
@@ -12341,7 +12393,7 @@ function _ccAggiornaConteggi(){
 }
 async function _ccAssegna(sel, tipo, id){
   const v=sel.value; if(v==='') return;
-  const c=_fffCant[parseInt(v,10)]; if(!c) return;
+  const c=_fffCant.find(x=>x.id===v)||(DB.cantieri||[]).find(x=>x.id===v); if(!c) return;
   const body={ cantiere_id:c.id||null, cantiere_nome:c.nome||null, aggiornato_il:new Date().toISOString() };
   const base = tipo==='cli' ? _FAPI().url : SUPABASE_URL+'/rest/v1/fatture_acquisto';
   const h = { apikey:SUPABASE_KEY, Authorization:'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', 'Prefer':'return=minimal' };
@@ -13031,6 +13083,10 @@ async function _wdProcessFatt(rows, opt){
     // carica esistenti per anti-doppione (stessa chiave del modale: numero-base + cliente)
     let esistenti=[];
     try{ const F=_FAPI(); const r=await fetch(F.url+'?select=numero,cliente&limit=5000',{headers:F.h,cache:'no-cache'}); esistenti=await r.json(); }catch(e){}
+    // 🛡 GUARDIA ANTI-DUPLICAZIONE (04/10/2026): se la lettura delle fatture già presenti
+    // torna vuota (tipicamente sessione scaduta → l'RLS vede l'app come anon e nasconde tutto),
+    // l'anti-doppione sarebbe CIECO e importerebbe l'intero storico come "nuovo". Meglio fermarsi.
+    if(!Array.isArray(esistenti) || esistenti.length===0){ toast('⚠ Non riesco a leggere le fatture già presenti (sessione scaduta?). Esci e rientra, poi riprova — import annullato per non creare doppioni.'); return; }
     const _nrm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
     const gia=new Set((esistenti||[]).map(f=>_nrm(String(f.numero||'').split('/')[0])+'|'+_nrm(f.cliente)));
     const nuove=[], doppie=[];
@@ -13100,6 +13156,9 @@ async function _wdProcessForn(rows, srcName, opt){
     // a volte il n. documento del fornitore) quindi NON è affidabile per il confronto.
     let esistenti=[];
     try{ const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=numero,fornitore&limit=20000',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'}); esistenti=await r.json(); }catch(e){}
+    // 🛡 GUARDIA ANTI-DUPLICAZIONE (04/10/2026): vedi nota in _wdProcessFatt. Se non vedo le
+    // fatture esistenti (sessione scaduta → RLS anon → 0 righe) mi fermo invece di duplicare.
+    if(!Array.isArray(esistenti) || esistenti.length===0){ toast('⚠ Non riesco a leggere le fatture fornitore già presenti (sessione scaduta?). Esci e rientra, poi riprova — import annullato per non creare doppioni.'); return; }
     const keyNF=(numero,forn)=>_nrm(numero)+'||'+_nrm(forn);
     const gia=new Set((esistenti||[]).map(f=>keyNF(f.numero, f.fornitore)));
     const nuove=Object.values(inv).filter(d=>!gia.has(keyNF(d.numero, d.fornitore)));
@@ -13258,5 +13317,349 @@ setTimeout(()=>{
   const ad=document.getElementById('a-data');if(ad&&!ad.value)ad.value=today();
 },150);
 </script>
+<!-- ═══════════ SELETTORE COMMESSA v1.1 — blocco condiviso app 81100 ═══════════
+  Copiare IDENTICO nelle altre app (Gestionale, Planning, Roberto, Buono Consegna, Preventivi).
+  Uso: aggiungere a un <select> o <input> esistente
+    data-sc="id"   → il controllo contiene l'ID del cantiere
+    data-sc="nome" → il controllo contiene il NOME del cantiere
+  opzionali:
+    data-sc-profilo="economico"  (incassi/fatture: finestra conclusi 180 gg; default operativo 60 gg)
+    data-sc-data="#id-campo-data" oppure data-sc-giorno="AAAA-MM-GG"  (data del record → suggeriti)
+    data-sc-persona="Nome Cognome"  (in cima i cantieri dove la persona è in squadra quel giorno)
+    data-sc-compatto  (bottone basso, per righe di tabella; automatico sulle select con classe "ie")
+  Se la select contiene l'opzione value="__nuovo__", il foglio offre "➕ Crea nuovo cantiere"
+  (sceglie __nuovo__ e lascia la creazione al codice dell'app, come prima).
+  Il controllo originale resta nel DOM (nascosto) e tiene il valore: il codice che legge .value
+  e gli onchange esistenti funzionano come prima (alla scelta parte un evento 'change').
+  Legge i cantieri da DB.cantieri e l'archivio da DB._cantieriArchiviati / c.archiviato.
+  INTERRUTTORE D'EMERGENZA (tornano le tendine classiche, nessun dato toccato):
+    per tutti   → DB._selettoreCommessaOff = true  (chiave nel blob gestionale_dati 'unico')
+    un telefono → aprire l'app con ?sc=off  (?sc=on per riattivarlo) -->
+<style>
+.sc-orig{display:none!important}
+.sc-btn[hidden]{display:none!important}
+.sc-btn:disabled{opacity:.45;cursor:default}
+.sc-btn.sc-compact{min-height:34px;padding:4px 8px;font-size:13px;gap:6px}
+.sc-btn.sc-compact .sc-bm{display:none}
+.sc-btn.sc-compact .sc-bn,.sc-btn.sc-compact .sc-ph{font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#sc-sheet[hidden],#sc-scrim[hidden],#sc-sheet [hidden]{display:none!important}
+.sc-btn{width:100%;display:flex;align-items:center;gap:10px;text-align:left;min-height:48px;padding:10px 12px;border:1px solid var(--brd,#e2e5ea);border-radius:10px;background:var(--navy2,#fff);color:var(--text,#1b2740);font:15px 'IBM Plex Sans',-apple-system,sans-serif;cursor:pointer}
+.sc-btn .sc-bt{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
+.sc-btn .sc-bn{font-weight:600;overflow-wrap:anywhere}
+.sc-btn .sc-bm{font-size:12px;color:var(--text2,#5f6a7d);overflow-wrap:anywhere}
+.sc-btn .sc-ph{color:var(--text2,#5f6a7d)}
+.sc-btn .sc-chev{color:var(--text2,#5f6a7d);font-size:20px;line-height:1}
+.sc-btn.sc-warn{border-color:var(--gold,#a9781a)}
+#sc-scrim{position:fixed;inset:0;background:rgba(20,28,45,.45);z-index:100000}
+#sc-sheet{position:fixed;left:0;right:0;bottom:0;top:max(24px,env(safe-area-inset-top,0px));z-index:100001;background:var(--navy,#eef1f5);border-radius:16px 16px 0 0;display:flex;flex-direction:column;max-width:640px;margin:0 auto;box-shadow:0 -8px 30px rgba(0,0,0,.18);font-family:'IBM Plex Sans',-apple-system,sans-serif;color:var(--text,#1b2740)}
+#sc-sheet .sc-top{padding:10px 16px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--brd,#e2e5ea);background:var(--navy2,#fff);border-radius:16px 16px 0 0}
+#sc-sheet .sc-row1{display:flex;align-items:center;gap:6px}
+#sc-sheet .sc-row1 h3{font-size:17px;flex:1;min-width:0;margin:0}
+#sc-sheet .sc-lnk{border:none;background:transparent;font:600 15px inherit;font-family:inherit;color:var(--teal,#0e7c66);cursor:pointer;min-height:44px;padding:0 6px}
+#sc-sheet input[type=search],#sc-sheet select{width:100%;font:16px inherit;font-family:inherit;padding:11px 12px;border:1px solid var(--brd,#e2e5ea);border-radius:10px;background:var(--navy2,#fff);color:var(--text,#1b2740);outline:none;-webkit-appearance:none;appearance:none}
+#sc-sheet .sc-filt{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#sc-sheet .sc-filt select{font-size:15px;padding:9px 10px}
+#sc-sheet .sc-ctx{font-size:12px;color:var(--text2,#5f6a7d)}
+#sc-sheet .sc-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:2px 16px calc(24px + env(safe-area-inset-bottom,0px))}
+#sc-sheet .sc-grp{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text2,#5f6a7d);margin:16px 2px 8px;display:flex;justify-content:space-between;gap:8px}
+#sc-sheet .sc-list{display:flex;flex-direction:column;gap:6px}
+#sc-sheet .sc-it{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:var(--navy2,#fff);border:1px solid var(--brd,#e2e5ea);border-radius:12px;padding:11px 12px;cursor:pointer;color:inherit;font:inherit;min-height:54px}
+#sc-sheet .sc-it.sc-cur{border-color:var(--teal,#0e7c66);box-shadow:inset 0 0 0 1px var(--teal,#0e7c66)}
+#sc-sheet .sc-dot{width:10px;height:10px;border-radius:50%;margin-top:6px;flex-shrink:0;background:#9aa3b2}
+#sc-sheet .sc-dot.att{background:var(--teal,#0e7c66)}#sc-sheet .sc-dot.lp{background:var(--gold,#a9781a)}
+#sc-sheet .sc-dot.wait{background:var(--gold,#a9781a);box-shadow:inset 0 0 0 2px var(--navy2,#fff)}
+#sc-sheet .sc-dot.arc{background:transparent;border:2px solid #9aa3b2}
+#sc-sheet .sc-tx{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}
+#sc-sheet .sc-n{font-weight:600;font-size:15px;overflow-wrap:anywhere}
+#sc-sheet .sc-m{font-size:13px;color:var(--text2,#5f6a7d);overflow-wrap:anywhere}
+#sc-sheet .sc-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px}
+#sc-sheet .sc-tag{font:600 11px 'IBM Plex Mono',ui-monospace,monospace;padding:1px 6px;border-radius:5px;background:var(--navy,#eef1f5);color:var(--text2,#5f6a7d);border:1px solid var(--brd,#e2e5ea)}
+#sc-sheet .sc-tag.att{color:var(--teal,#0e7c66);border-color:var(--teal,#0e7c66);background:var(--td,rgba(14,124,102,.08))}
+#sc-sheet .sc-tag.lp{color:var(--gold,#a9781a);border-color:var(--gold,#a9781a);background:rgba(169,120,26,.08)}
+#sc-sheet .sc-tag.why{font-family:inherit;color:var(--teal,#0e7c66);border-color:transparent;background:var(--td,rgba(14,124,102,.1))}
+#sc-sheet mark{background:#fde9a8;color:inherit;border-radius:3px;padding:0 1px}
+#sc-sheet .sc-more{width:100%;margin-top:16px;padding:14px;border-radius:12px;border:1.5px dashed var(--teal,#0e7c66);background:transparent;color:var(--teal,#0e7c66);font:700 15px inherit;font-family:inherit;cursor:pointer;min-height:52px}
+#sc-sheet .sc-none{width:100%;margin-top:12px;padding:12px;border-radius:12px;border:1px solid var(--brd,#e2e5ea);background:transparent;color:var(--text2,#5f6a7d);font:600 14px inherit;font-family:inherit;cursor:pointer;min-height:48px}
+#sc-sheet .sc-empty{padding:20px 4px;color:var(--text2,#5f6a7d);font-size:14px;text-align:center}
+</style>
+<script>
+(function(){
+  'use strict';
+  const SC_VER='1.1';
+  const NUOVO='__nuovo__';
+  const FINESTRA={operativo:60,economico:180};
+  const MAX_RECENTI=5, LS_RECENTI='sc81_recenti';
+  const MESI=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+  const MESI_B=['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+  const norm=s=>String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[’`]/g,"'").replace(/\s+/g,' ').trim();
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+  const oggiISO=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);};
+  const addG=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);};
+  const fmtD=iso=>{if(!iso)return '';const p=iso.split('-');return (+p[2])+' '+MESI_B[+p[1]-1];};
+
+  // ── dati: legge DB.cantieri ogni volta (si aggiorna da solo dopo un sync)
+  function cantieri(){
+    const db=(typeof DB!=='undefined'&&DB)||{};
+    const arch=new Set(db._cantieriArchiviati||[]);
+    return (db.cantieri||[]).filter(c=>c&&c.id&&(c.nome||c.name)).map(c=>{
+      const nome=String(c.nome||c.name).trim();
+      const s=norm(c.stato);
+      const arc=arch.has(c.id)||c.archiviato===true;
+      const conc=s.includes('conclus')||s.includes('pers')||s.includes('rifiut');
+      const ivs=(Array.isArray(c.interventi)?c.interventi:[]).filter(iv=>iv&&iv.data);
+      let ini=c.periodoInizio||'', fin=c.periodoFine||'';
+      if(!ini&&ivs.length) ini=ivs.reduce((a,iv)=>iv.data<a?iv.data:a,ivs[0].data);
+      if(!fin&&ivs.length) fin=ivs.reduce((a,iv)=>iv.data>a?iv.data:a,ivs[0].data);
+      if(!fin) fin=ini;
+      const cli=c.clienteNome||c.committente||'';
+      const mesi=[];
+      if(ini){let y=+ini.slice(0,4),m=+ini.slice(5,7);const fy=+fin.slice(0,4),fm=+fin.slice(5,7);
+        for(let k=0;k<24&&(y<fy||(y===fy&&m<=fm));k++){mesi.push(MESI[m-1]);m++;if(m>12){m=1;y++;}}}
+      return {c,id:c.id,nome,cli,luogo:c.luogo||'',cod:c.codice||'',stato:c.stato||'',ini,fin,ivs,
+        lp:c.tipo==='lungo_periodo',arc,conc,att:!arc&&!conc,mese:ini?ini.slice(0,7):'',nn:' '+norm(nome),
+        hay:norm([nome,cli,c.luogo,c.codice,mesi.join(' '),ini.slice(0,4)].join(' '))};
+    });
+  }
+  function recenti(){try{return JSON.parse(localStorage.getItem(LS_RECENTI)||'[]')||[];}catch(e){return [];}}
+  function segnaRecente(id){try{localStorage.setItem(LS_RECENTI,JSON.stringify([id,...recenti().filter(x=>x!==id)].slice(0,MAX_RECENTI)));}catch(e){}}
+
+  // ── stato del foglio
+  let cur=null; // {el, modo, profilo, giorno, persona}
+  let vista='smart';
+  let sheet, scrim;
+
+  function periodo(x){ if(!x.ini) return 'date da definire'; return x.ini===x.fin?fmtD(x.ini):fmtD(x.ini)+' – '+fmtD(x.fin); }
+  function dot(x){ if(x.arc) return 'arc'; if(x.conc) return ''; if(x.lp) return 'lp'; const s=norm(x.stato); return (s.includes('confermar')||s.includes('arrivo')||s.includes('fermo'))?'wait':'att'; }
+  function tagStato(x){
+    if(x.arc) return '<span class="sc-tag">archivio</span>';
+    if(x.conc) return '<span class="sc-tag">'+esc(x.stato||'concluso')+'</span>';
+    if(x.lp) return '<span class="sc-tag lp">deposito / lungo periodo</span>';
+    return '<span class="sc-tag att">'+esc(x.stato||'attivo')+'</span>';
+  }
+  function hl(text,toks){
+    text=String(text||''); if(!toks.length) return esc(text);
+    const n=text.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+    if(n.length!==text.length) return esc(text);
+    const mk=new Array(text.length).fill(false);
+    toks.forEach(t=>{let i=n.indexOf(t);while(i>=0){for(let k=i;k<i+t.length;k++)mk[k]=true;i=n.indexOf(t,i+t.length);}});
+    let s='',open=false;
+    for(let i=0;i<text.length;i++){if(mk[i]&&!open){s+='<mark>';open=true;}if(!mk[i]&&open){s+='</mark>';open=false;}s+=esc(text[i]);}
+    return open?s+'</mark>':s;
+  }
+  function riga(x,toks,why,selId){
+    const meta=[x.cli,x.luogo&&norm(x.luogo)!==norm(x.nome)?x.luogo:'',periodo(x)].filter(Boolean).map(v=>hl(v,toks)).join(' · ');
+    return '<button type="button" class="sc-it'+(x.id===selId?' sc-cur':'')+'" data-sc-id="'+esc(x.id)+'"><span class="sc-dot '+dot(x)+'"></span>'+
+      '<span class="sc-tx"><span class="sc-n">'+hl(x.nome,toks)+'</span><span class="sc-m">'+meta+'</span>'+
+      '<span class="sc-tags">'+(why?'<span class="sc-tag why">'+esc(why)+'</span>':'')+tagStato(x)+(x.cod?'<span class="sc-tag">'+hl(x.cod,toks)+'</span>':'')+'</span></span></button>';
+  }
+  function gruppo(t,items,toks,whyFn,selId){
+    if(!items.length) return '';
+    return '<div class="sc-grp"><span>'+t+'</span><span>'+items.length+'</span></div><div class="sc-list">'+items.map(x=>riga(x,toks,whyFn?whyFn(x):'',selId)).join('')+'</div>';
+  }
+  const perData=(a,b)=>(b.ini||'9999').localeCompare(a.ini||'9999');
+
+  function inFinestra(x){ if(x.arc) return false; if(x.att) return true; return !!x.fin&&x.fin>=addG(oggiISO(),-FINESTRA[cur.profilo]); }
+  function suggeriti(L){
+    const d=cur.giorno||oggiISO(), p=norm(cur.persona);
+    const out=[], why={};
+    const push=(x,w)=>{ if(!why[x.id]){why[x.id]=w;out.push(x);} };
+    if(p) L.forEach(x=>{ if(!x.arc&&x.ivs.some(iv=>iv.data===d&&(iv.squadra||[]).some(n=>norm(n)===p))) push(x,'in squadra quel giorno'); });
+    L.forEach(x=>{ if(!x.arc&&x.ivs.some(iv=>iv.data===d)) push(x,'lavorazione quel giorno'); });
+    L.filter(x=>!x.arc&&x.ini&&x.ini<=addG(d,1)&&x.fin>=addG(d,-1)).sort((a,b)=>(b.att-a.att)||perData(a,b))
+      .forEach(x=>push(x,x.att?'in corso quel giorno':'attivo quel giorno'));
+    return {out,why};
+  }
+  function idCorrente(L){
+    if(!cur) return '';
+    const v=cur.el.value; if(!v) return '';
+    if(cur.modo==='id') return v;
+    const n=norm(v); const x=L.find(y=>norm(y.nome)===n); return x?x.id:'';
+  }
+
+  function renderSmart(){
+    const L=cantieri(), selId=idCorrente(L);
+    const q=sheet.querySelector('#sc-q').value.trim(), toks=norm(q).split(' ').filter(Boolean);
+    const d=cur.giorno||oggiISO();
+    sheet.querySelector('#sc-ctx').textContent=(cur.profilo==='economico'?'Incassi e fatture':'Lavoro operativo')+' · record del '+fmtD(d)+' '+d.slice(0,4)+' · conclusi ultimi '+FINESTRA[cur.profilo]+' giorni';
+    let h='';
+    if(toks.length){
+      // pertinenza: parola del NOME che inizia col testo cercato > dentro il nome > altrove (cliente, luogo…)
+      const punti=x=>toks.reduce((a,t)=>a+(x.nn.includes(' '+t)?3:x.nn.includes(t)?2:0),0);
+      const hits=L.filter(x=>toks.every(t=>x.hay.includes(t))).map(x=>({x,p:punti(x)}));
+      const best=hits.reduce((m,h)=>Math.max(m,h.p),0);
+      const ord=(a,b)=>(b.p-a.p)||(b.x.att-a.x.att)||perData(a.x,b.x);
+      // in alto: le più pertinenti (anche se vecchie) e quelle nella finestra; sotto il resto dell'archivio
+      const top=hits.filter(h=>h.p===best&&best>0||inFinestra(h.x)).sort(ord).map(h=>h.x);
+      const resto=hits.filter(h=>!(h.p===best&&best>0||inFinestra(h.x))).sort(ord).map(h=>h.x);
+      h+=gruppo('Risultati',top,toks,null,selId);
+      h+=gruppo('Più vecchie e archivio',resto,toks,null,selId);
+      if(!hits.length) h+='<div class="sc-empty">Nessuna commessa contiene “'+esc(q)+'”.<br>Prova con il cliente, il luogo, il mese (es. “agosto”) o il codice COM.</div>';
+    }else{
+      const {out:sug,why}=suggeriti(L), visti=new Set(sug.map(x=>x.id));
+      const rec=recenti().map(id=>L.find(x=>x.id===id)).filter(x=>x&&!visti.has(x.id)).slice(0,MAX_RECENTI);
+      rec.forEach(x=>visti.add(x.id));
+      const att=L.filter(x=>x.att&&!visti.has(x.id)).sort((a,b)=>(a.lp-b.lp)||perData(a,b));
+      const conc=L.filter(x=>!x.att&&inFinestra(x)&&!visti.has(x.id)).sort((a,b)=>(b.fin||'').localeCompare(a.fin||''));
+      h+=gruppo('⭐ Suggeriti per il '+fmtD(d),sug,[],x=>why[x.id],selId);
+      h+=gruppo('🕘 Usati di recente',rec,[],null,selId);
+      h+=gruppo('🟢 Attivi',att,[],null,selId);
+      h+=gruppo('⚪ Conclusi negli ultimi '+FINESTRA[cur.profilo]+' giorni',conc,[],null,selId);
+    }
+    h+='<button type="button" class="sc-more" data-sc-azione="tutte">Non la trovi? Cerca in tutte le '+L.length+' commesse ›</button>';
+    if(cur.nuovoOk) h+='<button type="button" class="sc-none" data-sc-azione="nuovo">➕ Crea nuovo cantiere</button>';
+    if(cur.vuotoOk) h+='<button type="button" class="sc-none" data-sc-azione="nessuno">✕ Nessun cantiere</button>';
+    sheet.querySelector('#sc-body').innerHTML=h;
+  }
+  function riempiFiltri(L){
+    const mesi=[...new Set(L.map(x=>x.mese).filter(Boolean))].sort().reverse();
+    sheet.querySelector('#sc-f-mese').innerHTML='<option value="">Tutti i mesi</option>'+mesi.map(m=>'<option value="'+m+'">'+MESI[+m.slice(5)-1].replace(/^./,c=>c.toUpperCase())+' '+m.slice(0,4)+'</option>').join('');
+    const cl={}; L.forEach(x=>{if(x.cli){const k=norm(x.cli);(cl[k]=cl[k]||{n:x.cli,k:0}).k++;}});
+    sheet.querySelector('#sc-f-cli').innerHTML='<option value="">Tutti i clienti</option>'+Object.entries(cl).sort((a,b)=>a[1].n.localeCompare(b[1].n,'it',{sensitivity:'base'})).map(([k,v])=>'<option value="'+esc(k)+'">'+esc(v.n)+' ('+v.k+')</option>').join('');
+  }
+  function renderTutte(){
+    const L=cantieri(), selId=idCorrente(L);
+    const q=sheet.querySelector('#sc-q').value.trim(), toks=norm(q).split(' ').filter(Boolean);
+    const fm=sheet.querySelector('#sc-f-mese').value, fs=sheet.querySelector('#sc-f-stato').value, fc=sheet.querySelector('#sc-f-cli').value;
+    const list=L.filter(x=>toks.every(t=>x.hay.includes(t))&&(!fm||x.mese===fm)&&(!fc||norm(x.cli)===fc)&&
+      (!fs||(fs==='att'&&x.att)||(fs==='conc'&&x.conc&&!x.arc)||(fs==='arc'&&x.arc))).sort(perData);
+    sheet.querySelector('#sc-ctx').textContent='Elenco completo · '+list.length+' di '+L.length+' commesse · dalla più recente';
+    const byM={}; list.forEach(x=>{(byM[x.mese||'—']=byM[x.mese||'—']||[]).push(x);});
+    const keys=Object.keys(byM).sort((a,b)=>a==='—'?-1:b==='—'?1:b.localeCompare(a));
+    sheet.querySelector('#sc-body').innerHTML=list.length
+      ? keys.map(k=>gruppo(k==='—'?'Senza date':MESI[+k.slice(5)-1].replace(/^./,c=>c.toUpperCase())+' '+k.slice(0,4),byM[k],toks,null,selId)).join('')
+      : '<div class="sc-empty">Nessuna commessa con questi filtri.<br>Togli un filtro o cambia la ricerca.</div>';
+    if(cur.nuovoOk) sheet.querySelector('#sc-body').insertAdjacentHTML('beforeend','<button type="button" class="sc-none" data-sc-azione="nuovo">➕ Crea nuovo cantiere</button>');
+  }
+  function render(){ vista==='tutte'?renderTutte():renderSmart(); }
+  function setVista(v){
+    vista=v;
+    sheet.querySelector('#sc-filt').hidden=v!=='tutte';
+    sheet.querySelector('#sc-back').hidden=v!=='tutte';
+    sheet.querySelector('#sc-tit').textContent=v==='tutte'?'Tutte le commesse':'Scegli commessa';
+    if(v==='tutte') riempiFiltri(cantieri());
+    sheet.querySelector('#sc-body').scrollTop=0; render();
+  }
+
+  function costruisci(){
+    scrim=document.createElement('div'); scrim.id='sc-scrim'; scrim.hidden=true;
+    sheet=document.createElement('div'); sheet.id='sc-sheet'; sheet.hidden=true;
+    sheet.setAttribute('role','dialog'); sheet.setAttribute('aria-modal','true');
+    sheet.innerHTML='<div class="sc-top"><div class="sc-row1"><button type="button" class="sc-lnk" id="sc-back" hidden>‹ Indietro</button>'+
+      '<h3 id="sc-tit">Scegli commessa</h3><button type="button" class="sc-lnk" id="sc-close">Chiudi</button></div>'+
+      '<input type="search" id="sc-q" placeholder="🔍 Nome, cliente, luogo, COM-…, mese" autocomplete="off" autocorrect="off" spellcheck="false" data-af="1">'+
+      '<div class="sc-filt" id="sc-filt" hidden><select id="sc-f-mese" aria-label="Mese"></select>'+
+      '<select id="sc-f-stato" aria-label="Stato"><option value="">Tutti gli stati</option><option value="att">Attivi</option><option value="conc">Conclusi</option><option value="arc">Archiviati</option></select>'+
+      '<select id="sc-f-cli" aria-label="Cliente" style="grid-column:1/-1"></select></div>'+
+      '<div class="sc-ctx" id="sc-ctx"></div></div><div class="sc-body" id="sc-body"></div>';
+    document.body.appendChild(scrim); document.body.appendChild(sheet);
+    scrim.addEventListener('click',chiudi);
+    sheet.querySelector('#sc-close').addEventListener('click',chiudi);
+    sheet.querySelector('#sc-back').addEventListener('click',()=>setVista('smart'));
+    sheet.querySelector('#sc-q').addEventListener('input',render);
+    ['#sc-f-mese','#sc-f-stato','#sc-f-cli'].forEach(s=>sheet.querySelector(s).addEventListener('change',render));
+    sheet.querySelector('#sc-body').addEventListener('click',e=>{
+      const a=e.target.closest('[data-sc-azione]');
+      if(a){ const z=a.dataset.scAzione; if(z==='tutte') setVista('tutte'); else if(z==='nuovo') scegli(NUOVO); else scegli(null); return; }
+      const it=e.target.closest('[data-sc-id]'); if(it) scegli(it.dataset.scId);
+    });
+    document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&sheet&&!sheet.hidden) chiudi(); });
+  }
+  function giornoDi(el){
+    if(el.dataset.scGiorno) return el.dataset.scGiorno;
+    if(el.dataset.scData){ try{ const f=document.querySelector(el.dataset.scData); if(f&&f.value) return f.value; }catch(e){} }
+    return oggiISO();
+  }
+  function apri(el){
+    if(!sheet) costruisci();
+    cur={el,modo:el.dataset.sc==='id'?'id':'nome',profilo:el.dataset.scProfilo==='economico'?'economico':'operativo',
+      giorno:giornoDi(el),persona:el.dataset.scPersona||'',
+      vuotoOk:el.tagName!=='SELECT'||[...el.options].some(o=>o.value===''),
+      nuovoOk:el.tagName==='SELECT'&&[...el.options].some(o=>o.value===NUOVO)};
+    sheet.querySelector('#sc-q').value='';
+    sheet.querySelector('#sc-f-stato').value='';
+    scrim.hidden=false; sheet.hidden=false;
+    setVista('smart');
+    // su telefono non apriamo subito la tastiera: si vedono prima i suggeriti
+    if(!(window.matchMedia&&matchMedia('(pointer:coarse)').matches)) setTimeout(()=>sheet.querySelector('#sc-q').focus(),50);
+  }
+  function chiudi(){ if(!sheet) return; sheet.hidden=true; scrim.hidden=true; if(cur&&cur.btn) try{cur.btn.focus();}catch(e){} cur=null; }
+
+  // imposta il valore sul controllo originale e avvisa il codice esistente
+  function scegli(id){
+    if(!cur) return;
+    const el=cur.el, L=cantieri();
+    const x=id&&id!==NUOVO?L.find(y=>y.id===id):null;
+    const v=id===NUOVO?NUOVO:x?(cur.modo==='id'?x.id:x.nome):'';
+    if(el.tagName==='SELECT'&&v&&![...el.options].some(o=>o.value===v)){
+      const o=document.createElement('option'); o.value=v; o.textContent=x.nome; el.appendChild(o);
+    }
+    el.value=v;
+    if(x) segnaRecente(x.id);
+    chiudi();
+    el.dispatchEvent(new Event('input',{bubbles:true}));
+    el.dispatchEvent(new Event('change',{bubbles:true}));
+    etichetta(el);
+  }
+
+  // ── bottone al posto del controllo
+  function etichetta(el){
+    const b=el._scBtn; if(!b) return;
+    const v=el.value, L=cantieri();
+    const x=!v?null:(el.dataset.sc==='id'?L.find(y=>y.id===v):L.find(y=>norm(y.nome)===norm(v)));
+    b.disabled=!!el.disabled;
+    b.classList.toggle('sc-warn',!!v&&!x&&v!==NUOVO);
+    const h=v===NUOVO ? '<span class="sc-bn">➕ Nuovo cantiere</span><span class="sc-bm">il nome viene chiesto dall\'app</span>'
+      : !v
+      ? '<span class="sc-ph">'+esc(el.dataset.scVuoto||'🔍 Scegli o cerca la commessa…')+'</span>'
+      : x ? '<span class="sc-bn">'+esc(x.nome)+'</span><span class="sc-bm">'+esc([x.cli,periodo(x),x.cod].filter(Boolean).join(' · '))+'</span>'
+          : '<span class="sc-bn">'+esc(v)+'</span><span class="sc-bm">⚠ non trovato tra le commesse: tocca per ricollegarlo</span>';
+    const t=b.querySelector('.sc-bt'); if(t.innerHTML!==h) t.innerHTML=h;
+    const ti=x?[x.nome,x.cli,periodo(x),x.cod].filter(Boolean).join(' · '):(v&&v!==NUOVO?v:'');
+    if(b.title!==ti) b.title=ti;
+  }
+  function potenzia(el){
+    if(el._scBtn||!el.parentNode) return;
+    const b=document.createElement('button'); b.type='button'; b.className='sc-btn';
+    b.innerHTML='<span class="sc-bt"></span><span class="sc-chev">›</span>';
+    if(el.classList.contains('ie')||el.hasAttribute('data-sc-compatto')) b.classList.add('sc-compact');
+    // in una riga flex il bottone prende lo stesso spazio della select originale
+    if(el.style.flex){ b.style.flex=el.style.flex; b.style.width='auto'; }
+    if(el.style.minWidth) b.style.minWidth=el.style.minWidth;
+    b.addEventListener('click',()=>{ if(el.disabled) return; apri(el); cur.btn=b; });
+    el.parentNode.insertBefore(b,el.nextSibling);
+    el.classList.add('sc-orig'); el._scBtn=b; el.dataset.scOk=SC_VER;
+    // valori impostati da codice (es. precompila, reset del form) aggiornano il bottone
+    const proto=Object.getPrototypeOf(el), d=Object.getOwnPropertyDescriptor(proto,'value');
+    if(d&&d.set) try{ Object.defineProperty(el,'value',{configurable:true,get(){return d.get.call(el);},set(v){d.set.call(el,v);etichetta(el);}}); }catch(e){}
+    etichetta(el);
+  }
+  function spento(){
+    try{ if(localStorage.getItem('sc81_off')==='1') return true; }catch(e){}
+    return !!(typeof DB!=='undefined'&&DB&&DB._selettoreCommessaOff===true);
+  }
+  let pend=false;
+  function scansiona(){
+    pend=false;
+    const off=spento();
+    document.querySelectorAll('[data-sc]').forEach(el=>{
+      if(off){ if(el._scBtn){ el.classList.remove('sc-orig'); el._scBtn.hidden=true; } return; }
+      if(!el._scBtn) potenzia(el); else { el.classList.add('sc-orig'); el._scBtn.hidden=false; etichetta(el); }
+    });
+  }
+  function pianifica(){ if(!pend){ pend=true; (window.requestAnimationFrame||setTimeout)(scansiona); } }
+  function avvia(){
+    try{ const q=new URLSearchParams(location.search).get('sc');
+      if(q==='off') localStorage.setItem('sc81_off','1'); else if(q==='on') localStorage.removeItem('sc81_off'); }catch(e){}
+    scansiona();
+    // ignora le modifiche fatte dal selettore stesso (foglio e bottoni), altrimenti si rincorre
+    const nostro=t=>(sheet&&(t===sheet||sheet.contains(t)))||(t.closest&&t.closest('.sc-btn'));
+    try{ new MutationObserver(ms=>{ if(ms.every(m=>nostro(m.target))) return; pianifica(); })
+      .observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled']}); }catch(e){}
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',avvia); else avvia();
+  window.SelettoreCommessa={versione:SC_VER,apri,aggiorna:scansiona,spento};
+})();
+</script>
+<!-- ═══════════ fine SELETTORE COMMESSA v1.1 ═══════════ -->
 </body>
 </html>
