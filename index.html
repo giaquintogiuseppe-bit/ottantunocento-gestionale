@@ -11287,6 +11287,10 @@ function apriModalClienteGest(id){
               ${(REF||[]).map(r=>`<option value="${r.id}" ${c&&c.referenteId===r.id?'selected':''}>${esc(r.nome)}</option>`).join('')}
             </select>
           </div>
+          <div class="fs"><label>Gruppo cliente <span style="font-weight:400;color:var(--text2)">(stesso cliente reale con più società — stesso testo = stesso gruppo)</span></label>
+            <input type="text" id="gcli-gruppo" list="gcli-gruppi-dl" value="${c?.gruppo||''}" placeholder="es. Carlucci / Gaeta — lascia vuoto se non raggruppato">
+            <datalist id="gcli-gruppi-dl">${[...new Set((DB.clienti||[]).map(x=>x.gruppo).filter(Boolean))].map(g=>`<option value="${esc(g)}">`).join('')}</datalist>
+          </div>
           <div><label>Telefono</label><input type="tel" id="gcli-tel" value="${c?.telefono||''}"></div>
           <div class="fs"><label>Email</label><input type="email" id="gcli-email" value="${c?.email||''}"></div>
           <div class="fs"><label>Indirizzo</label><input type="text" id="gcli-ind" value="${c?.indirizzo||''}"></div>
@@ -11312,6 +11316,7 @@ function salvaClienteGest(id){
     piva:document.getElementById('gcli-piva')?.value.trim()||'',
     referente:document.getElementById('gcli-ref')?.value.trim()||'',
     referenteId:document.getElementById('gcli-refid')?.value||'',
+    gruppo:document.getElementById('gcli-gruppo')?.value.trim()||'',
     telefono:document.getElementById('gcli-tel')?.value.trim()||'',
     email:document.getElementById('gcli-email')?.value.trim()||'',
     indirizzo:document.getElementById('gcli-ind')?.value.trim()||'',
@@ -11709,17 +11714,27 @@ function _pcCompute(){
   const map={};
   const cliById={}; (DB.clienti||[]).forEach(c=>cliById[c.id]=c);
   const nomeAnag={}; (DB.clienti||[]).forEach(c=>{const k=_pcNorm(c.ragioneSociale); if(k) nomeAnag[k]=c.ragioneSociale;});
+  // GRUPPO CLIENTE: più società (ragioni sociali/P.IVA diverse) dello stesso cliente reale.
+  // Se in anagrafica è valorizzato il campo "gruppo", tutte le società con lo stesso gruppo
+  // confluiscono in un'unica scheda (bucket "grp:<gruppo>") e i loro numeri si sommano.
+  const nomeToGruppo={}, gruppoLabel={};
+  (DB.clienti||[]).forEach(c=>{ const g=(c.gruppo||'').trim(); if(!g) return; const k=_pcNorm(c.ragioneSociale); const bk='grp:'+_pcNorm(g); if(k) nomeToGruppo[k]=bk; gruppoLabel[bk]=g; });
+  const bucket=(k)=> nomeToGruppo[k]||k;
   const get=(key,nome)=>{
-    if(!map[key]) map[key]={key,nome:nome||'—',fatturato:0,incassato:0,residuo:0,fattAperte:[],daFatt:[],daFattTot:0,daEmettere:[],daEmettereTot:0,daQuant:[]};
+    if(!map[key]) map[key]={key,nome:nome||'—',fatturato:0,incassato:0,residuo:0,fattAperte:[],daFatt:[],daFattTot:0,daEmettere:[],daEmettereTot:0,daQuant:[],gruppo:gruppoLabel[key]||'',membri:{},search:''};
     if(nome && map[key].nome==='—') map[key].nome=nome;
     return map[key];
   };
+  const addMembro=(e,socNome)=>{ const n=(socNome||'').trim(); if(!n) return; e.membri[n]=true; const nk=_pcNorm(n); if(nk && e.search.indexOf(nk)<0) e.search+=' '+nk; };
   // 1) fatture (unica/acconto, escluse annullate e NC)
   (_fatture||[]).forEach(f=>{
     if(f.tipo!=='unica' && f.tipo!=='acconto') return;
     if(f.stato==='annullata') return;
-    const k=_pcNorm(f.cliente); if(!k) return;
-    const e=get(k, nomeAnag[k]||f.cliente);
+    const k0=_pcNorm(f.cliente); if(!k0) return;
+    const k=bucket(k0);
+    const socNome=nomeAnag[k0]||f.cliente;
+    const e=get(k, gruppoLabel[k]||socNome);
+    addMembro(e, socNome);
     const imp=+f.importo||0, acc=_pcAcc(f);
     if(f.stato==='pagata'){ e.fatturato+=imp; e.incassato+=imp; }
     else if(f.stato==='emessa'){ e.fatturato+=imp; e.incassato+=acc; e.residuo+=Math.max(0,imp-acc); e.fattAperte.push(f); }
@@ -11749,11 +11764,13 @@ function _pcCompute(){
   };
   (DB.cantieri||[]).forEach(c=>{
     if(c.archiviato || c.stato==='perso') return;
-    let key = (c.clienteId && cliById[c.clienteId]) ? _pcNorm(cliById[c.clienteId].ragioneSociale) : _pcNorm(c.committente);
-    if(!key) key='(senza cliente)';
+    const key0raw = (c.clienteId && cliById[c.clienteId]) ? _pcNorm(cliById[c.clienteId].ragioneSociale) : _pcNorm(c.committente);
+    const key0 = key0raw || '(senza cliente)';
+    const socNome = (c.clienteId && cliById[c.clienteId]) ? cliById[c.clienteId].ragioneSociale : (nomeAnag[key0]||c.committente||'(cliente da assegnare)');
+    const key = bucket(key0);
     const r=_pcRicavo(c);
-    const nome = (c.clienteId && cliById[c.clienteId]) ? cliById[c.clienteId].ragioneSociale : (nomeAnag[key]||c.committente||'(cliente da assegnare)');
-    const e=get(key,nome);
+    const e=get(key, gruppoLabel[key]||socNome);
+    addMembro(e, socNome);
     const incC = (typeof _pcCantIncassi==='function') ? _pcCantIncassi(c.id) : 0;   // incassi registrati SENZA fattura sul cantiere
     const fatt = fattByCant[c.id]||0;                                                // già fatturato (qualsiasi società)
     if(incC>0) e.incassato += Math.min(incC, r||incC);                               // incassi senza fattura: contano come incassato
@@ -11809,7 +11826,7 @@ function pcRender(){
       const byTxt = c.referente && _pcNorm(c.referente).includes(q);
       if(byId||byTxt){ const k=_pcNorm(c.ragioneSociale); if(k) cliRef.add(k); }
     });
-    l=l.filter(e=> _pcNorm(e.nome).includes(q) || e.key.includes(q) || cliRef.has(e.key) || cliRef.has(_pcNorm(e.nome)) );
+    l=l.filter(e=> _pcNorm(e.nome).includes(q) || e.key.includes(q) || (e.search||'').includes(q) || cliRef.has(e.key) || cliRef.has(_pcNorm(e.nome)) );
   }
   if(!l.length){ box.innerHTML='<div class="fc" style="text-align:center;color:var(--text2)">Nessun cliente in questa vista.</div>'; return; }
   box.innerHTML=l.map((e,i)=>_pcCard(e,i)).join('');
@@ -11861,7 +11878,8 @@ function _pcCard(e,i){
   if(!det) det='<div style="color:var(--text2);padding:8px 0">Nessuna posizione aperta.</div>';
   return '<div class="fc" style="cursor:pointer;margin-bottom:10px" onclick="_pcTog(\'pcd'+i+'\')">'+
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">'+
-      '<div style="min-width:0"><div style="font-size:15px;font-weight:700">'+esc(e.nome)+'</div>'+
+      '<div style="min-width:0"><div style="font-size:15px;font-weight:700">'+esc(e.nome)+(e.gruppo?' <span style="font-size:10px;font-weight:700;color:var(--teal);background:rgba(0,180,166,.12);border:1px solid rgba(0,180,166,.3);border-radius:8px;padding:1px 7px;vertical-align:middle">gruppo</span>':'')+'</div>'+
+      (e.gruppo?('<div style="font-size:10px;color:var(--text2);margin-top:2px">'+Object.keys(e.membri||{}).map(esc).join(' · ')+'</div>'):'')+
       '<div style="font-size:11px;color:var(--text2);margin-top:3px">Fatturato '+fmtE(e.fatturato)+' · Incassato '+fmtE(e.incassato)+'</div></div>'+
       '<div style="text-align:right"><div style="font-size:18px;font-weight:800;color:'+(e.residuo>0?'var(--gold)':'var(--text2)')+';font-family:\'DM Mono\',monospace">'+fmtE(e.residuo)+'</div><div style="font-size:10px;color:var(--text2)">da incassare</div></div>'+
     '</div>'+
