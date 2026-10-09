@@ -5707,31 +5707,42 @@ async function rDettFatture(cant, nome){
     </div>`;
     return;
   }
-  const tot=mie.reduce((s,f)=>s+(+f.importo||0),0);
-  const pagato=mie.filter(f=>f.stato==='pagata').reduce((s,f)=>s+(+f.importo||0),0);
-  const daPagare=tot-pagato;
-  const tuttoPagato=daPagare<=0.01 && mie.every(f=>f.stato==='pagata');
+  // Conteggio robusto: tutte le fatture del cantiere, DA QUALSIASI società (agganciate per id/nome).
+  // Incassato = fatture pagate (intero) + acconti sulle emesse. Da incassare = residuo delle emesse.
+  // Da fatturare = budget previsto − già fatturato (mai negativo): così un lavoro fatturato solo in
+  // parte (o con solo un acconto) non risulta "chiuso".
+  const vive=mie.filter(f=>f.stato!=='annullata' && f.tipo!=='nota di credito');
+  const budget=(typeof _pcRicavo==='function') ? _pcRicavo(cant||{id:cid,nome:nome}) : 0;
+  const fatturato=vive.reduce((s,f)=>s+(+f.importo||0),0);
+  const incassato=vive.reduce((s,f)=> s + (f.stato==='pagata' ? (+f.importo||0) : Math.min(_fattAccTot(f),+f.importo||0)), 0);
+  const daIncassare=vive.reduce((s,f)=> s + (f.stato==='emessa' ? _fattResiduo(f) : 0), 0);
+  const daFatturare=budget>0 ? Math.max(0, budget-fatturato) : 0;
+  const tuttoSaldato=vive.length>0 && daIncassare<=0.01 && daFatturare<=0.01;
   const statoBadge={da_emettere:['Da emettere','#8a94a6'],emessa:['Emessa','#4a8fd0'],pagata:['Pagata','#3aa08c'],annullata:['⊘ Annullata (NC)','#6b7280']};
-  let h=`<div style="background:var(--card);border:1px solid ${tuttoPagato?'rgba(58,160,140,.4)':'var(--brd)'};border-radius:12px;padding:14px 16px">
+  let h=`<div style="background:var(--card);border:1px solid ${tuttoSaldato?'rgba(58,160,140,.4)':'var(--brd)'};border-radius:12px;padding:14px 16px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-      <div style="font-size:14px;font-weight:800">🧾 Fatture del cantiere ${tuttoPagato?'<span style=\"color:var(--green);font-size:12px\">· ✓ tutto saldato</span>':''}</div>
+      <div style="font-size:14px;font-weight:800">🧾 Fatture del cantiere ${tuttoSaldato?'<span style=\"color:var(--green);font-size:12px\">· ✓ tutto saldato</span>':''}</div>
       <button class="bs" style="font-size:12px;padding:6px 12px" onclick="fattNuovaPerCantiere('${cid||''}','${esc(nome).replace(/'/g,"")}')">+ Aggiungi</button>
     </div>`;
   mie.forEach(f=>{
     const s=fattStatoScadenza(f);
     const [bt,bc]=statoBadge[f.stato]||['?','#888'];
     const scadCol=s?(s.cls==='scaduta'?'var(--red)':'var(--gold)'):'var(--text2)';
+    const acc=_fattAccTot(f);
+    const accHtml=(acc>0 && f.stato==='emessa')
+      ? `<div style="font-size:10px;color:var(--gold);font-weight:600;margin-top:2px">acconti ${fmtE(acc)} · resta ${fmtE(_fattResiduo(f))}</div>` : '';
     h+=`<div onclick="fattApri(${f.id})" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--brd);cursor:pointer">
       <div><div style="font-size:13px;font-weight:600">${esc(f.numero||'(da emettere)')} · ${f.tipo||''}</div>
       <div style="font-size:11px;color:${scadCol}">${f.scadenza?'scad. '+f.scadenza.split('-').reverse().join('/'):''}${s?' · ⚠ '+s.txt:''}</div></div>
       <div style="text-align:right"><span style="background:${bc}22;color:${bc};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">${bt}</span>
-      <div style="font-size:13px;font-weight:700;font-family:'IBM Plex Mono',monospace;margin-top:2px">${fmtE(f.importo)}</div></div>
+      <div style="font-size:13px;font-weight:700;font-family:'IBM Plex Mono',monospace;margin-top:2px">${fmtE(f.importo)}</div>${accHtml}</div>
     </div>`;
   });
-  h+=`<div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--brd);font-size:12px">
-    <span style="color:var(--text2)">Fatturato: <b style="color:var(--text)">${fmtE(tot)}</b></span>
-    <span style="color:var(--text2)">Incassato: <b style="color:var(--green)">${fmtE(pagato)}</b></span>
-    <span style="color:var(--text2)">Da incassare: <b style="color:${daPagare>0.01?'var(--gold)':'var(--green)'}">${fmtE(daPagare)}</b></span>
+  h+=`<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 16px;margin-top:10px;padding-top:10px;border-top:1px solid var(--brd);font-size:12px">
+    <span style="color:var(--text2)">Fatturato: <b style="color:var(--text)">${fmtE(fatturato)}</b></span>
+    <span style="color:var(--text2)">Incassato: <b style="color:var(--green)">${fmtE(incassato)}</b></span>
+    <span style="color:var(--text2)">Da incassare: <b style="color:${daIncassare>0.01?'var(--gold)':'var(--green)'}">${fmtE(daIncassare)}</b></span>
+    ${budget>0?`<span style="color:var(--text2)">Da fatturare: <b style="color:${daFatturare>0.01?'#c98fd0':'var(--green)'}">${fmtE(daFatturare)}</b> <span style="font-size:10px">(budget ${fmtE(budget)})</span></span>`:''}
   </div></div>`;
   box.innerHTML=h;
 }
@@ -11714,14 +11725,23 @@ function _pcCompute(){
     else if(f.stato==='emessa'){ e.fatturato+=imp; e.incassato+=acc; e.residuo+=Math.max(0,imp-acc); e.fattAperte.push(f); }
     else if(f.stato==='da_emettere'){ e.daEmettereTot+=imp; e.daEmettere.push(f); }  // preparata ma non ancora emessa → non è "Fatturato"
   });
-  // 2) cantieri → da fatturare / da quantificare
-  const fattCantIds=new Set((_fatture||[]).filter(f=>f.cantiere_id).map(f=>f.cantiere_id));
-  const matched=(c,key,r)=>{
-    if(fattCantIds.has(c.id)) return true;      // fattura agganciata per id
+  // 2) cantieri → da fatturare (budget non ancora fatturato) / da quantificare
+  // Il "fatturato" di un cantiere è la somma delle sue fatture agganciate per ID, DA QUALSIASI
+  // società: un cliente può farsi fatturare lo stesso cantiere, in tutto o in parte, da più sue
+  // società collegate. Un cantiere NON è più "coperto" per il solo fatto che esiste una fattura:
+  // lo è quando il fatturato raggiunge il budget. Così una fattura parziale (o un solo acconto)
+  // non nasconde più il residuo da fatturare. Il residuo da incassare resta per fattura (step 1).
+  const fattByCant={};
+  (_fatture||[]).forEach(f=>{
+    if(f.stato==='annullata' || (f.tipo!=='unica'&&f.tipo!=='acconto')) return;
+    if(f.cantiere_id) fattByCant[f.cantiere_id]=(fattByCant[f.cantiere_id]||0)+(+f.importo||0);
+  });
+  // ripiego: cantiere senza aggancio per id ma con una fattura dello stesso cliente simile per importo
+  const copertoDaFattSciolta=(c,key,r)=>{
     if(r<=0) return false;
     return (_fatture||[]).some(f=>{
       if(f.stato==='annullata' || (f.tipo!=='unica'&&f.tipo!=='acconto')) return false;
-      if(f.cantiere_id && f.cantiere_id!==c.id) return false;   // fattura gia' agganciata ad ALTRO cantiere: non puo' "coprire" questo per sola somiglianza d'importo
+      if(f.cantiere_id) return false;
       if(_pcNorm(f.cliente)!==key) return false;
       const imp=+f.importo||0;
       return Math.abs(imp-r)<=Math.max(1,r*0.02) || Math.abs(imp-r*1.22)<=Math.max(1,r*1.22*0.02);
@@ -11732,17 +11752,21 @@ function _pcCompute(){
     let key = (c.clienteId && cliById[c.clienteId]) ? _pcNorm(cliById[c.clienteId].ragioneSociale) : _pcNorm(c.committente);
     if(!key) key='(senza cliente)';
     const r=_pcRicavo(c);
-    if(matched(c,key,r)) return;
     const nome = (c.clienteId && cliById[c.clienteId]) ? cliById[c.clienteId].ragioneSociale : (nomeAnag[key]||c.committente||'(cliente da assegnare)');
     const e=get(key,nome);
-    const incC = (typeof _pcCantIncassi==='function') ? _pcCantIncassi(c.id) : 0;   // incassi registrati SENZA fattura sul cantiere (contanti/sponsor/compensazione)
-    // "da fatturare" = previsto MENO gli incassi senza fattura, mai negativo, e solo
-    // per i cantieri non ancora coperti da fattura (matched() sopra li ha già esclusi).
-    // Così i continuativi già fatturati oltre il previsto non generano numeri fantasma.
-    const rNet = Math.max(0, r - incC);
-    if(incC>0) e.incassato += Math.min(incC, r||incC);                                // ciò che hai già preso senza fattura conta come incassato
-    if(rNet>0){ e.daFatt.push({c, r:rNet, inc:incC}); e.daFattTot+=rNet; }             // da fatturare = budget MENO quanto già incassato senza fattura
-    else if(r<=0 && incC<=0 && c.stato==='concluso'){ e.daQuant.push(c); }
+    const incC = (typeof _pcCantIncassi==='function') ? _pcCantIncassi(c.id) : 0;   // incassi registrati SENZA fattura sul cantiere
+    const fatt = fattByCant[c.id]||0;                                                // già fatturato (qualsiasi società)
+    if(incC>0) e.incassato += Math.min(incC, r||incC);                               // incassi senza fattura: contano come incassato
+    const quasiCoperto = fatt>0 && (fatt>=r*0.98 || fatt>=(r/1.22)*0.98);            // tollera IVA 22% (budget netto vs fattura lorda)
+    if(r>0 && !quasiCoperto){
+      if(fatt<=0 && copertoDaFattSciolta(c,key,r)){ /* coperto da fattura sciolta: niente da-fatturare */ }
+      else {
+        const daF=Math.max(0, r - fatt - incC);                                      // budget MENO già fatturato MENO incassi senza fattura
+        if(daF>Math.max(1,r*0.02)){ e.daFatt.push({c, r:daF, inc:incC}); e.daFattTot+=daF; }
+      }
+    } else if(r<=0 && incC<=0 && fatt<=0 && c.stato==='concluso'){
+      e.daQuant.push(c);
+    }
   });
   const list=Object.values(map);
   const tot={fatturato:0,incassato:0,residuo:0,daFatt:0,daEmettere:0,quant:0};
