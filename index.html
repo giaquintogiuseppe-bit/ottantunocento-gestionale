@@ -7752,6 +7752,7 @@ function _rRiepilogo(){
     <th style="text-align:right">Maturato</th>
     <th style="text-align:right">Anticipi periodo</th>
     <th style="text-align:right" title="Maturato del periodo − anticipi del periodo (senza lo storico)">Da corrispondere periodo</th>
+    <th style="text-align:right" title="Pagamenti di saldo registrati nel periodo (bonifico + Revolut + contanti)">Effettivamente corrisposto</th>
     <th style="text-align:right" title="Saldo trascinato dai periodi precedenti: in oro = anticipo storico da recuperare, in verde = credito del dipendente">Anticipi storici</th>
     <th style="text-align:right" title="Danni registrati nel periodo (data dell'evento)">Danni</th>
     <th style="text-align:right" title="Quote dei danni trattenute dalla paga nel periodo: riducono il saldo">Scalature danni</th>
@@ -7768,6 +7769,7 @@ function _rRiepilogo(){
     <td class="mn" style="text-align:right;font-weight:800">${fmt(r.maturato)}</td>
     <td ${ed('ant',r.id,da,al)} style="text-align:right">${fmtCell(r.antSett,'rr')}</td>
     <td class="mn" style="text-align:right;font-weight:700;background:rgba(154,122,31,.06)">${r.daCorr>0.009?`<span class="or">${fmt(r.daCorr)}</span>`:r.daCorr<-0.009?`<span style="color:var(--gold)">${fmt(r.daCorr)}</span>`:dash}</td>
+    <td ${ed('pag',r.id,da,al,'')} style="text-align:right;font-weight:700;background:rgba(75,232,122,.05)">${r.pagSett>0.009?`<span class="gr">${fmt(r.pagSett)}</span>`:dash}</td>
     <td ${ed('sto',r.id,da,al)} style="text-align:right">${r.apertura<-0.009?`<span style="color:var(--gold)">${fmt(r.apertura)}</span>`:fmtCell(r.apertura,'gr')}${Math.abs(r.retSett)>0.009?`<div style="font-size:10px;color:var(--teal)">rett. ${fmt(r.retSett)}</div>`:''}</td>
     <td ${ed('dan',r.id,da,al)} style="text-align:right">${r.danniSett>0.009?`<span style="color:var(--red)">${fmt(r.danniSett)}</span>`:dash}</td>
     <td ${ed('sca',r.id,da,al)} style="text-align:right">${r.scalSett>0.009?`<span style="color:var(--red)">−${fmt(r.scalSett)}</span>`:dash}</td>
@@ -7782,7 +7784,7 @@ function _rRiepilogo(){
   const foot=`<tr style="border-top:2px solid var(--brd);background:rgba(255,255,255,.03)">
     <td class="rip-stk"><b>TOTALE</b></td>
     ${C.cols.map((c,i)=>tf(righe.reduce((a,r)=>a+r.daily[i],0))).join('')}
-    ${tf(T('maturato'))}${tf(T('antSett'))}${tf(T('daCorr'))}${tf(T('apertura'))}${tf(T('danniSett'))}${tf(T('scalSett'))}${tf(T('danniRes'))}${tf(T('saldo'))}
+    ${tf(T('maturato'))}${tf(T('antSett'))}${tf(T('daCorr'))}${tf(T('pagSett'))}${tf(T('apertura'))}${tf(T('danniSett'))}${tf(T('scalSett'))}${tf(T('danniRes'))}${tf(T('saldo'))}
     ${tf(T(r=>r.met.Bonifico))}${tf(T(r=>r.met.Revolut))}${tf(T(r=>r.met.Contanti))}${tf(T('riporto'))}
   </tr>`;
   document.getElementById('rip-tbwrap').innerHTML = righe.length
@@ -7792,6 +7794,7 @@ function _rRiepilogo(){
   document.getElementById('rip-note').innerHTML=`
     <b>✏️ Tocca una cella e scrivi il nuovo importo</b> (Invio o tocca fuori per salvare, Esc per annullare; 0 o vuoto elimina il movimento). Su un giorno con più turni (più cantieri) il totale scritto viene <b>ripartito in proporzione alle ore</b> di ogni turno. Se dietro la cella ci sono più movimenti, o tocchi ☰, si apre il dettaglio: i giorni/settimane mostrano i compensi dei turni, <b>Anticipi periodo</b> gli anticipi dati, <b>Danni/Scalature/Residui</b> i danni e le trattenute, <b>Bonifico/Revolut/Contanti</b> i pagamenti, <b>Anticipi storici</b> la rettifica del saldo pregresso. Il nome apre l'estratto conto.<br>
     <b>Da corrispondere periodo</b> = maturato del periodo − anticipi del periodo (solo questo periodo, senza storico né danni).
+    <b>Effettivamente corrisposto</b> = pagamenti di saldo registrati nel periodo (somma di Bonifico, Revolut e Contanti); toccandolo puoi modificarli o aggiungerne uno.
     <b>Anticipi storici</b> = saldo trascinato dai periodi precedenti (in oro = anticipo non ancora recuperato; in verde = credito del dipendente).
     <b>Danni</b> = danni registrati nel periodo (non toccano il saldo finché non vengono scalati); <b>Scalature danni</b> = quote trattenute dalla paga nel periodo; <b>Danni residui</b> = ancora da trattenere a fine periodo.
     <b>Saldo</b> = storico + maturato − anticipi − scalature danni = quanto resta da regolare.
@@ -7863,7 +7866,7 @@ function _ripRecordCella(tipo, pid, da, al, extra){
     return {list:L, valore:L.reduce((s,a)=>s+parseFloat(a.importo||0),0), creabile:true};
   }
   if(tipo==='pag'){
-    const L=(DB.pagamenti||[]).filter(p=>p.dipId===pid && p.data>=da && p.data<=al && _metodoBucket(p.metodo)===extra);
+    const L=(DB.pagamenti||[]).filter(p=>p.dipId===pid && p.data>=da && p.data<=al && (!extra || _metodoBucket(p.metodo)===extra));
     return {list:L, valore:L.reduce((s,p)=>s+parseFloat(p.pagato||0),0), creabile:true};
   }
   if(tipo==='dan'){
@@ -7942,7 +7945,7 @@ function _ripSalvaCella(tipo, pid, da, al, extra, raw, R){
   } else if(tipo==='pag'){
     if(r0){ if(v>0) r0.pagato=v; else DB.pagamenti=DB.pagamenti.filter(x=>x!==r0); }
     else if(v>0) DB.pagamenti.push({id:uid(), data:_ripDefData(da,al), dipId:pid, dipNome:nome, periodoDa:da, periodoAl:al,
-      maturato:_matRange(pid,da,al), anticipiDati:_antRange(pid,da,al), pagato:v, metodo:extra, note:''});
+      maturato:_matRange(pid,da,al), anticipiDati:_antRange(pid,da,al), pagato:v, metodo:extra||'Contanti', note:''});
   } else if(tipo==='dan'){
     if(r0){
       if(v>0){ r0.importo=v; _dannoChiusura(r0); }
@@ -8099,22 +8102,22 @@ function _ripSalvaAnt(){
 // — Pagamenti del periodo (per metodo) —
 function _ripEdPag(){
   const {pid,da,al,nome,extra}=_RIP_ED;
-  const lista=(DB.pagamenti||[]).filter(p=>p.dipId===pid && p.data>=da && p.data<=al && _metodoBucket(p.metodo)===extra)
+  const lista=(DB.pagamenti||[]).filter(p=>p.dipId===pid && p.data>=da && p.data<=al && (!extra || _metodoBucket(p.metodo)===extra))
     .sort((a,b)=>(a.data||'').localeCompare(b.data||''));
   const metodi=['Contanti','Bonifico','Revolut'];
   const riga=(p,nuovo)=>`<div class="rip-row" data-id="${p.id||''}" style="display:grid;grid-template-columns:130px 100px 105px 1fr 34px;gap:6px;align-items:center;margin-bottom:6px">
     <input type="date" class="r-data" value="${p.data||''}" style="${_ripInp}">
     <input type="number" step="0.01" inputmode="decimal" class="r-imp" value="${p.pagato!=null&&p.pagato!==''?p.pagato:''}" placeholder="€"${nuovo&&!lista.length?' data-focus':''} style="${_ripInp};text-align:right">
-    <select class="r-met" style="${_ripInp}">${metodi.map(m=>`<option${m===_metodoBucket(p.metodo||extra)?' selected':''}>${m}</option>`).join('')}</select>
+    <select class="r-met" style="${_ripInp}">${metodi.map(m=>`<option${m===_metodoBucket(p.metodo||extra||'Contanti')?' selected':''}>${m}</option>`).join('')}</select>
     <input type="text" class="r-note" value="${(p.note||'').replace(/"/g,'&quot;')}" placeholder="${nuovo?'nuovo pagamento — note':'note'}" style="${_ripInp}">
     ${nuovo?'<span></span>':`<button class="bd" onclick="_ripDel('pagamenti','${p.id}')" title="Elimina">✕</button>`}
   </div>`;
   const defData = (today()>=da && today()<=al) ? today() : al;
-  _ripModal('💶 Pagamenti '+extra+' — '+nome, fdate(da)+' → '+fdate(al),
+  _ripModal('💶 '+(extra?'Pagamenti '+extra:'Effettivamente corrisposto')+' — '+nome, fdate(da)+' → '+fdate(al),
     `<div style="overflow-x:auto"><div style="min-width:520px">
       <div style="display:grid;grid-template-columns:130px 100px 105px 1fr 34px;gap:6px;font-size:10.5px;text-transform:uppercase;color:var(--text2);margin-bottom:4px"><span>Data</span><span style="text-align:right">Pagato</span><span>Metodo</span><span>Note</span><span></span></div>
       ${lista.map(p=>riga(p,false)).join('')}
-      ${riga({data:defData,metodo:extra},true)}
+      ${riga({data:defData,metodo:extra||'Contanti'},true)}
     </div></div>
     <div style="font-size:11px;color:var(--text2);margin-top:6px">Pagamenti di saldo del periodo. Compila l'ultima riga per registrarne uno nuovo.</div>`,
     `<button class="bs" onclick="_ripChiudi()">Annulla</button><button class="bp" id="rip-ed-ok" onclick="_ripSalvaPag()">💾 Salva</button>`);
@@ -8327,9 +8330,9 @@ function _ripSalvaSto(){
 
 function _ripIntest(){
   const {cols}=_RIP_ULTIMO;
-  return ['Dipendente',...cols.map(c=>c.label),'Maturato','Anticipi periodo','Da corrispondere periodo','Anticipi storici','Danni registrati','Scalature danni','Danni residui','Saldo','Bonifico','Revolut','Contanti','Riporto periodo succ.'];
+  return ['Dipendente',...cols.map(c=>c.label),'Maturato','Anticipi periodo','Da corrispondere periodo','Effettivamente corrisposto','Anticipi storici','Danni registrati','Scalature danni','Danni residui','Saldo','Bonifico','Revolut','Contanti','Riporto periodo succ.'];
 }
-function _ripRigaVals(r){ return [r.maturato,r.antSett,r.daCorr,r.apertura,r.danniSett,r.scalSett,r.danniRes,r.saldo,r.met.Bonifico,r.met.Revolut,r.met.Contanti,r.riporto]; }
+function _ripRigaVals(r){ return [r.maturato,r.antSett,r.daCorr,r.pagSett,r.apertura,r.danniSett,r.scalSett,r.danniRes,r.saldo,r.met.Bonifico,r.met.Revolut,r.met.Contanti,r.riporto]; }
 function ripExportCSV(){
   if(!_RIP_ULTIMO){ rRiepilogo(); }
   const {da,al,cols,righe}=_RIP_ULTIMO;
@@ -8358,7 +8361,7 @@ function ripExportXLSX(){
   const tot=_ripRigaVals({}).map((_,i)=>righe.reduce((a,r)=>a+_ripRigaVals(r)[i],0));
   aoa.push(['TOTALE',...cols.map((c,i)=>r2(righe.reduce((a,r)=>a+r.daily[i],0))),...tot.map(r2)]);
   const ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols']=[{wch:24},...cols.map(()=>({wch:11})),{wch:10},{wch:16},{wch:22},{wch:15},{wch:14},{wch:14},{wch:13},{wch:10},{wch:11},{wch:10},{wch:10},{wch:18}];
+  ws['!cols']=[{wch:24},...cols.map(()=>({wch:11})),{wch:10},{wch:16},{wch:22},{wch:24},{wch:15},{wch:14},{wch:14},{wch:13},{wch:10},{wch:11},{wch:10},{wch:10},{wch:18}];
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Riepilogo Dipendenti');
   const fn=`riepilogo_dipendenti_${da}_${al}.xlsx`;
   try{ XLSX.writeFile(wb,fn); }
