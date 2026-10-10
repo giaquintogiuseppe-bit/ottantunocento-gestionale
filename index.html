@@ -7788,7 +7788,7 @@ function _rRiepilogo(){
     : '<div class="empty" style="padding:20px">Nessun movimento in questo periodo.</div>';
 
   document.getElementById('rip-note').innerHTML=`
-    <b>✏️ Tocca una cella e scrivi il nuovo importo</b> (Invio o tocca fuori per salvare, Esc per annullare; 0 o vuoto elimina il movimento). Se dietro la cella ci sono più movimenti, o tocchi ☰, si apre il dettaglio: i giorni/settimane mostrano i compensi dei turni, <b>Anticipi periodo</b> gli anticipi dati, <b>Danni/Scalature/Residui</b> i danni e le trattenute, <b>Bonifico/Revolut/Contanti</b> i pagamenti, <b>Anticipi storici</b> la rettifica del saldo pregresso. Il nome apre l'estratto conto.<br>
+    <b>✏️ Tocca una cella e scrivi il nuovo importo</b> (Invio o tocca fuori per salvare, Esc per annullare; 0 o vuoto elimina il movimento). Su un giorno con più turni (più cantieri) il totale scritto viene <b>ripartito in proporzione alle ore</b> di ogni turno. Se dietro la cella ci sono più movimenti, o tocchi ☰, si apre il dettaglio: i giorni/settimane mostrano i compensi dei turni, <b>Anticipi periodo</b> gli anticipi dati, <b>Danni/Scalature/Residui</b> i danni e le trattenute, <b>Bonifico/Revolut/Contanti</b> i pagamenti, <b>Anticipi storici</b> la rettifica del saldo pregresso. Il nome apre l'estratto conto.<br>
     <b>Anticipi storici</b> = saldo trascinato dai periodi precedenti (in oro = anticipo non ancora recuperato; in verde = credito del dipendente).
     <b>Danni</b> = danni registrati nel periodo (non toccano il saldo finché non vengono scalati); <b>Scalature danni</b> = quote trattenute dalla paga nel periodo; <b>Danni residui</b> = ancora da trattenere a fine periodo.
     <b>Saldo</b> = storico + maturato − anticipi − scalature danni = quanto resta da regolare.
@@ -7822,6 +7822,29 @@ function ripEdit(tipo, pid, da, al, extra){
 // ═══ MODIFICA DIRETTA NELLA CELLA (stile Excel) ═══
 // Tocchi la cella e scrivi il numero. Se dietro la cella c'è un solo movimento (o nessuno)
 // lo aggiorna o lo crea; se ce ne sono più di uno apre la finestra di dettaglio (☰).
+// Ore di un turno da oraI/oraF (oltre la mezzanotte se la fine è prima dell'inizio)
+function _ripOreTurno(t){
+  const m=x=>{ const r=/^(\d{1,2}):(\d{2})/.exec(x||''); return r?(+r[1])*60+(+r[2]):null; };
+  const i=m(t.oraI), f=m(t.oraF);
+  if(i==null||f==null) return 0;
+  let d=f-i; if(d<=0) d+=1440;
+  return d/60;
+}
+// Ripartisce un totale sui turni: in proporzione alle ore; se mancano gli orari, in proporzione
+// agli importi attuali; altrimenti in parti uguali. Arrotonda ai centesimi (resto al turno più pesante).
+function _ripQuote(turni, totale){
+  const ore=turni.map(_ripOreTurno);
+  const imp=turni.map(t=>parseFloat(t.importo||0)||0);
+  let pesi, criterio;
+  if(ore.every(o=>o>0)){ pesi=ore; criterio='ore'; }
+  else if(imp.reduce((a,b)=>a+b,0)>0){ pesi=imp; criterio='importi'; }
+  else { pesi=turni.map(()=>1); criterio='parti uguali'; }
+  const sp=pesi.reduce((a,b)=>a+b,0)||1;
+  const q=pesi.map(w=>Math.floor(totale*w/sp*100)/100);
+  const resto=Math.round((totale-q.reduce((a,b)=>a+b,0))*100)/100;
+  const iMax=pesi.indexOf(Math.max(...pesi)); q[iMax]=Math.round((q[iMax]+resto)*100)/100;
+  return {quote:q, ore, criterio};
+}
 function _ripDefData(da, al){ return (today()>=da && today()<=al) ? today() : al; }
 function _ripRecordCella(tipo, pid, da, al, extra){
   if(tipo==='mat'){
@@ -7856,9 +7879,10 @@ function ripCella(td, tipo, pid, da, al, extra){
   if(td.querySelector('input')) return;
   const p=(DB.personale||[]).find(x=>x.id===pid); if(!p) return;
   const R=_ripRecordCella(tipo, pid, da, al, extra);
-  if(R.soloDettaglio || R.list.length>1 || (!R.list.length && !R.creabile)) return ripEdit(tipo, pid, da, al, extra);
+  if(R.soloDettaglio || (R.list.length>1 && tipo!=='mat') || (!R.list.length && !R.creabile)) return ripEdit(tipo, pid, da, al, extra);
   _RIP_ED={tipo,pid,da,al,extra,nome:p.nome};
   const v=Math.round(R.valore*100)/100;
+  if(tipo==='mat' && R.list.length>1) td.title='Il totale viene ripartito sui '+R.list.length+' turni in proporzione alle ore';
   td.innerHTML=`<div style="display:flex;gap:4px;align-items:center;justify-content:flex-end">
     <input type="number" step="0.01" inputmode="decimal" class="rip-inl" value="${v?v:''}" placeholder="0" style="width:96px;text-align:right;background:var(--navy);border:2px solid var(--teal);border-radius:6px;padding:5px 6px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px">
     <button class="rip-det" title="Dettaglio movimenti" style="background:none;border:1px solid var(--brd);border-radius:6px;color:var(--text2);padding:4px 6px;cursor:pointer;font-size:12px">☰</button></div>`;
@@ -7883,11 +7907,23 @@ function _ripSalvaCella(tipo, pid, da, al, extra, raw, R){
   const r0=R.list[0];
   if(tipo==='mat'){
     if(r0){
-      const pr=(DB.presenze[r0.orig]||{})[pid]; if(!pr){ rRiepilogo(); return; }
-      const legacy=String(r0.t.id).startsWith('legacy_');
-      _ensureTurni(pr);
-      const t=legacy?pr.turni[0]:pr.turni.find(x=>x.id===r0.t.id); if(t) t.importo=v;
-      pr.totale=pr.turni.reduce((a,t)=>a+parseFloat(t.importo||0),0);
+      // turni reali (le presenze in formato vecchio vengono convertite in un turno)
+      const turni=[], prs=new Set();
+      R.list.forEach(({orig,t})=>{
+        const pr=(DB.presenze[orig]||{})[pid]; if(!pr) return;
+        const legacy=String(t.id).startsWith('legacy_');
+        _ensureTurni(pr);
+        const tt=legacy?pr.turni[0]:pr.turni.find(x=>x.id===t.id);
+        if(tt && !turni.includes(tt)){ turni.push(tt); prs.add(pr); }
+      });
+      if(!turni.length){ rRiepilogo(); return; }
+      if(turni.length===1) turni[0].importo=v;
+      else {
+        const {quote,ore,criterio}=_ripQuote(turni, v);
+        turni.forEach((t,i)=>{ t.importo=quote[i]; });
+        setTimeout(()=>toast('Ripartito per '+criterio+': '+turni.map((t,i)=>(t.cantiere||'senza cantiere')+(criterio==='ore'?' '+(Math.round(ore[i]*10)/10)+'h':'')+' '+fmt(quote[i])).join(' · ')),2300);
+      }
+      prs.forEach(pr=>{ pr.totale=pr.turni.reduce((a,t)=>a+parseFloat(t.importo||0),0); });
     } else if(v>0){
       if(!DB.presenze[da]) DB.presenze[da]={};
       if(!DB.presenze[da][pid]) DB.presenze[da][pid]={turni:[],totale:0};
@@ -7947,13 +7983,17 @@ function _ripEdMat(){
       return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed var(--brd)">
         <div style="flex:1;min-width:0;font-size:12.5px"><b>${t.cantiere||'<span style="color:var(--text2)">senza cantiere</span>'}</b>
           <div style="font-size:11px;color:var(--text2)">${t.oraI||''}${t.oraF?'–'+t.oraF:''}${t.notturno?' · 🌙 notturno del '+fdate(orig):''}</div></div>
-        <input type="number" step="0.01" inputmode="decimal" class="rip-tur" data-orig="${orig}" data-tid="${t.id}" value="${parseFloat(t.importo||0)||''}" placeholder="0"${f} style="${_ripInp};width:110px;text-align:right">
+        <input type="number" step="0.01" inputmode="decimal" class="rip-tur" data-g="${g}" data-ore="${_ripOreTurno(t)}" data-orig="${orig}" data-tid="${t.id}" value="${parseFloat(t.importo||0)||''}" placeholder="0"${f} style="${_ripInp};width:110px;text-align:right">
       </div>`;
     }).join('');
     const f=first&&giorni.length===1?' data-focus':'';
+    const rip = turni.length>1 ? `<div style="display:flex;gap:8px;align-items:center;margin-top:6px;background:rgba(154,122,31,.08);border-radius:8px;padding:6px 8px">
+        <span style="flex:1;font-size:11.5px;color:var(--text2)">Totale del giorno, ripartito per ore</span>
+        <input type="number" step="0.01" inputmode="decimal" class="rip-totg" data-g="${g}" placeholder="€" style="${_ripInp};width:100px;text-align:right">
+        <button class="bs" style="padding:6px 10px;font-size:12px" onclick="_ripRipartisciGiorno('${g}')">Ripartisci</button></div>` : '';
     return `<div style="margin-bottom:12px">
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--teal);font-weight:700;margin-bottom:2px">${_giornoBreve(g)}</div>
-      ${righe||'<div style="font-size:12px;color:var(--text2);padding:4px 0">Nessun turno</div>'}
+      ${righe||'<div style="font-size:12px;color:var(--text2);padding:4px 0">Nessun turno</div>'}${rip}
       <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
         <input list="rip-cant-dl" class="rip-new-cant" data-g="${g}" placeholder="+ nuovo compenso: cantiere" style="${_ripInp};flex:1;min-width:0">
         <input type="number" step="0.01" inputmode="decimal" class="rip-new-imp" data-g="${g}" placeholder="€"${f} style="${_ripInp};width:110px;text-align:right">
@@ -7965,6 +8005,20 @@ function _ripEdMat(){
      <div style="max-height:60vh;overflow:auto">${blocchi}</div>
      <div style="font-size:11px;color:var(--text2);margin-top:6px">Per orari e cantieri completi usa la pagina Presenze. Un importo a 0 lascia il turno con compenso zero.</div>`,
     `<button class="bs" onclick="_ripChiudi()">Annulla</button><button class="bp" id="rip-ed-ok" onclick="_ripSalvaMat()">💾 Salva</button>`);
+}
+// Nel dettaglio: riempie i compensi dei turni del giorno ripartendo il totale per ore
+function _ripRipartisciGiorno(g){
+  const tot=_ripNum(document.querySelector(`#modal-rip-ed .rip-totg[data-g="${g}"]`)?.value);
+  const inps=[...document.querySelectorAll(`#modal-rip-ed .rip-tur[data-g="${g}"]`)];
+  if(!inps.length) return;
+  const finti=inps.map(i=>({importo:_ripNum(i.value), _ore:parseFloat(i.dataset.ore)||0}));
+  const ore=finti.map(x=>x._ore), imp=finti.map(x=>x.importo);
+  const pesi = ore.every(o=>o>0) ? ore : (imp.reduce((a,b)=>a+b,0)>0 ? imp : finti.map(()=>1));
+  const sp=pesi.reduce((a,b)=>a+b,0)||1;
+  const q=pesi.map(w=>Math.floor(tot*w/sp*100)/100);
+  const resto=Math.round((tot-q.reduce((a,b)=>a+b,0))*100)/100;
+  const iMax=pesi.indexOf(Math.max(...pesi)); q[iMax]=Math.round((q[iMax]+resto)*100)/100;
+  inps.forEach((i,k)=>{ i.value=q[k]; });
 }
 function _ripSalvaMat(){
   const {pid,nome}=_RIP_ED;
