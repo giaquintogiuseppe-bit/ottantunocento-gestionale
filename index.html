@@ -7745,7 +7745,7 @@ function _rRiepilogo(){
 
   const dash='<span style="color:var(--text2)">—</span>';
   const fmtCell=(v,cls='')=> v>0.009||v<-0.009 ? `<span class="${cls}">${fmt(v)}</span>` : dash;
-  const ed=(tipo,pid,a,b,extra)=>`class="mn rip-ed" onclick="ripEdit('${tipo}','${pid}','${a}','${b}'${extra?`,'${extra}'`:''})"`;
+  const ed=(tipo,pid,a,b,extra)=>`class="mn rip-ed" onclick="ripCella(this,'${tipo}','${pid}','${a}','${b}'${extra?`,'${extra}'`:''})"`;
   const head=`<tr>
     <th class="rip-stk">Dipendente</th>
     ${C.cols.map(c=>`<th style="text-align:right;font-size:11px;white-space:nowrap">${c.label}</th>`).join('')}
@@ -7788,7 +7788,7 @@ function _rRiepilogo(){
     : '<div class="empty" style="padding:20px">Nessun movimento in questo periodo.</div>';
 
   document.getElementById('rip-note').innerHTML=`
-    <b>✏️ Tocca una cella per modificarla:</b> i giorni/settimane aprono i compensi dei turni, <b>Anticipi periodo</b> gli anticipi dati, <b>Danni/Scalature/Residui</b> i danni e le trattenute, <b>Bonifico/Revolut/Contanti</b> i pagamenti, <b>Anticipi storici</b> la rettifica del saldo pregresso. Il nome apre l'estratto conto.<br>
+    <b>✏️ Tocca una cella e scrivi il nuovo importo</b> (Invio o tocca fuori per salvare, Esc per annullare; 0 o vuoto elimina il movimento). Se dietro la cella ci sono più movimenti, o tocchi ☰, si apre il dettaglio: i giorni/settimane mostrano i compensi dei turni, <b>Anticipi periodo</b> gli anticipi dati, <b>Danni/Scalature/Residui</b> i danni e le trattenute, <b>Bonifico/Revolut/Contanti</b> i pagamenti, <b>Anticipi storici</b> la rettifica del saldo pregresso. Il nome apre l'estratto conto.<br>
     <b>Anticipi storici</b> = saldo trascinato dai periodi precedenti (in oro = anticipo non ancora recuperato; in verde = credito del dipendente).
     <b>Danni</b> = danni registrati nel periodo (non toccano il saldo finché non vengono scalati); <b>Scalature danni</b> = quote trattenute dalla paga nel periodo; <b>Danni residui</b> = ancora da trattenere a fine periodo.
     <b>Saldo</b> = storico + maturato − anticipi − scalature danni = quanto resta da regolare.
@@ -7818,6 +7818,118 @@ function ripEdit(tipo, pid, da, al, extra){
   const p=(DB.personale||[]).find(x=>x.id===pid); if(!p) return;
   _RIP_ED={tipo,pid,da,al,extra,nome:p.nome};
   ({mat:_ripEdMat, ant:_ripEdAnt, pag:_ripEdPag, sto:_ripEdSto, dan:_ripEdDan, res:_ripEdDan, sca:_ripEdSca}[tipo]||(()=>{}))();
+}
+// ═══ MODIFICA DIRETTA NELLA CELLA (stile Excel) ═══
+// Tocchi la cella e scrivi il numero. Se dietro la cella c'è un solo movimento (o nessuno)
+// lo aggiorna o lo crea; se ce ne sono più di uno apre la finestra di dettaglio (☰).
+function _ripDefData(da, al){ return (today()>=da && today()<=al) ? today() : al; }
+function _ripRecordCella(tipo, pid, da, al, extra){
+  if(tipo==='mat'){
+    const L=[];
+    _giorniTra(da,al).forEach(g=>{
+      getTurniRaw(g,pid).filter(t=>!t.notturno).forEach(t=>L.push({orig:g,t}));
+      getTurniRaw(prevDay(g),pid).filter(t=>t.notturno).forEach(t=>L.push({orig:prevDay(g),t}));
+    });
+    return {list:L, valore:L.reduce((s,x)=>s+parseFloat(x.t.importo||0),0), creabile:da===al};
+  }
+  if(tipo==='ant'){
+    const L=(DB.anticipi||[]).filter(a=>a.dipId===pid && a.metodo!=='Anticipo da pagamento' && a.data>=da && a.data<=al);
+    return {list:L, valore:L.reduce((s,a)=>s+parseFloat(a.importo||0),0), creabile:true};
+  }
+  if(tipo==='pag'){
+    const L=(DB.pagamenti||[]).filter(p=>p.dipId===pid && p.data>=da && p.data<=al && _metodoBucket(p.metodo)===extra);
+    return {list:L, valore:L.reduce((s,p)=>s+parseFloat(p.pagato||0),0), creabile:true};
+  }
+  if(tipo==='dan'){
+    const L=(DB.addebiti||[]).filter(a=>a.dipId===pid && (a.data||'')>=da && (a.data||'')<=al);
+    return {list:L, valore:L.reduce((s,a)=>s+parseFloat(a.importo||0),0), creabile:true};
+  }
+  if(tipo==='sca'){
+    const L=[]; (DB.addebiti||[]).filter(a=>a.dipId===pid).forEach(a=>(a.scalature||[]).forEach((x,i)=>{ if(x.data>=da && x.data<=al) L.push({a,x}); }));
+    const aperti=(DB.addebiti||[]).some(a=>a.dipId===pid && !a.chiuso);
+    return {list:L, valore:L.reduce((s,q)=>s+parseFloat(q.x.importo||0),0), creabile:aperti};
+  }
+  if(tipo==='sto') return {list:[null], valore:_ripStorico(pid,da), creabile:true};
+  return {list:[], valore:0, creabile:false, soloDettaglio:true};
+}
+function ripCella(td, tipo, pid, da, al, extra){
+  if(td.querySelector('input')) return;
+  const p=(DB.personale||[]).find(x=>x.id===pid); if(!p) return;
+  const R=_ripRecordCella(tipo, pid, da, al, extra);
+  if(R.soloDettaglio || R.list.length>1 || (!R.list.length && !R.creabile)) return ripEdit(tipo, pid, da, al, extra);
+  _RIP_ED={tipo,pid,da,al,extra,nome:p.nome};
+  const v=Math.round(R.valore*100)/100;
+  td.innerHTML=`<div style="display:flex;gap:4px;align-items:center;justify-content:flex-end">
+    <input type="number" step="0.01" inputmode="decimal" class="rip-inl" value="${v?v:''}" placeholder="0" style="width:96px;text-align:right;background:var(--navy);border:2px solid var(--teal);border-radius:6px;padding:5px 6px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px">
+    <button class="rip-det" title="Dettaglio movimenti" style="background:none;border:1px solid var(--brd);border-radius:6px;color:var(--text2);padding:4px 6px;cursor:pointer;font-size:12px">☰</button></div>`;
+  const inp=td.querySelector('input'), det=td.querySelector('.rip-det');
+  let fatto=false;
+  const fine=(salva)=>{ if(fatto) return; fatto=true; if(salva) _ripSalvaCella(tipo,pid,da,al,extra,inp.value,R); else rRiepilogo(); };
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){ e.preventDefault(); fine(true); }
+    else if(e.key==='Escape'){ e.preventDefault(); fine(false); }
+  });
+  inp.addEventListener('blur',()=>fine(true));
+  inp.addEventListener('click',e=>e.stopPropagation());
+  det.addEventListener('pointerdown',e=>e.preventDefault()); // non far perdere il fuoco all'input
+  det.addEventListener('click',e=>{ e.stopPropagation(); fatto=true; ripEdit(tipo,pid,da,al,extra); });
+  inp.focus(); try{ inp.select(); }catch(e){}
+}
+function _ripSalvaCella(tipo, pid, da, al, extra, raw, R){
+  const nome=_RIP_ED.nome;
+  const v=_ripNum(raw);
+  const prima=Math.round(R.valore*100)/100;
+  if(Math.abs(v-prima)<0.005){ rRiepilogo(); return; }
+  const r0=R.list[0];
+  if(tipo==='mat'){
+    if(r0){
+      const pr=(DB.presenze[r0.orig]||{})[pid]; if(!pr){ rRiepilogo(); return; }
+      const legacy=String(r0.t.id).startsWith('legacy_');
+      _ensureTurni(pr);
+      const t=legacy?pr.turni[0]:pr.turni.find(x=>x.id===r0.t.id); if(t) t.importo=v;
+      pr.totale=pr.turni.reduce((a,t)=>a+parseFloat(t.importo||0),0);
+    } else if(v>0){
+      if(!DB.presenze[da]) DB.presenze[da]={};
+      if(!DB.presenze[da][pid]) DB.presenze[da][pid]={turni:[],totale:0};
+      const pr=_ensureTurni(DB.presenze[da][pid]);
+      pr.turni.push({id:uid(), cantiere:'', oraI:'08:00', oraF:'17:00', importo:v, notturno:false});
+      pr.totale=pr.turni.reduce((a,t)=>a+parseFloat(t.importo||0),0);
+      toast('ℹ️ Compenso senza cantiere: assegnalo dalla pagina Presenze');
+    }
+    if(typeof invalidaCache==='function') invalidaCache();
+  } else if(tipo==='ant'){
+    if(r0){ if(v>0) r0.importo=v; else DB.anticipi=DB.anticipi.filter(x=>x!==r0); }
+    else if(v>0) DB.anticipi.push({id:uid(), data:_ripDefData(da,al), dipId:pid, dipNome:nome, importo:v, metodo:'Contanti', note:''});
+  } else if(tipo==='pag'){
+    if(r0){ if(v>0) r0.pagato=v; else DB.pagamenti=DB.pagamenti.filter(x=>x!==r0); }
+    else if(v>0) DB.pagamenti.push({id:uid(), data:_ripDefData(da,al), dipId:pid, dipNome:nome, periodoDa:da, periodoAl:al,
+      maturato:_matRange(pid,da,al), anticipiDati:_antRange(pid,da,al), pagato:v, metodo:extra, note:''});
+  } else if(tipo==='dan'){
+    if(r0){
+      if(v>0){ r0.importo=v; _dannoChiusura(r0); }
+      else if((r0.scalature||[]).length){ toast('⚠ Il danno ha già delle scalature: eliminalo dal dettaglio ☰'); rRiepilogo(); return; }
+      else DB.addebiti=DB.addebiti.filter(x=>x!==r0);
+    } else if(v>0){
+      if(!DB.addebiti) DB.addebiti=[];
+      DB.addebiti.push({id:uid(), dipId:pid, dipNome:nome, importo:v, data:_ripDefData(da,al), descrizione:'Danno non specificato', mezzo:'', scalature:[], chiuso:false});
+    }
+  } else if(tipo==='sca'){
+    if(r0){
+      const L=r0.a.scalature, i=L.indexOf(r0.x);
+      const resto=Math.max(0, parseFloat(r0.a.importo||0) - L.reduce((s,x)=>s+parseFloat(x.importo||0),0) + parseFloat(r0.x.importo||0));
+      if(v<=0) L.splice(i,1); else { r0.x.importo=Math.min(v,resto); if(v>resto+0.005) toast(`⚠ Scalati solo ${fmt(resto)}: è il residuo del danno`); }
+      _dannoChiusura(r0.a);
+    } else if(v>0){
+      const appl=applicaTrattenutaDanni(pid, v, _ripDefData(da,al));
+      if(appl<v-0.005) toast(`⚠ Scalati solo ${fmt(appl)}: è il residuo dei danni`);
+    }
+  } else if(tipo==='sto'){
+    const diff=Math.round((v-_ripStorico(pid,da))*100)/100;
+    if(!DB.rettificheDip) DB.rettificheDip=[];
+    DB.rettificheDip.push({id:uid(), dipId:pid, dipNome:nome, data:_isoPrev(da), importo:diff, note:'Rettifica storico dal Riepilogo', creato:new Date().toISOString()});
+  }
+  ricalcolaSaldi(); save(); rRiepilogo();
+  toast(`${nome}: salvato ✓`);
 }
 // — Maturato: compensi dei turni di competenza nei giorni della cella —
 function _ripEdMat(){
