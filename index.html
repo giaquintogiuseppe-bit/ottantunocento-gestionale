@@ -822,6 +822,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <!-- Fatture del cantiere (vita gestionale) -->
     <div id="dett-fatture" style="margin-bottom:14px"></div>
 
+    <!-- Cassa cantiere: incassi/pagamenti/compensazioni senza fattura -->
+    <div id="dett-cassa" style="margin-bottom:14px"></div>
+
     <!-- Ore effettive e costo manodopera (dalle presenze reali) -->
     <div id="dett-ore" style="margin-bottom:14px"></div>
     <div id="dett-eco" style="margin-bottom:14px"></div>
@@ -994,6 +997,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <button class="bs pc-flt" data-flt="dafatt" onclick="pcFiltra('dafatt')" style="font-size:12px;padding:7px 13px">📝 Da fatturare</button>
       <button class="bs pc-flt" data-flt="tutti" onclick="pcFiltra('tutti')" style="font-size:12px;padding:7px 13px">Tutti</button>
       <button class="bs" onclick="rPosizioneClienti()" title="Ricarica dalle fatture" style="font-size:12px;padding:7px 11px">🔄</button>
+      <button class="bs" onclick="apriCompensazione()" title="Registra una compensazione bilaterale (riduce da incassare e da pagare)" style="font-size:12px;padding:7px 13px;border-color:var(--gold);color:var(--gold)">🔁 Compensazione</button>
       <button class="bp" onclick="pcExport()" style="font-size:12px;padding:7px 14px">📥 Excel</button>
       <button class="bp" onclick="document.getElementById('bank-file').click()" title="Importa i pagamenti dall'estratto conto Intesa (Excel)" style="font-size:12px;padding:7px 14px;background:var(--teal);border-color:var(--teal)">🏦 Importa banca</button>
       <input type="file" id="bank-file" accept=".xlsx,.xls" style="display:none" onchange="bankImportFile(this)">
@@ -1038,6 +1042,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <button class="bs" onclick="rPosizioneFornitori()" title="Ricarica da Supabase" style="font-size:12px;padding:7px 11px">🔄</button>
       <input type="file" id="forn-wd-file" accept=".xlsx,.xls" style="display:none" onchange="fornImportaWebDesk(this)">
       <button class="bs" onclick="document.getElementById('forn-wd-file').click()" title="Importa l'elenco fatture RICEVUTE esportato da Web Desk (Excel) — solo le nuove" style="font-size:12px;padding:7px 13px;background:var(--teal);border-color:var(--teal)">📥 Web Desk</button>
+      <button class="bs" onclick="apriPagFornitore()" title="Registra un pagamento a un fornitore SENZA fattura (contanti/bonifico)" style="font-size:12px;padding:7px 13px">💸 Pagamento senza fattura</button>
+      <button class="bs" onclick="apriCompensazione()" title="Registra una compensazione bilaterale (riduce da incassare e da pagare)" style="font-size:12px;padding:7px 13px;border-color:var(--gold);color:var(--gold)">🔁 Compensazione</button>
       <button class="bp" onclick="pfExport()" style="font-size:12px;padding:7px 14px">📥 Excel</button>
     </div>
     <div id="pf-list"></div>
@@ -3024,6 +3030,7 @@ async function cloudCarica(silenzioso){
     });
     if(!DB.pagamenti) DB.pagamenti=[];
     if(!DB.incassi)   DB.incassi=[];
+    if(!DB.pagFornitori) DB.pagFornitori=[];   // pagamenti/compensazioni a fornitori SENZA fattura
     if(!DB.documenti) DB.documenti=[];
     if(!DB.carteDkv)  DB.carteDkv=[];
     setTimeout(promuoviCantieriInCorso, 400);
@@ -5759,6 +5766,49 @@ async function rDettFatture(cant, nome){
   </div></div>`;
   box.innerHTML=h;
 }
+// Cassa cantiere: incassi (cliente) e pagamenti/compensazioni (fornitore) SENZA fattura.
+function rDettCassa(cant, nome){
+  const box=document.getElementById('dett-cassa'); if(!box) return;
+  const cid=cant?cant.id:null;
+  const nn=String(nome||'').trim().toLowerCase();
+  const match=o=>(cid&&o.cantiereId===cid)||(o.cantiereName&&String(o.cantiereName).trim().toLowerCase()===nn);
+  const inc=(DB.incassi||[]).filter(i=>!i.fattura && !i.comp && match(i));            // incassi cliente (no compensazioni, mostrate lato fornitore)
+  const pagf=(DB.pagFornitori||[]).filter(match);
+  const righe=[].concat(
+    inc.map(x=>({c:'var(--green)', lab:(x.metodo||'Incasso'), x, del:"eliminaIncasso"})),
+    pagf.map(x=>{ const isC=x.comp===true||x.metodo==='compensazione'; return {c:isC?'var(--gold)':'#e0645f', lab:(isC?'🔁 Compensazione':('💸 '+(x.metodo||'pagamento'))), x, del:"eliminaPagFornitore"}; })
+  ).sort((a,b)=>String(b.x.data||'').localeCompare(String(a.x.data||'')));
+  const tInc=inc.reduce((s,x)=>s+(parseFloat(x.importo)||0),0);
+  const tPag=pagf.reduce((s,x)=>s+(parseFloat(x.importo)||0),0);
+  const cidJs="'"+(cid||'')+"'";
+  let h='<div style="background:var(--card);border:1px solid var(--brd);border-radius:12px;padding:14px 16px">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">'+
+      '<div style="font-size:14px;font-weight:800">💶 Cassa cantiere <span style="font-size:11px;color:var(--text2);font-weight:400">· senza fattura</span></div>'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+        '<button class="bs" style="font-size:11px;padding:5px 10px" onclick="incApriCantiere('+cidJs+')">💶 Incasso cliente</button>'+
+        '<button class="bs" style="font-size:11px;padding:5px 10px" onclick="apriPagFornitore(\'\','+cidJs+')">💸 Pagam. fornitore</button>'+
+        '<button class="bs" style="font-size:11px;padding:5px 10px;border-color:var(--gold);color:var(--gold)" onclick="apriCompensazione(\'\','+cidJs+')">🔁 Compensazione</button>'+
+      '</div>'+
+    '</div>';
+  if(!righe.length){
+    h+='<div style="font-size:12px;color:var(--text2)">Nessun incasso/pagamento senza fattura su questo cantiere.</div>';
+  } else {
+    h+=righe.map(r=>'<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;padding:7px 0;border-top:1px solid var(--brd)">'+
+      '<div style="min-width:0"><span style="font-weight:600;color:'+r.c+'">'+esc(r.lab)+'</span>'+
+      (r.x.data?' <span style="color:var(--text2);font-size:11px">'+fdate(r.x.data)+'</span>':'')+
+      ((r.x.committente||r.x.fornitore)?' <span style="color:var(--text2);font-size:11px">· '+esc(r.x.committente||r.x.fornitore)+'</span>':'')+
+      (r.x.note?' <span style="color:var(--text2);font-size:11px">· '+esc(r.x.note)+'</span>':'')+'</div>'+
+      '<div style="white-space:nowrap;display:flex;align-items:center;gap:8px"><span style="font-family:\'IBM Plex Mono\',monospace;font-weight:700;color:'+r.c+'">'+fmtE(parseFloat(r.x.importo)||0)+'</span>'+
+      '<button onclick="'+r.del+'(\''+r.x.id+'\')" style="border:none;background:transparent;color:#e0645f;cursor:pointer;font-size:13px">✕</button></div>'+
+    '</div>').join('');
+    h+='<div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--brd);font-size:12px">'+
+      '<span style="color:var(--text2)">Incassato senza fattura: <b style="color:var(--green)">'+fmtE(tInc)+'</b></span>'+
+      '<span style="color:var(--text2)">Pagato/compensato: <b style="color:var(--gold)">'+fmtE(tPag)+'</b></span>'+
+    '</div>';
+  }
+  h+='</div>';
+  box.innerHTML=h;
+}
 function fattNuovaPerCantiere(cid,nome){
   nav('fatture');
   setTimeout(()=>{
@@ -5849,6 +5899,7 @@ function rDettCant(){
   if(budgetEl) budgetEl.textContent=ricavoAtt>0?fmt(ricavoAtt):'Non impostato';
   // fatture del cantiere (vita gestionale)
   rDettFatture(_c, nome);
+  rDettCassa(_c, nome);
   rDettOre(_c, nome);
   rDettEco(_c, nome);
   rDettInterventi(_c);
@@ -10054,7 +10105,10 @@ function salvaIncasso(){
 function eliminaIncasso(id){
   if(!confirm('Eliminare questo incasso?')) return;
   DB.incassi=(DB.incassi||[]).filter(x=>x.id!==id);
-  save(); rIncassi(); toast('Incasso eliminato');
+  save(); toast('Incasso eliminato');
+  if(typeof curPg!=='undefined' && curPg==='dettaglio-cant' && typeof rDettCant==='function') rDettCant();
+  else if(typeof curPg!=='undefined' && curPg==='posizione-clienti') rPosizioneClienti();
+  else rIncassi();
 }
 
 function rDanni(){
@@ -11864,9 +11918,19 @@ function _pcCompute(){
       }
     }
   });
+  // 3) compensazioni lato cliente (DB.incassi comp): riducono il "da incassare" del cliente/gruppo
+  (DB.incassi||[]).forEach(x=>{
+    if(!x.comp) return;
+    const k0=_pcNorm(x.committente||x.cantiereName||''); if(!k0) return;
+    const bk=bucket(k0); const e=map[bk]; if(!e) return;
+    const imp=parseFloat(x.importo)||0; if(imp<=0) return;
+    e.incassato += imp;
+    e.residuo = Math.max(0, e.residuo - imp);
+    e.compensato = (e.compensato||0) + imp;
+  });
   const list=Object.values(map);
-  const tot={fatturato:0,incassato:0,residuo:0,daFatt:0,daEmettere:0,quant:0};
-  list.forEach(e=>{ tot.fatturato+=e.fatturato; tot.incassato+=e.incassato; tot.residuo+=e.residuo; tot.daFatt+=e.daFattTot; tot.daEmettere+=e.daEmettereTot; tot.quant+=e.daQuant.length; e.espo=e.residuo+e.daFattTot+e.daEmettereTot; });
+  const tot={fatturato:0,incassato:0,residuo:0,daFatt:0,daEmettere:0,quant:0,compensato:0};
+  list.forEach(e=>{ tot.fatturato+=e.fatturato; tot.incassato+=e.incassato; tot.residuo+=e.residuo; tot.daFatt+=e.daFattTot; tot.daEmettere+=e.daEmettereTot; tot.quant+=e.daQuant.length; tot.compensato+=(e.compensato||0); e.espo=e.residuo+e.daFattTot+e.daEmettereTot; });
   list.sort((a,b)=>b.espo-a.espo || b.residuo-a.residuo);
   return {list,tot};
 }
@@ -11919,6 +11983,7 @@ function _pcCard(e,i){
   if(e.daFattTot>0) chips.push(badge('Da fatturare '+fmtE(e.daFattTot),'#c98fd0'));
   if(e.daEmettereTot>0) chips.push(badge('Da emettere '+fmtE(e.daEmettereTot),'#6fb3e0'));
   if(e.daQuant.length) chips.push(badge(e.daQuant.length+' da quantificare','#7a8aa0'));
+  if(e.compensato>0) chips.push(badge('🔁 Compensato '+fmtE(e.compensato),'#e8b84b'));
   let det='';
   if(e.fattAperte.length){
     det+='<div class="sl" style="margin-top:12px">🧾 Fatture aperte</div>';
@@ -12160,7 +12225,7 @@ const _INC_METODI=[
 ];
 function _incMetLabel(k){ const m=_INC_METODI.find(x=>x.k===k); return m?m.lb:(k||'—'); }
 // somma incassi registrati su un cantiere SENZA fattura (contanti/ricevuta/baratto)
-function _pcCantIncassi(cid){ return (DB.incassi||[]).filter(x=>x.cantiereId===cid && !x.fattura).reduce((s,x)=>s+(parseFloat(x.importo)||0),0); }
+function _pcCantIncassi(cid){ return (DB.incassi||[]).filter(x=>x.cantiereId===cid && !x.fattura && !x.comp).reduce((s,x)=>s+(parseFloat(x.importo)||0),0); }
 let _incCtx=null;
 
 function incApriFattura(fid){
@@ -12242,7 +12307,8 @@ async function incSalva(){
     incChiudi();
     toast('💶 Incasso di '+fmtE(imp)+' registrato ✓');
     try{ const F=_FAPI(); const r=await fetch(F.url+'?select=*',{headers:F.h,cache:'no-cache'}); _fatture=await r.json(); }catch(e){}
-    pcRender();
+    if(typeof curPg!=='undefined' && curPg==='dettaglio-cant' && typeof rDettCant==='function') rDettCant();
+    else pcRender();
   }catch(e){ toast('⚠ Errore nel salvataggio incasso'); }
 }
 async function _incSalvaFattura(fid, imp, data, metodo, descr){
@@ -12278,6 +12344,118 @@ function _incSalvaCantiere(cid, imp, data, metodo, descr){
   DB.incassi=DB.incassi||[];
   DB.incassi.push({id:uid(), cantiereId:cid, cantiereName:c?c.nome:'', committente:c?(c.committente||''):'', data:data, importo:imp, metodo:_incMetLabel(metodo), fattura:'', note:descr});
   save();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// 💸 PAGAMENTI FORNITORE SENZA FATTURA  +  🔁 COMPENSAZIONI BILATERALI
+// DB.pagFornitori: [{id,fornitore,cantiereId,cantiereName,data,importo,
+//   metodo('contanti'|'bonifico'|'compensazione'),note,comp:bool,compId}]
+// Una compensazione crea insieme un incasso (DB.incassi, metodo compensazione,
+// comp:true) e un pagamento fornitore (DB.pagFornitori, compensazione), legati
+// dallo stesso compId: riduce il "da incassare" del cliente e il "da pagare"
+// del fornitore nella stessa operazione.
+// ══════════════════════════════════════════════════════════════════════════
+function _pagForn(fornNome){
+  const n=String(fornNome||'').trim().toLowerCase();
+  return (DB.pagFornitori||[]).filter(p=>String(p.fornitore||'').trim().toLowerCase()===n);
+}
+function _optCantieriSel(){
+  const archIds=new Set(DB._cantieriArchiviati||[]);
+  const cs=(DB.cantieri||[]).filter(c=>!archIds.has(c.id)).sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||'')));
+  return '<option value="">— nessun cantiere —</option>'+cs.map(c=>'<option value="'+c.id+'">'+esc(c.nome)+'</option>').join('');
+}
+// modale semplice riutilizzabile (card bianca, coerente con Registra incasso)
+function _openSimpleModal(titolo, bodyHtml, onSave){
+  _closeSimpleModal();
+  const IN='width:100%;padding:11px;border:1px solid rgba(255,255,255,.16);border-radius:9px;font-size:15px;background:var(--brd);color:var(--text);box-sizing:border-box;margin-top:3px';
+  const ov=document.createElement('div'); ov.id='sm-ov';
+  ov.setAttribute('style','position:fixed;inset:0;z-index:2147483600;background:rgba(2,8,20,.72);display:flex;align-items:center;justify-content:center;padding:16px;font-family:Inter,sans-serif');
+  ov.innerHTML='<div style="background:#fff;color:var(--text);border:1px solid var(--brd);border-radius:16px;max-width:400px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.6);max-height:92vh;overflow-y:auto">'+
+    '<div style="padding:16px 18px;border-bottom:1px solid var(--brd);font-size:15px;font-weight:800">'+titolo+'</div>'+
+    '<div style="padding:16px 18px;display:flex;flex-direction:column;gap:9px" id="sm-body">'+bodyHtml+'</div>'+
+    '<div style="padding:12px 18px;border-top:1px solid var(--brd);display:flex;gap:8px">'+
+      '<button type="button" onclick="_closeSimpleModal()" style="flex:1;padding:12px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:transparent;color:var(--text);font-weight:600;font-size:14px;cursor:pointer">Annulla</button>'+
+      '<button type="button" onclick="'+onSave+'" style="flex:2;padding:12px;border:none;border-radius:10px;background:var(--teal);color:#04231f;font-weight:800;font-size:14px;cursor:pointer">Registra</button>'+
+    '</div></div>';
+  // applica stile ai campi
+  ov.querySelectorAll('#sm-body input,#sm-body select').forEach(el=>el.setAttribute('style',IN));
+  ov.querySelectorAll('#sm-body label').forEach(el=>el.setAttribute('style','font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px'));
+  ov.addEventListener('click',function(ev){ if(ev.target===ov) _closeSimpleModal(); });
+  document.body.appendChild(ov);
+}
+function _closeSimpleModal(){ const ov=document.getElementById('sm-ov'); if(ov) ov.remove(); }
+// stringa sicura da mettere dentro un arg JS a sua volta dentro un attributo HTML onclick="...('__')"
+function _jsq(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function apriPagFornitore(prefForn, prefCantId){
+  const forns=[...new Set([].concat((_faRows||[]).map(f=>f.fornitore),(DB.pagFornitori||[]).map(p=>p.fornitore)).filter(Boolean))].sort();
+  const dl=forns.map(f=>'<option value="'+esc(f)+'">').join('');
+  _openSimpleModal('💸 Pagamento fornitore senza fattura',
+    '<datalist id="pagf-dl">'+dl+'</datalist>'+
+    '<label>Fornitore</label><input id="pagf-forn" list="pagf-dl" value="'+esc(prefForn||'')+'" placeholder="Nome fornitore">'+
+    '<label>Importo €</label><input id="pagf-imp" type="number" step="0.01" inputmode="decimal">'+
+    '<label>Data</label><input id="pagf-dt" type="date" value="'+today()+'">'+
+    '<label>Metodo</label><select id="pagf-met"><option value="contanti">💵 Contanti</option><option value="bonifico">🏦 Bonifico</option></select>'+
+    '<label>Cantiere (facoltativo)</label><select id="pagf-cant">'+_optCantieriSel()+'</select>'+
+    '<label>Note</label><input id="pagf-note" placeholder="es. acconto lavori, materiale…">',
+    'salvaPagFornitore()');
+  if(prefCantId){ const s=document.getElementById('pagf-cant'); if(s) s.value=prefCantId; }
+}
+function salvaPagFornitore(){
+  const forn=(document.getElementById('pagf-forn').value||'').trim();
+  const imp=parseFloat(String(document.getElementById('pagf-imp').value||'').replace(',','.'))||0;
+  if(!forn){ toast('Inserisci il fornitore'); return; }
+  if(!(imp>0)){ toast('Importo non valido'); return; }
+  const cid=document.getElementById('pagf-cant').value||'';
+  const c=(DB.cantieri||[]).find(x=>x.id===cid);
+  DB.pagFornitori=DB.pagFornitori||[];
+  DB.pagFornitori.push({id:uid(), fornitore:forn, cantiereId:cid, cantiereName:c?c.nome:'', data:document.getElementById('pagf-dt').value||today(), importo:imp, metodo:document.getElementById('pagf-met').value||'contanti', note:(document.getElementById('pagf-note').value||'').trim(), comp:false});
+  save(); _closeSimpleModal(); toast('💸 Pagamento di '+fmtE(imp)+' registrato ✓');
+  if(curPg==='posizione-fornitori') rPosizioneFornitori();
+  if(curPg==='dettaglio-cant' && typeof rDettCant==='function') rDettCant();
+}
+
+function apriCompensazione(prefNome, prefCantId){
+  const nomi=[...new Set([].concat((DB.clienti||[]).map(c=>c.ragioneSociale),(_faRows||[]).map(f=>f.fornitore)).filter(Boolean))].sort();
+  const dl=nomi.map(n=>'<option value="'+esc(n)+'">').join('');
+  _openSimpleModal('🔁 Compensazione (bilaterale)',
+    '<div style="font-size:12px;color:var(--text2)">Riduce insieme il “da incassare” (lato cliente) e il “da pagare” (lato fornitore) della stessa controparte.</div>'+
+    '<datalist id="comp-dl">'+dl+'</datalist>'+
+    '<label>Controparte (cliente e fornitore)</label><input id="comp-nome" list="comp-dl" value="'+esc(prefNome||'')+'" placeholder="Nome soggetto">'+
+    '<label>Importo compensato €</label><input id="comp-imp" type="number" step="0.01" inputmode="decimal">'+
+    '<label>Data</label><input id="comp-dt" type="date" value="'+today()+'">'+
+    '<label>Cantiere (facoltativo)</label><select id="comp-cant">'+_optCantieriSel()+'</select>'+
+    '<label>Cosa si compensa</label><input id="comp-note" placeholder="es. ns. fatt. 169 contro loro fatt. …">',
+    'salvaCompensazione()');
+  if(prefCantId){ const s=document.getElementById('comp-cant'); if(s) s.value=prefCantId; }
+}
+function salvaCompensazione(){
+  const nome=(document.getElementById('comp-nome').value||'').trim();
+  const imp=parseFloat(String(document.getElementById('comp-imp').value||'').replace(',','.'))||0;
+  if(!nome){ toast('Inserisci la controparte'); return; }
+  if(!(imp>0)){ toast('Importo non valido'); return; }
+  const cid=document.getElementById('comp-cant').value||'';
+  const c=(DB.cantieri||[]).find(x=>x.id===cid);
+  const data=document.getElementById('comp-dt').value||today();
+  const note=(document.getElementById('comp-note').value||'').trim();
+  const compId='comp_'+uid();
+  DB.incassi=DB.incassi||[]; DB.pagFornitori=DB.pagFornitori||[];
+  DB.incassi.push({id:uid(), cantiereId:cid, cantiereName:c?c.nome:'', committente:nome, data:data, importo:imp, metodo:_incMetLabel('compensazione'), fattura:'', note:(note||'compensazione'), comp:true, compId:compId});
+  DB.pagFornitori.push({id:uid(), fornitore:nome, cantiereId:cid, cantiereName:c?c.nome:'', data:data, importo:imp, metodo:'compensazione', note:(note||'compensazione'), comp:true, compId:compId});
+  save(); _closeSimpleModal(); toast('🔁 Compensazione di '+fmtE(imp)+' registrata ✓');
+  if(curPg==='posizione-fornitori') rPosizioneFornitori();
+  else if(curPg==='posizione-clienti') rPosizioneClienti();
+  else if(curPg==='dettaglio-cant' && typeof rDettCant==='function') rDettCant();
+}
+function eliminaPagFornitore(id){
+  if(!confirm('Eliminare questa registrazione?')) return;
+  const p=(DB.pagFornitori||[]).find(x=>x.id===id);
+  DB.pagFornitori=(DB.pagFornitori||[]).filter(x=>x.id!==id);
+  // se era una compensazione, rimuovo anche il lato cliente collegato
+  if(p&&p.compId) DB.incassi=(DB.incassi||[]).filter(x=>x.compId!==p.compId);
+  save(); toast('Rimosso');
+  if(curPg==='posizione-fornitori') rPosizioneFornitori();
+  if(curPg==='dettaglio-cant' && typeof rDettCant==='function') rDettCant();
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -12732,8 +12910,8 @@ function _pfDaConfermare(s){ return s==='probabile_pagata_da_confermare' || s===
 function _pfCompute(){
   const rows=_faRows||[];
   const map={};
-  const get=(k)=>{ if(!map[k]) map[k]={nome:k,fatture:[],importo:0,residuo:0,apertaN:0,apertaR:0,parzN:0,parzR:0,confN:0,confR:0,pagN:0}; return map[k]; };
-  const tot={importo:0,residuo:0,apertaN:0,apertaR:0,parzN:0,parzR:0,confN:0,confR:0,pagN:0};
+  const get=(k)=>{ if(!map[k]) map[k]={nome:k,fatture:[],importo:0,residuo:0,apertaN:0,apertaR:0,parzN:0,parzR:0,confN:0,confR:0,pagN:0,compensato:0,pagatoExtra:0,extraList:[]}; return map[k]; };
+  const tot={importo:0,residuo:0,apertaN:0,apertaR:0,parzN:0,parzR:0,confN:0,confR:0,pagN:0,compensato:0,pagatoExtra:0};
   rows.forEach(f=>{
     const nome=((f.fornitore||'').trim())||'(senza fornitore)';
     const e=get(nome);
@@ -12745,10 +12923,20 @@ function _pfCompute(){
     else if(_pfDaConfermare(st)){ e.confN++; e.confR+=res; tot.confN++; tot.confR+=res; }
     else if(st==='pagata_confermata'){ e.pagN++; tot.pagN++; }
   });
+  // pagamenti/compensazioni SENZA fattura (DB.pagFornitori)
+  (DB.pagFornitori||[]).forEach(p=>{
+    const nome=((p.fornitore||'').trim())||'(senza fornitore)';
+    const e=get(nome);
+    const imp=parseFloat(p.importo)||0;
+    const isComp = p.comp===true || p.metodo==='compensazione';
+    if(isComp){ e.compensato+=imp; tot.compensato+=imp; } else { e.pagatoExtra+=imp; tot.pagatoExtra+=imp; }
+    e.extraList.push(p);
+  });
   const list=Object.values(map);
-  list.forEach(e=>{ e.debito=e.apertaR+e.parzR; });   // debito reale del fornitore
-  list.sort((a,b)=> b.residuo-a.residuo || b.debito-a.debito || a.nome.localeCompare(b.nome));
-  tot.debito=tot.apertaR+tot.parzR;
+  // debito reale = residuo fatture (aperte+parziali) MENO le compensazioni, mai negativo
+  list.forEach(e=>{ e.debito=Math.max(0,(e.apertaR+e.parzR)-(e.compensato||0)); });
+  list.sort((a,b)=> b.debito-a.debito || b.residuo-a.residuo || a.nome.localeCompare(b.nome));
+  tot.debito=Math.max(0,(tot.apertaR+tot.parzR)-(tot.compensato||0));
   return {list,tot};
 }
 
@@ -12796,6 +12984,8 @@ function _pfCard(e,i){
   if(e.parzR>0) chips.push(badge('Parziali '+fmtE(e.parzR),'#c98fd0'));
   if(e.confR>0) chips.push(badge('Da confermare '+fmtE(e.confR),'#6fb3e0'));
   if(e.pagN>0) chips.push(badge(e.pagN+' pagate','#3fbf7f'));
+  if(e.compensato>0) chips.push(badge('🔁 Compensato '+fmtE(e.compensato),'#e8b84b'));
+  if(e.pagatoExtra>0) chips.push(badge('💸 Pagato s/fatt '+fmtE(e.pagatoExtra),'#3fbf7f'));
   const fatt=e.fatture.slice().sort((a,b)=>(b.data_fattura||'').localeCompare(a.data_fattura||''));
   let det='<div class="sl" style="margin-top:12px">🧾 Fatture ('+e.fatture.length+')</div>';
   det+=fatt.map(f=>{
@@ -12814,6 +13004,25 @@ function _pfCard(e,i){
       (meta?'<div style="font-size:11px;color:var(--text2);margin-top:2px">'+meta+'</div>':'')+
     '</div>';
   }).join('');
+  if(e.extraList && e.extraList.length){
+    det+='<div class="sl" style="margin-top:12px">💸 Pagamenti / compensazioni senza fattura</div>';
+    det+=e.extraList.slice().sort((a,b)=>(b.data||'').localeCompare(a.data||'')).map(p=>{
+      const isComp=p.comp===true||p.metodo==='compensazione';
+      const col=isComp?'#e8b84b':'#3fbf7f';
+      return '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;padding:7px 0;border-top:1px solid var(--brd)">'+
+        '<div style="min-width:0"><span style="font-weight:600;color:'+col+'">'+(isComp?'🔁 Compensazione':'💸 '+esc(p.metodo||'pagamento'))+'</span>'+
+        (p.data?' <span style="color:var(--text2);font-size:11px">'+fdate(p.data)+'</span>':'')+
+        (p.cantiereName?' <span style="color:var(--text2);font-size:11px">· '+esc(p.cantiereName)+'</span>':'')+
+        (p.note?' <span style="color:var(--text2);font-size:11px">· '+esc(p.note)+'</span>':'')+'</div>'+
+        '<div style="white-space:nowrap;display:flex;align-items:center;gap:8px"><span style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+col+'">'+fmtE(parseFloat(p.importo)||0)+'</span>'+
+        '<button onclick="event.stopPropagation();eliminaPagFornitore(\''+p.id+'\')" style="border:none;background:transparent;color:#e0645f;cursor:pointer;font-size:13px">✕</button></div>'+
+      '</div>';
+    }).join('');
+  }
+  det+='<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'+
+    '<button onclick="event.stopPropagation();apriPagFornitore(\''+_jsq(e.nome)+'\')" style="border:1px solid var(--brd);background:transparent;color:var(--text);border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer">💸 Pagamento senza fattura</button>'+
+    '<button onclick="event.stopPropagation();apriCompensazione(\''+_jsq(e.nome)+'\')" style="border:1px solid var(--gold);background:transparent;color:var(--gold);border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer">🔁 Compensazione</button>'+
+  '</div>';
   return '<div class="fc" style="cursor:pointer;margin-bottom:10px" onclick="_pfTog(\'pfd'+i+'\')">'+
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">'+
       '<div style="min-width:0"><div style="font-size:15px;font-weight:700">'+esc(e.nome)+'</div>'+
@@ -12829,11 +13038,11 @@ function pfExport(){
   const {list,tot}=_pfCompute();
   const eur='#,##0.00" €"';
   const wb=XLSX.utils.book_new();
-  const s1=[['POSIZIONE FORNITORI — '+_oggi()],[],['Fornitore','N° fatture','Importo totale','Residuo','di cui Aperto','di cui Parziale','di cui Da confermare']];
-  list.forEach(e=>s1.push([e.nome,e.fatture.length,e.importo,e.residuo,e.apertaR,e.parzR,e.confR]));
-  s1.push([]); s1.push(['TOTALE',(_faRows||[]).length,tot.importo,tot.residuo,tot.apertaR,tot.parzR,tot.confR]);
+  const s1=[['POSIZIONE FORNITORI — '+_oggi()],[],['Fornitore','N° fatture','Importo totale','Residuo','di cui Aperto','di cui Parziale','di cui Da confermare','Compensato','Pagato s/fatt','Debito netto']];
+  list.forEach(e=>s1.push([e.nome,e.fatture.length,e.importo,e.residuo,e.apertaR,e.parzR,e.confR,e.compensato||0,e.pagatoExtra||0,e.debito]));
+  s1.push([]); s1.push(['TOTALE',(_faRows||[]).length,tot.importo,tot.residuo,tot.apertaR,tot.parzR,tot.confR,tot.compensato||0,tot.pagatoExtra||0,tot.debito]);
   const ws1=XLSX.utils.aoa_to_sheet(s1);
-  for(let r=3;r<s1.length;r++){ ['C','D','E','F','G'].forEach(c=>{ const cell=ws1[c+(r+1)]; if(cell&&typeof cell.v==='number') cell.z=eur; }); }
+  for(let r=3;r<s1.length;r++){ ['C','D','E','F','G','H','I','J'].forEach(c=>{ const cell=ws1[c+(r+1)]; if(cell&&typeof cell.v==='number') cell.z=eur; }); }
   XLSX.utils.book_append_sheet(wb,ws1,'Riepilogo');
   const s2=[['Fornitore','N° fattura','Rif. fornitore','Data','Importo','Stato','Residuo','Metodo','Note']];
   list.forEach(e=>e.fatture.slice().sort((a,b)=>(b.data_fattura||'').localeCompare(a.data_fattura||'')).forEach(f=>{
