@@ -7650,6 +7650,19 @@ function _scalRange(dipId, da, al){
     .reduce((tot,a)=>tot+(a.scalature||[]).filter(x=>(!da||x.data>=da)&&(!al||x.data<=al))
       .reduce((s,x)=>s+parseFloat(x.importo||0),0),0);
 }
+// Danni (DB.addebiti) registrati nel periodo, per data dell'evento
+function _danniRange(dipId, da, al){
+  return (DB.addebiti||[]).filter(a=>a.dipId===dipId && (!da||(a.data||'')>=da) && (!al||(a.data||'')<=al))
+    .reduce((s,a)=>s+parseFloat(a.importo||0),0);
+}
+// Danni ancora da scalare alla data "al": danni registrati fino ad "al" − scalature fino ad "al"
+function _danniResiduoAl(dipId, al){
+  return Math.max(0, _danniRange(dipId, null, al) - _scalRange(dipId, null, al));
+}
+function _dannoChiusura(a){
+  const sc=(a.scalature||[]).reduce((s,x)=>s+parseFloat(x.importo||0),0);
+  a.chiuso = sc >= parseFloat(a.importo||0) - 0.01;
+}
 // Rettifiche datate del saldo dipendente (DB.rettificheDip): + a favore del dipendente, − anticipo da recuperare
 function _retRange(dipId, da, al){
   return (DB.rettificheDip||[]).filter(r=>r.dipId===dipId && (!da||r.data>=da) && (!al||r.data<=al))
@@ -7700,6 +7713,8 @@ function _rRiepilogo(){
     const maturato=_matRange(p.id, da, al);
     const antSett=_antRange(p.id, da, al);
     const scalSett=_scalRange(p.id, da, al);
+    const danniSett=_danniRange(p.id, da, al);
+    const danniRes=_danniResiduoAl(p.id, al);
     const retSett=_retRange(p.id, da, al);
     const apertura=_ripStorico(p.id, da);
     const pagSett=_pagRange(p.id, da, al);
@@ -7708,10 +7723,10 @@ function _rRiepilogo(){
     const saldo = apertura + maturato + retSett - antSett - scalSett;
     // riporto = saldo − pagato = saldo di chiusura → storico del periodo dopo
     const riporto = saldo - pagSett;
-    return {id:p.id, nome:p.nome, daily, maturato, antSett, apertura, retSett, scalSett, saldo, met, pagSett, riporto};
+    return {id:p.id, nome:p.nome, daily, maturato, antSett, apertura, retSett, scalSett, danniSett, danniRes, saldo, met, pagSett, riporto};
   }).filter(r=> RIP_TUTTI
       ? (_matRange(r.id,null,null)>0.009 || _antRange(r.id,null,null)>0.009 || _pagRange(r.id,null,null)>0.009 || Math.abs(r.apertura)>0.009)
-      : (r.maturato>0.009 || r.antSett>0.009 || r.pagSett>0.009 || Math.abs(r.apertura)>0.009 || Math.abs(r.riporto)>0.009) )
+      : (r.maturato>0.009 || r.antSett>0.009 || r.pagSett>0.009 || r.danniSett>0.009 || r.scalSett>0.009 || r.danniRes>0.009 || Math.abs(r.apertura)>0.009 || Math.abs(r.riporto)>0.009) )
     .sort((a,b)=>a.nome.localeCompare(b.nome));
 
   _RIP_ULTIMO={da,al,giorni:per.giorni,cols:C.cols,tipoCol:C.tipo,label:per.label,righe};
@@ -7723,6 +7738,7 @@ function _rRiepilogo(){
     <div class="sc"><div class="lb">Maturato periodo</div><div class="vl" style="font-size:20px">${fmt(T('maturato'))}</div></div>
     <div class="sc"><div class="lb">Anticipi periodo</div><div class="vl rr" style="font-size:20px">${fmt(T('antSett'))}</div></div>
     <div class="sc"><div class="lb">Anticipi storici</div><div class="vl" style="font-size:20px;color:var(--gold)">${fmt(antStor)}</div><div class="sb2">ancora da recuperare</div></div>
+    ${T('danniSett')+T('scalSett')+T('danniRes')>0.009?`<div class="sc" style="border-color:rgba(232,84,84,.35)"><div class="lb">⚠ Danni</div><div class="vl" style="font-size:20px;color:var(--red)">${fmt(T('scalSett'))}</div><div class="sb2">scalati nel periodo · nuovi ${fmt(T('danniSett'))} · residuo ${fmt(T('danniRes'))}</div></div>`:''}
     <div class="sc"><div class="lb">Da regolare (saldo)</div><div class="vl or" style="font-size:20px">${fmt(T('saldo'))}</div></div>
     <div class="sc"><div class="lb">Pagato nel periodo</div><div class="vl gr" style="font-size:20px">${fmt(T('pagSett'))}</div></div>
     <div class="sc"><div class="lb">Riporto → periodo succ.</div><div class="vl" style="font-size:20px">${fmt(T('riporto'))}</div></div>`;
@@ -7736,7 +7752,9 @@ function _rRiepilogo(){
     <th style="text-align:right">Maturato</th>
     <th style="text-align:right">Anticipi periodo</th>
     <th style="text-align:right" title="Saldo trascinato dai periodi precedenti: in oro = anticipo storico da recuperare, in verde = credito del dipendente">Anticipi storici</th>
-    <th style="text-align:right">Danni</th>
+    <th style="text-align:right" title="Danni registrati nel periodo (data dell'evento)">Danni</th>
+    <th style="text-align:right" title="Quote dei danni trattenute dalla paga nel periodo: riducono il saldo">Scalature danni</th>
+    <th style="text-align:right" title="Danni ancora da scalare a fine periodo">Danni residui</th>
     <th style="text-align:right">Saldo</th>
     <th style="text-align:right">Bonifico</th>
     <th style="text-align:right">Revolut</th>
@@ -7749,7 +7767,9 @@ function _rRiepilogo(){
     <td class="mn" style="text-align:right;font-weight:800">${fmt(r.maturato)}</td>
     <td ${ed('ant',r.id,da,al)} style="text-align:right">${fmtCell(r.antSett,'rr')}</td>
     <td ${ed('sto',r.id,da,al)} style="text-align:right">${r.apertura<-0.009?`<span style="color:var(--gold)">${fmt(r.apertura)}</span>`:fmtCell(r.apertura,'gr')}${Math.abs(r.retSett)>0.009?`<div style="font-size:10px;color:var(--teal)">rett. ${fmt(r.retSett)}</div>`:''}</td>
-    <td class="mn" style="text-align:right;cursor:pointer" onclick="nav('danni')" title="Gestisci i danni">${r.scalSett>0.009?`<span style="color:var(--red)">${fmt(r.scalSett)}</span>`:dash}</td>
+    <td ${ed('dan',r.id,da,al)} style="text-align:right">${r.danniSett>0.009?`<span style="color:var(--red)">${fmt(r.danniSett)}</span>`:dash}</td>
+    <td ${ed('sca',r.id,da,al)} style="text-align:right">${r.scalSett>0.009?`<span style="color:var(--red)">−${fmt(r.scalSett)}</span>`:dash}</td>
+    <td ${ed('res',r.id,da,al)} style="text-align:right">${r.danniRes>0.009?`<span style="color:var(--gold)">${fmt(r.danniRes)}</span>`:dash}</td>
     <td class="mn" style="text-align:right;font-weight:800">${r.saldo>0.009?`<span class="or">${fmt(r.saldo)}</span>`:r.saldo<-0.009?`<span class="gr">${fmt(r.saldo)}</span>`:'<span class="gr">✓</span>'}</td>
     <td ${ed('pag',r.id,da,al,'Bonifico')} style="text-align:right">${fmtCell(r.met.Bonifico)}</td>
     <td ${ed('pag',r.id,da,al,'Revolut')} style="text-align:right">${fmtCell(r.met.Revolut)}</td>
@@ -7760,7 +7780,7 @@ function _rRiepilogo(){
   const foot=`<tr style="border-top:2px solid var(--brd);background:rgba(255,255,255,.03)">
     <td class="rip-stk"><b>TOTALE</b></td>
     ${C.cols.map((c,i)=>tf(righe.reduce((a,r)=>a+r.daily[i],0))).join('')}
-    ${tf(T('maturato'))}${tf(T('antSett'))}${tf(T('apertura'))}${tf(T('scalSett'))}${tf(T('saldo'))}
+    ${tf(T('maturato'))}${tf(T('antSett'))}${tf(T('apertura'))}${tf(T('danniSett'))}${tf(T('scalSett'))}${tf(T('danniRes'))}${tf(T('saldo'))}
     ${tf(T(r=>r.met.Bonifico))}${tf(T(r=>r.met.Revolut))}${tf(T(r=>r.met.Contanti))}${tf(T('riporto'))}
   </tr>`;
   document.getElementById('rip-tbwrap').innerHTML = righe.length
@@ -7768,9 +7788,10 @@ function _rRiepilogo(){
     : '<div class="empty" style="padding:20px">Nessun movimento in questo periodo.</div>';
 
   document.getElementById('rip-note').innerHTML=`
-    <b>✏️ Tocca una cella per modificarla:</b> i giorni/settimane aprono i compensi dei turni, <b>Anticipi periodo</b> gli anticipi dati, <b>Bonifico/Revolut/Contanti</b> i pagamenti, <b>Anticipi storici</b> la rettifica del saldo pregresso. Il nome apre l'estratto conto.<br>
+    <b>✏️ Tocca una cella per modificarla:</b> i giorni/settimane aprono i compensi dei turni, <b>Anticipi periodo</b> gli anticipi dati, <b>Danni/Scalature/Residui</b> i danni e le trattenute, <b>Bonifico/Revolut/Contanti</b> i pagamenti, <b>Anticipi storici</b> la rettifica del saldo pregresso. Il nome apre l'estratto conto.<br>
     <b>Anticipi storici</b> = saldo trascinato dai periodi precedenti (in oro = anticipo non ancora recuperato; in verde = credito del dipendente).
-    <b>Saldo</b> = storico + maturato − anticipi − danni = quanto resta da regolare.
+    <b>Danni</b> = danni registrati nel periodo (non toccano il saldo finché non vengono scalati); <b>Scalature danni</b> = quote trattenute dalla paga nel periodo; <b>Danni residui</b> = ancora da trattenere a fine periodo.
+    <b>Saldo</b> = storico + maturato − anticipi − scalature danni = quanto resta da regolare.
     <b>Riporto</b> = saldo − pagato: passa al periodo dopo e vi diventa lo storico.
     I giorni usano la <i>competenza</i> (i turni notturni contano il giorno dopo).`;
 }
@@ -7796,7 +7817,7 @@ let _RIP_ED=null; // contesto dell'editor aperto
 function ripEdit(tipo, pid, da, al, extra){
   const p=(DB.personale||[]).find(x=>x.id===pid); if(!p) return;
   _RIP_ED={tipo,pid,da,al,extra,nome:p.nome};
-  ({mat:_ripEdMat, ant:_ripEdAnt, pag:_ripEdPag, sto:_ripEdSto}[tipo]||(()=>{}))();
+  ({mat:_ripEdMat, ant:_ripEdAnt, pag:_ripEdPag, sto:_ripEdSto, dan:_ripEdDan, res:_ripEdDan, sca:_ripEdSca}[tipo]||(()=>{}))();
 }
 // — Maturato: compensi dei turni di competenza nei giorni della cella —
 function _ripEdMat(){
@@ -7956,6 +7977,140 @@ function _ripDel(col, id){
   ({anticipi:_ripEdAnt, pagamenti:_ripEdPag, rettificheDip:_ripEdSto}[col]||(()=>{}))();
   toast('Eliminato ✓');
 }
+// — Danni: danni del periodo (cella Danni) o tutti quelli ancora aperti (cella Danni residui) —
+function _ripEdDan(){
+  const {pid,da,al,nome,tipo}=_RIP_ED;
+  const soloPer = tipo==='dan';
+  const lista=(DB.addebiti||[]).filter(a=>a.dipId===pid && (soloPer
+      ? ((a.data||'')>=da && (a.data||'')<=al)
+      : ((a.data||'')<=al && parseFloat(a.importo||0) - (a.scalature||[]).filter(x=>x.data<=al).reduce((s,x)=>s+parseFloat(x.importo||0),0) > 0.009)))
+    .sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const grid='display:grid;grid-template-columns:130px 1fr 110px 95px 90px 34px;gap:6px;align-items:center;margin-bottom:6px';
+  const riga=(a,nuovo)=>{
+    const sc=(a.scalature||[]).reduce((s,x)=>s+parseFloat(x.importo||0),0);
+    return `<div class="rip-row" data-id="${a.id||''}" style="${grid}">
+    <input type="date" class="r-data" value="${a.data||''}" style="${_ripInp}">
+    <input type="text" class="r-desc" value="${(a.descrizione||'').replace(/"/g,'&quot;')}" placeholder="${nuovo?'nuovo danno — descrizione':'descrizione'}" style="${_ripInp}">
+    <input type="text" class="r-mezzo" value="${(a.mezzo||'').replace(/"/g,'&quot;')}" placeholder="mezzo/oggetto" style="${_ripInp}">
+    <input type="number" step="0.01" inputmode="decimal" class="r-imp" value="${a.importo!=null&&a.importo!==''?a.importo:''}" placeholder="€"${nuovo&&!lista.length?' data-focus':''} style="${_ripInp};text-align:right">
+    <span class="mn" style="font-size:11.5px;text-align:right;color:${nuovo?'var(--text2)':sc>=parseFloat(a.importo||0)-0.01?'var(--green)':'var(--gold)'}">${nuovo?'':sc>=parseFloat(a.importo||0)-0.01?'✓ saldato':'res. '+fmt(Math.max(0,parseFloat(a.importo||0)-sc))}</span>
+    ${nuovo?'<span></span>':`<button class="bd" onclick="_ripDelDanno('${a.id}')" title="Elimina">✕</button>`}
+  </div>`;};
+  const defData = (today()>=da && today()<=al) ? today() : al;
+  _ripModal('⚠️ '+(soloPer?'Danni del periodo':'Danni ancora da scalare')+' — '+nome, soloPer?fdate(da)+' → '+fdate(al):'situazione al '+fdate(al),
+    `<div style="overflow-x:auto"><div style="min-width:600px">
+      <div style="${grid};font-size:10.5px;text-transform:uppercase;color:var(--text2);margin-bottom:4px"><span>Data</span><span>Descrizione</span><span>Mezzo</span><span style="text-align:right">Importo</span><span style="text-align:right">Stato</span><span></span></div>
+      ${lista.map(a=>riga(a,false)).join('')}
+      ${riga({data:defData},true)}
+    </div></div>
+    <div style="font-size:11px;color:var(--text2);margin-top:6px">Il danno registrato non cambia il saldo: lo riduce solo quando lo scali (cella <b>Scalature danni</b>). Compila l'ultima riga per registrarne uno nuovo.</div>`,
+    `<button class="bs" onclick="_ripChiudi();nav('danni')">Pagina Danni</button><button class="bs" onclick="_ripChiudi()">Annulla</button><button class="bp" id="rip-ed-ok" onclick="_ripSalvaDan()">💾 Salva</button>`);
+}
+function _ripSalvaDan(){
+  const {pid,nome}=_RIP_ED;
+  let n=0;
+  document.querySelectorAll('#modal-rip-ed .rip-row').forEach(r=>{
+    const id=r.dataset.id;
+    const data=r.querySelector('.r-data').value, imp=_ripNum(r.querySelector('.r-imp').value);
+    const desc=r.querySelector('.r-desc').value.trim(), mezzo=r.querySelector('.r-mezzo').value.trim();
+    if(id){
+      const a=(DB.addebiti||[]).find(x=>x.id===id); if(!a) return;
+      if(a.data!==data||Math.abs(parseFloat(a.importo||0)-imp)>0.005||(a.descrizione||'')!==desc||(a.mezzo||'')!==mezzo){
+        a.data=data||a.data; a.importo=imp; a.descrizione=desc||'Danno non specificato'; a.mezzo=mezzo; _dannoChiusura(a); n++;
+      }
+    } else if(imp>0){
+      if(!DB.addebiti) DB.addebiti=[];
+      DB.addebiti.push({id:uid(), dipId:pid, dipNome:nome, importo:imp, data:data||today(),
+        descrizione:desc||'Danno non specificato', mezzo, scalature:[], chiuso:false}); n++;
+    }
+  });
+  if(!n){ _ripChiudi(); return; }
+  _ripDopoModifica(`Danni di ${nome} aggiornati ✓`);
+}
+function _ripDelDanno(id){
+  const a=(DB.addebiti||[]).find(x=>x.id===id); if(!a) return;
+  const sc=(a.scalature||[]).length;
+  if(!confirm('Eliminare questo danno?'+(sc?`\nVerranno eliminate anche le sue ${sc} scalature (le quote trattenute tornano nel saldo del dipendente).`:''))) return;
+  DB.addebiti=DB.addebiti.filter(x=>x.id!==id);
+  ricalcolaSaldi(); save(); rRiepilogo(); _ripEdDan(); toast('Danno eliminato ✓');
+}
+// — Scalature danni del periodo: quote trattenute dalla paga —
+function _ripEdSca(){
+  const {pid,da,al,nome}=_RIP_ED;
+  const danni=(DB.addebiti||[]).filter(a=>a.dipId===pid);
+  const quote=[];
+  danni.forEach(a=>(a.scalature||[]).forEach(x=>{ if(x.data>=da && x.data<=al) quote.push({a,x}); }));
+  quote.sort((p,q)=>(p.x.data||'').localeCompare(q.x.data||''));
+  const resDi=a=>Math.max(0,parseFloat(a.importo||0)-(a.scalature||[]).reduce((s,x)=>s+parseFloat(x.importo||0),0));
+  const aperti=danni.filter(a=>resDi(a)>0.009).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const lbl=a=>`${fdate(a.data)} · ${(a.descrizione||'danno').slice(0,40)}${a.mezzo?' ('+a.mezzo+')':''}`;
+  const grid='display:grid;grid-template-columns:130px 1fr 100px 34px;gap:6px;align-items:center;margin-bottom:6px';
+  const righe=quote.map(({a,x})=>`<div class="rip-row" data-aid="${a.id}" data-sid="${x.id||''}" data-old="${x.data}|${x.importo}" style="${grid}">
+    <input type="date" class="r-data" value="${x.data||''}" style="${_ripInp}">
+    <span style="font-size:12px">${lbl(a)}</span>
+    <input type="number" step="0.01" inputmode="decimal" class="r-imp" value="${x.importo}" style="${_ripInp};text-align:right">
+    <button class="bd" onclick="_ripDelScal('${a.id}','${x.id||''}','${x.data}|${x.importo}')" title="Elimina">✕</button>
+  </div>`).join('');
+  const defData = (today()>=da && today()<=al) ? today() : al;
+  const totRes=aperti.reduce((s,a)=>s+resDi(a),0);
+  const nuova = aperti.length ? `<div class="rip-row rip-new" style="${grid}">
+    <input type="date" class="r-data" value="${defData}" style="${_ripInp}">
+    <select class="r-danno" style="${_ripInp}"><option value="">Automatico: dal danno più vecchio (FIFO)</option>${aperti.map(a=>`<option value="${a.id}">${lbl(a)} — res. ${fmt(resDi(a))}</option>`).join('')}</select>
+    <input type="number" step="0.01" inputmode="decimal" class="r-imp" placeholder="€"${quote.length?'':' data-focus'} style="${_ripInp};text-align:right">
+    <span></span></div>` : '<div style="font-size:12px;color:var(--text2);padding:4px 0">Nessun danno aperto da scalare.</div>';
+  _ripModal('✂️ Scalature danni — '+nome, fdate(da)+' → '+fdate(al)+' · quote trattenute dalla paga',
+    `<div style="overflow-x:auto"><div style="min-width:520px">
+      <div style="${grid};font-size:10.5px;text-transform:uppercase;color:var(--text2);margin-bottom:4px"><span>Data</span><span>Danno</span><span style="text-align:right">Quota</span><span></span></div>
+      ${righe||'<div style="font-size:12px;color:var(--text2);padding:4px 0 8px">Nessuna scalatura nel periodo.</div>'}
+      ${nuova}
+    </div></div>
+    <div style="font-size:11px;color:var(--text2);margin-top:6px">Ogni quota scalata riduce il saldo del dipendente. Danni ancora da scalare in totale: <b style="color:var(--gold)">${fmt(totRes)}</b>.</div>`,
+    `<button class="bs" onclick="_ripChiudi()">Annulla</button><button class="bp" id="rip-ed-ok" onclick="_ripSalvaSca()">💾 Salva</button>`);
+}
+// Trova la scalatura per id (o, per quelle vecchie senza id, per data|importo)
+function _ripTrovaScal(a, sid, old){
+  const L=a.scalature||[];
+  return sid ? L.findIndex(x=>x.id===sid) : L.findIndex(x=>(x.data+'|'+x.importo)===old);
+}
+function _ripSalvaSca(){
+  const {pid,nome}=_RIP_ED;
+  let n=0;
+  document.querySelectorAll('#modal-rip-ed .rip-row:not(.rip-new)').forEach(r=>{
+    const a=(DB.addebiti||[]).find(x=>x.id===r.dataset.aid); if(!a) return;
+    const i=_ripTrovaScal(a, r.dataset.sid, r.dataset.old); if(i<0) return;
+    const x=a.scalature[i];
+    const data=r.querySelector('.r-data').value, imp=_ripNum(r.querySelector('.r-imp').value);
+    if(x.data!==data || Math.abs(parseFloat(x.importo||0)-imp)>0.005){
+      if(imp<=0) a.scalature.splice(i,1); else { x.data=data||x.data; x.importo=imp; }
+      _dannoChiusura(a); n++;
+    }
+  });
+  const nw=document.querySelector('#modal-rip-ed .rip-new');
+  if(nw){
+    const imp=_ripNum(nw.querySelector('.r-imp').value), data=nw.querySelector('.r-data').value||today();
+    const aid=nw.querySelector('.r-danno').value;
+    if(imp>0){
+      let appl=0;
+      if(aid){
+        const a=DB.addebiti.find(x=>x.id===aid);
+        const res=Math.max(0,parseFloat(a.importo||0)-(a.scalature||[]).reduce((s,x)=>s+parseFloat(x.importo||0),0));
+        appl=Math.min(imp,res);
+        if(appl>0){ if(!a.scalature) a.scalature=[]; a.scalature.push({id:uid(), importo:appl, data}); _dannoChiusura(a); }
+      } else appl=applicaTrattenutaDanni(pid, imp, data);
+      if(appl>0) n++;
+      if(appl<imp-0.005) toast(`⚠ Scalati solo ${fmt(appl)}: è il residuo dei danni`);
+    }
+  }
+  if(!n){ _ripChiudi(); return; }
+  _ripDopoModifica(`Scalature danni di ${nome} aggiornate ✓`);
+}
+function _ripDelScal(aid, sid, old){
+  const a=(DB.addebiti||[]).find(x=>x.id===aid); if(!a) return;
+  const i=_ripTrovaScal(a, sid, old); if(i<0) return;
+  if(!confirm('Eliminare questa scalatura? La quota torna nel saldo del dipendente e nel residuo del danno.')) return;
+  a.scalature.splice(i,1); _dannoChiusura(a);
+  ricalcolaSaldi(); save(); rRiepilogo(); _ripEdSca(); toast('Scalatura eliminata ✓');
+}
 // — Anticipi storici: rettifica datata del saldo pregresso —
 function _ripEdSto(){
   const {pid,da,nome}=_RIP_ED;
@@ -8003,9 +8158,9 @@ function _ripSalvaSto(){
 
 function _ripIntest(){
   const {cols}=_RIP_ULTIMO;
-  return ['Dipendente',...cols.map(c=>c.label),'Maturato','Anticipi periodo','Anticipi storici','Danni scalati','Saldo','Bonifico','Revolut','Contanti','Riporto periodo succ.'];
+  return ['Dipendente',...cols.map(c=>c.label),'Maturato','Anticipi periodo','Anticipi storici','Danni registrati','Scalature danni','Danni residui','Saldo','Bonifico','Revolut','Contanti','Riporto periodo succ.'];
 }
-function _ripRigaVals(r){ return [r.maturato,r.antSett,r.apertura,r.scalSett,r.saldo,r.met.Bonifico,r.met.Revolut,r.met.Contanti,r.riporto]; }
+function _ripRigaVals(r){ return [r.maturato,r.antSett,r.apertura,r.danniSett,r.scalSett,r.danniRes,r.saldo,r.met.Bonifico,r.met.Revolut,r.met.Contanti,r.riporto]; }
 function ripExportCSV(){
   if(!_RIP_ULTIMO){ rRiepilogo(); }
   const {da,al,cols,righe}=_RIP_ULTIMO;
@@ -8034,7 +8189,7 @@ function ripExportXLSX(){
   const tot=_ripRigaVals({}).map((_,i)=>righe.reduce((a,r)=>a+_ripRigaVals(r)[i],0));
   aoa.push(['TOTALE',...cols.map((c,i)=>r2(righe.reduce((a,r)=>a+r.daily[i],0))),...tot.map(r2)]);
   const ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols']=[{wch:24},...cols.map(()=>({wch:11})),{wch:10},{wch:16},{wch:15},{wch:12},{wch:10},{wch:11},{wch:10},{wch:10},{wch:18}];
+  ws['!cols']=[{wch:24},...cols.map(()=>({wch:11})),{wch:10},{wch:16},{wch:15},{wch:14},{wch:14},{wch:13},{wch:10},{wch:11},{wch:10},{wch:10},{wch:18}];
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Riepilogo Dipendenti');
   const fn=`riepilogo_dipendenti_${da}_${al}.xlsx`;
   try{ XLSX.writeFile(wb,fn); }
