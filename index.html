@@ -1146,13 +1146,22 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
   <div id="pg-saldi" class="pg">
     <div class="pt">Saldi Dipendenti</div>
-    <div class="ps">Maturato · Pagato · Residuo da pagare</div>
-    <div class="sg" id="sal-kpi"></div>
-    <div class="sal-grid" id="sal-cards"></div>
-    <div class="tc">
-      <div class="th"><h3>Prospetto completo</h3><input class="ts" placeholder="Cerca..." oninput="filterT('sal-tb',this.value)"></div>
-      <div style="overflow-x:auto"><table><thead><tr><th>Dipendente</th><th>Maturato</th><th>Pagato/dato</th><th>⚠ Danni scalati</th><th>Residuo</th><th>Stato</th></tr></thead><tbody id="sal-tb"></tbody></table></div>
+    <div class="ps">Quanto spetta a ciascuno ad oggi (o a una data): maturato, anticipi, corrisposto, danni e rettifiche. Tocca una cella per modificarla.</div>
+    <div class="fc" style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600">Situazione al</span>
+        <input type="date" id="sal-al" onchange="salData(this.value)" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;padding:7px 8px;color:var(--text)">
+        <button class="bs rip-seg" onclick="salData(null)">📅 Oggi</button>
+        <button class="bs rip-seg" id="sal-btn-tutti" onclick="salToggleTutti()">👥 Mostra tutti</button>
+        <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="bs" onclick="nav('riepilogo')">📋 Riepilogo per periodo</button>
+          <button class="bs" onclick="apriRettificheApertura()">⚙️ Rettifiche apertura</button>
+        </div>
+      </div>
     </div>
+    <div class="sg" id="sal-kpi"></div>
+    <div class="tc"><div style="overflow-x:auto" id="sal-tbwrap"></div></div>
+    <div id="sal-note" style="font-size:11px;color:var(--text2);margin-top:10px;line-height:1.5"></div>
   </div>
 
   <!-- RIEPILOGO DIPENDENTI (periodo selezionabile, celle modificabili) -->
@@ -7450,82 +7459,71 @@ function apriEstrattoConto(dipId){
   document.body.insertAdjacentHTML('beforeend', html);
 }
 
+// ═══ SALDI DIPENDENTI — situazione progressiva a una data, stesse voci del Riepilogo ═══
+//   saldo = apertura/rettifiche + maturato − anticipi − corrisposto − scalature danni (tutto fino alla data)
+let SAL_AL=null;      // data della situazione (null = oggi)
+let SAL_TUTTI=false;  // mostra anche chi non ha mai avuto movimenti
+const SAL_INIZIO='1900-01-01';
+function salData(v){ SAL_AL=v||null; rSaldi(); }
+function salToggleTutti(){ SAL_TUTTI=!SAL_TUTTI; rSaldi(); }
 function rSaldi(){
-  // calcola per ogni persona nel periodo RANGE
-  // Saldo progressivo (tutto lo storico) — quello che conta per pagare
   ricalcolaSaldi();
-  const periodoSaldi = DB.saldi.map(s=>{
-    // Maturato solo nel periodo selezionato (per info)
-    let matPeriodo=0;
-    Object.keys(DB.presenze).filter(d=>inRange(d)).forEach(d=>{
-      matPeriodo+=totaleCompetenza(d, s.dipId); // usa turni con competenza
-    });
-    const antPeriodo=DB.anticipi
-      .filter(a=>a.dipId===s.dipId&&inRange(a.data)&&a.metodo!=='Anticipo da pagamento')
-      .reduce((a,x)=>a+x.importo,0);
-    const pagPeriodo=(DB.pagamenti||[])
-      .filter(pg=>pg.dipId===s.dipId&&inRange(pg.data))
-      .reduce((a,x)=>a+parseFloat(x.pagato||0),0);
-    return {
-      id:s.dipId, nome:s.nome,
-      // progressivo (tutto storico)
-      maturato:s.maturato, apertura:s.apertura||0, anticipi:s.anticipi, pagamenti:s.pagamenti,
-      scalature:s.scalature||0, addebiti:s.addebiti||0, saldo:s.saldo,
-      // periodo (solo intervallo selezionato)
-      matPeriodo, antPeriodo, pagPeriodo
-    };
-  }).filter(x=>x.maturato>0||x.anticipi>0||x.pagamenti>0||x.saldo!==0);
-
-  const totM=periodoSaldi.reduce((a,s)=>a+s.maturato,0);
-  const totA=periodoSaldi.reduce((a,s)=>a+s.anticipi,0);
-  const totP=periodoSaldi.reduce((a,s)=>a+(s.pagamenti||0),0);
-  const totSc=periodoSaldi.reduce((a,s)=>a+(s.scalature||0),0);
-  const totS=periodoSaldi.reduce((a,s)=>a+s.saldo,0);
-  const totCrediti=periodoSaldi.filter(s=>s.saldo<-0.009).reduce((a,s)=>a+Math.abs(s.saldo),0);
-  const totDebiti=periodoSaldi.filter(s=>s.saldo>0.009).reduce((a,s)=>a+s.saldo,0);
-
+  sincronizzaPersonale();
+  _RIP_MATIDX=_ripMatIndex();
+  try{ _rSaldi(); } finally { _RIP_MATIDX=null; }
+}
+function _rSaldi(){
+  const X=SAL_AL||today();
+  const dopo=nextDay(X);
+  const eX=document.getElementById('sal-al'); if(eX) eX.value=X;
+  const bt=document.getElementById('sal-btn-tutti'); if(bt){ bt.classList.toggle('on',SAL_TUTTI); bt.textContent=SAL_TUTTI?'👥 Solo attivi':'👥 Mostra tutti'; }
+  const righe=(DB.personale||[]).map(p=>{
+    const ap=aperturaDi(p.id)+_retRange(p.id,null,X);
+    const mat=_matRange(p.id,null,X), ant=_antRange(p.id,null,X), pag=_pagRange(p.id,null,X), scal=_scalRange(p.id,null,X);
+    const saldo=ap+mat-ant-pag-scal;
+    const danniRes=_danniResiduoAl(p.id,X);
+    return {id:p.id, nome:p.nome, ap, mat, ant, pag, scal, saldo, danniRes};
+  }).filter(r=>SAL_TUTTI || r.mat>0.009||r.ant>0.009||r.pag>0.009||r.danniRes>0.009||Math.abs(r.saldo)>0.009||Math.abs(r.ap)>0.009)
+    .sort((a,b)=>b.saldo-a.saldo || a.nome.localeCompare(b.nome));
+  const T=k=>righe.reduce((a,r)=>a+r[k],0);
+  const debiti=righe.filter(r=>r.saldo>0.009), crediti=righe.filter(r=>r.saldo<-0.009);
+  const totDeb=debiti.reduce((a,r)=>a+r.saldo,0), totCred=crediti.reduce((a,r)=>a-r.saldo,0);
   document.getElementById('sal-kpi').innerHTML=`
-    <div class="sc"><div class="lb">Maturato totale</div><div class="vl" style="font-size:20px">${fmt(totM)}</div><div class="sb2">storico completo</div></div>
-    <div class="sc"><div class="lb">Pagato/dato totale</div><div class="vl rr" style="font-size:20px">${fmt(totA+totP)}</div><div class="sb2">anticipi + pagamenti · storico completo</div></div>
-    ${totSc>0?`<div class="sc" style="border-color:rgba(232,84,84,.4)"><div class="lb">⚠ Danni scalati</div><div class="vl rr" style="font-size:20px">${fmt(totSc)}</div><div class="sb2">storico completo</div></div>`:''}
-    <div class="sc"><div class="lb">Da pagare</div><div class="vl or" style="font-size:20px">${fmt(totDebiti)}</div><div class="sb2">${periodoSaldi.filter(s=>s.saldo>0.009).length} persone</div></div>
-    ${totCrediti>0?`<div class="sc" style="border-color:rgba(75,232,122,.3)"><div class="lb">⊕ Crediti</div><div class="vl gr" style="font-size:20px">${fmt(totCrediti)}</div><div class="sb2">${periodoSaldi.filter(s=>s.saldo<-0.009).length} persone</div></div>`:''}`;
-
-  document.getElementById('sal-cards').innerHTML=periodoSaldi.length
-    ? periodoSaldi.map(s=>`
-    <div class="sal-c" style="${s.saldo<-0.009?'border-color:rgba(75,232,122,.3)':''}">
-      <div class="sn">${s.nome}</div>
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;margin-bottom:6px">── Saldo progressivo (tutto lo storico)</div>
-      <div class="sr"><span class="lb">Maturato tot.</span><span>${fmt(s.maturato)}</span></div>
-      ${s.apertura>0?`<div class="sr" style="color:var(--teal)"><span class="lb">＋ Apertura / rettifiche</span><span>${fmt(s.apertura)}</span></div>`:''}
-      <div class="sr"><span class="lb">Pagato/dato tot.</span><span class="rr">${(s.anticipi+s.pagamenti)?fmt(s.anticipi+s.pagamenti):'—'}</span></div>
-      ${s.scalature>0?`<div class="sr" style="color:var(--red)"><span class="lb">⚠ Danni scalati</span><span class="rr">${fmt(s.scalature)}</span></div>`:''}
-      ${s.addebiti>0?`<div class="sr" style="color:var(--gold)"><span class="lb">⚠ Danni residui</span><span>${fmt(s.addebiti)}</span></div>`:''}
-      <div class="ss"><span>${s.saldo<-0.009?'⊕ CREDITO':s.saldo>0.009?'DA PAGARE':'✓ SALDATO'}</span><span class="${classSaldo(s.saldo)}">${fmtSaldo(s.saldo)}</span></div>
-      ${s.saldo>0.009?`<button onclick="saldaOra('${s.id}')" style="margin-top:8px;width:100%;background:rgba(154,122,31,.1);border:1px solid var(--teal);border-radius:8px;padding:8px;color:var(--teal);font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer">💰 Salda ora (${fmtSaldo(s.saldo)})</button>`:''}
-      ${s.saldo<-0.009?`<div style="margin-top:6px;font-size:11px;color:var(--green)">⊕ Hai pagato ${fmt(Math.abs(s.saldo))} in più — verrà scalato dalla prossima settimana</div>`:''}
-      <button onclick="apriEstrattoConto('${s.id}')" style="margin-top:8px;width:100%;background:transparent;border:1px solid var(--brd);border-radius:8px;padding:7px;color:var(--text2);font-family:'IBM Plex Sans',sans-serif;font-size:11.5px;font-weight:600;cursor:pointer">📒 Estratto conto — tutti i movimenti</button>
-      ${(s.matPeriodo||s.antPeriodo||s.pagPeriodo)?`
-      <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--brd);font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;margin-bottom:6px">── Solo periodo selezionato</div>
-      <div class="sr"><span class="lb">Maturato</span><span>${fmt(s.matPeriodo)}</span></div>
-      ${(s.antPeriodo||s.pagPeriodo)?`<div class="sr"><span class="lb">Pagato/dato</span><span class="rr">${fmt((s.antPeriodo||0)+(s.pagPeriodo||0))}</span></div>`:''}
-      <div class="sr" style="border-top:1px dashed var(--brd);padding-top:4px"><span class="lb">Risultato del periodo</span><span style="font-weight:700">${(s.matPeriodo-(s.antPeriodo||0)-(s.pagPeriodo||0))>=0?'+':''}${fmt(s.matPeriodo-(s.antPeriodo||0)-(s.pagPeriodo||0))}</span></div>
-      <div style="font-size:10px;color:var(--text2);margin-top:2px">⚠ non è il saldo: il conto vero (tutta la storia) è il numero grande sopra</div>
-      `:''}
-    </div>`).join('')
-    : '<div class="empty">Nessun dato</div>';
-
-  document.getElementById('sal-tb').innerHTML=periodoSaldi.length
-    ? periodoSaldi.map(s=>`
-    <tr>
-      <td><b>${s.nome}</b></td>
-      <td class="mn">${fmt(s.maturato)}</td>
-      <td class="mn rr">${(s.anticipi+s.pagamenti)?fmt(s.anticipi+s.pagamenti):'—'}</td>
-      <td class="mn rr" style="color:var(--red)">${s.scalature>0?fmt(s.scalature):'—'}</td>
-      <td class="mn ${classSaldo(s.saldo)}">${fmtSaldo(s.saldo)}</td>
-      <td><span class="bx ${s.saldo<-0.009?'bg':s.saldo>0.009?'bo':'bg'}">${s.saldo<-0.009?'⊕ CREDITO':s.saldo>0.009?'DA PAGARE':'✓ SALDATO'}</span></td>
-    </tr>`).join('')
-    : '<tr><td colspan="6" class="empty">Nessun dato nel periodo</td></tr>';
+    <div class="sc"><div class="lb">Maturato totale</div><div class="vl" style="font-size:20px">${fmt(T('mat'))}</div><div class="sb2">fino al ${fdate(X)}</div></div>
+    <div class="sc"><div class="lb">Dato (anticipi + corrisposto)</div><div class="vl rr" style="font-size:20px">${fmt(T('ant')+T('pag'))}</div></div>
+    <div class="sc"><div class="lb">Da pagare</div><div class="vl or" style="font-size:20px">${fmt(totDeb)}</div><div class="sb2">${debiti.length} persone</div></div>
+    <div class="sc"><div class="lb">Anticipi storici</div><div class="vl" style="font-size:20px;color:var(--gold)">${fmt(totCred)}</div><div class="sb2">${crediti.length} persone · da recuperare</div></div>
+    ${T('danniRes')>0.009?`<div class="sc" style="border-color:rgba(232,84,84,.35)"><div class="lb">⚠ Danni residui</div><div class="vl" style="font-size:20px;color:var(--red)">${fmt(T('danniRes'))}</div><div class="sb2">ancora da scalare</div></div>`:''}`;
+  const dash='<span style="color:var(--text2)">—</span>';
+  const c=(v,cls)=>Math.abs(v)>0.009?`<span class="${cls||''}">${fmt(v)}</span>`:dash;
+  const ed=(tipo,pid,a,b,extra)=>`class="mn rip-ed" onclick="ripCella(this,'${tipo}','${pid}','${a}','${b}'${extra?`,'${extra}'`:''})"`;
+  const stato=v=>v>0.009?'<span class="bx bo">DA PAGARE</span>':v<-0.009?'<span class="bx" style="background:rgba(232,184,75,.15);color:var(--gold)">ANTICIPO</span>':'<span class="bx bg">✓ SALDATO</span>';
+  const body=righe.map(r=>`<tr>
+    <td class="rip-stk"><b style="cursor:pointer" onclick="apriEstrattoConto('${r.id}')" title="Estratto conto">${r.nome}</b></td>
+    <td class="mn" style="text-align:right;cursor:pointer" onclick="apriEstrattoConto('${r.id}')" title="Il maturato si modifica dai giorni nel Riepilogo o dalle Presenze">${c(r.mat)}</td>
+    <td ${ed('ant',r.id,SAL_INIZIO,X)} style="text-align:right">${c(r.ant,'rr')}</td>
+    <td ${ed('pag',r.id,SAL_INIZIO,X,'')} style="text-align:right">${c(r.pag,'gr')}</td>
+    <td ${ed('sca',r.id,SAL_INIZIO,X)} style="text-align:right">${r.scal>0.009?`<span style="color:var(--red)">−${fmt(r.scal)}</span>`:dash}</td>
+    <td class="mn rip-ed" style="text-align:right" onclick="ripEdit('sto','${r.id}','${dopo}','${dopo}')" title="Apertura e rettifiche: tocca per il dettaglio">${c(r.ap,'')}</td>
+    <td ${ed('sto',r.id,dopo,dopo)} style="text-align:right;font-weight:800;font-size:14px;background:rgba(154,122,31,.06)">${r.saldo>0.009?`<span class="or">${fmt(r.saldo)}</span>`:r.saldo<-0.009?`<span style="color:var(--gold)">${fmt(r.saldo)}</span>`:'<span class="gr">✓</span>'}</td>
+    <td class="mn rip-ed" style="text-align:right" onclick="ripEdit('res','${r.id}','${SAL_INIZIO}','${X}')">${r.danniRes>0.009?`<span style="color:var(--gold)">${fmt(r.danniRes)}</span>`:dash}</td>
+    <td>${stato(r.saldo)}</td>
+    <td>${r.saldo>0.009&&!SAL_AL?`<button class="bs" style="padding:5px 10px;font-size:11.5px;white-space:nowrap" onclick="saldaOra('${r.id}')">💰 Salda</button>`:''}</td>
+  </tr>`).join('');
+  const tf=v=>`<td class="mn" style="text-align:right;font-weight:800">${Math.abs(v)>0.009?fmt(v):'—'}</td>`;
+  document.getElementById('sal-tbwrap').innerHTML = righe.length ? `<table class="rip-tb" style="min-width:980px"><thead><tr>
+      <th class="rip-stk">Dipendente</th><th style="text-align:right">Maturato</th><th style="text-align:right">Anticipi</th>
+      <th style="text-align:right">Effettivamente corrisposto</th><th style="text-align:right">Scalature danni</th>
+      <th style="text-align:right" title="Saldo di apertura (lavoro pregresso) + rettifiche">Apertura / rettifiche</th>
+      <th style="text-align:right">Saldo</th><th style="text-align:right">Danni residui</th><th>Stato</th><th></th></tr></thead>
+    <tbody>${body}</tbody>
+    <tfoot><tr style="border-top:2px solid var(--brd);background:rgba(255,255,255,.03)"><td class="rip-stk"><b>TOTALE</b></td>
+      ${tf(T('mat'))}${tf(T('ant'))}${tf(T('pag'))}${tf(T('scal'))}${tf(T('ap'))}${tf(T('saldo'))}${tf(T('danniRes'))}<td></td><td></td></tr></tfoot></table>`
+    : '<div class="empty" style="padding:20px">Nessun dipendente con movimenti.</div>';
+  document.getElementById('sal-note').innerHTML=`
+    <b>✏️ Tocca una cella e scrivi:</b> <b>Saldo</b> = scrivi il saldo giusto al ${fdate(X)} e viene registrata una rettifica datata ${fdate(X)} per la differenza;
+    <b>Anticipi / Corrisposto / Scalature</b> si modificano come nel Riepilogo (con più movimenti si apre il dettaglio ☰); <b>Apertura / rettifiche</b> e <b>Danni residui</b> aprono il dettaglio. Il nome o il maturato aprono l'estratto conto.<br>
+    <b>Saldo</b> = apertura/rettifiche + maturato − anticipi − corrisposto − scalature danni, tutto fino al ${fdate(X)}. In arancio = da pagare al dipendente; in oro = anticipo storico da recuperare. I danni residui non riducono il saldo finché non vengono scalati.`;
 }
 
 // ============================================================
@@ -7803,7 +7801,9 @@ function _rRiepilogo(){
 }
 function _isoPrev(iso){ if(!iso) return null; const d=new Date(iso+'T12:00'); d.setDate(d.getDate()-1); return _isoD(d); }
 
-// ═══ EDITOR DELLE CELLE DEL RIEPILOGO ═══
+// ═══ EDITOR DELLE CELLE DEL RIEPILOGO (usati anche dalla pagina Saldi) ═══
+function _ripPerTxt(da,al){ return (typeof SAL_INIZIO!=='undefined' && da===SAL_INIZIO) ? 'tutto lo storico fino al '+fdate(al) : fdate(da)+' → '+fdate(al); }
+function _ripRefresh(){ if(curPg==='saldi') rSaldi(); else rRiepilogo(); }
 const _ripNum=v=>{ const n=parseFloat(String(v==null?'':v).replace(/\s/g,'').replace(',','.')); return isFinite(n)?Math.round(n*100)/100:0; };
 const _ripInp='background:var(--navy);border:1px solid var(--brd);border-radius:6px;padding:7px 8px;color:var(--text);font-family:inherit;font-size:13px';
 function _ripChiudi(){ document.getElementById('modal-rip-ed')?.remove(); }
@@ -7818,7 +7818,7 @@ function _ripModal(titolo, sotto, corpo, piede){
   setTimeout(()=>{ const f=document.querySelector('#modal-rip-ed [data-focus]'); if(f){ f.focus(); try{ f.select(); }catch(e){} } },50);
   document.querySelectorAll('#modal-rip-ed input').forEach(i=>i.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('rip-ed-ok')?.click(); } }));
 }
-function _ripDopoModifica(msg){ ricalcolaSaldi(); save(); _ripChiudi(); rRiepilogo(); toast(msg||'Salvato ✓'); }
+function _ripDopoModifica(msg){ ricalcolaSaldi(); save(); _ripChiudi(); _ripRefresh(); toast(msg||'Salvato ✓'); }
 let _RIP_ED=null; // contesto dell'editor aperto
 function ripEdit(tipo, pid, da, al, extra){
   const p=(DB.personale||[]).find(x=>x.id===pid); if(!p) return;
@@ -7894,7 +7894,7 @@ function ripCella(td, tipo, pid, da, al, extra){
     <button class="rip-det" title="Dettaglio movimenti" style="background:none;border:1px solid var(--brd);border-radius:6px;color:var(--text2);padding:4px 6px;cursor:pointer;font-size:12px">☰</button></div>`;
   const inp=td.querySelector('input'), det=td.querySelector('.rip-det');
   let fatto=false;
-  const fine=(salva)=>{ if(fatto) return; fatto=true; if(salva) _ripSalvaCella(tipo,pid,da,al,extra,inp.value,R); else rRiepilogo(); };
+  const fine=(salva)=>{ if(fatto) return; fatto=true; if(salva) _ripSalvaCella(tipo,pid,da,al,extra,inp.value,R); else _ripRefresh(); };
   inp.addEventListener('keydown',e=>{
     if(e.key==='Enter'){ e.preventDefault(); fine(true); }
     else if(e.key==='Escape'){ e.preventDefault(); fine(false); }
@@ -7909,7 +7909,7 @@ function _ripSalvaCella(tipo, pid, da, al, extra, raw, R){
   const nome=_RIP_ED.nome;
   const v=_ripNum(raw);
   const prima=Math.round(R.valore*100)/100;
-  if(Math.abs(v-prima)<0.005){ rRiepilogo(); return; }
+  if(Math.abs(v-prima)<0.005){ _ripRefresh(); return; }
   const r0=R.list[0];
   if(tipo==='mat'){
     if(r0){
@@ -7922,7 +7922,7 @@ function _ripSalvaCella(tipo, pid, da, al, extra, raw, R){
         const tt=legacy?pr.turni[0]:pr.turni.find(x=>x.id===t.id);
         if(tt && !turni.includes(tt)){ turni.push(tt); prs.add(pr); }
       });
-      if(!turni.length){ rRiepilogo(); return; }
+      if(!turni.length){ _ripRefresh(); return; }
       if(turni.length===1) turni[0].importo=v;
       else {
         const {quote,ore,criterio}=_ripQuote(turni, v);
@@ -7944,12 +7944,12 @@ function _ripSalvaCella(tipo, pid, da, al, extra, raw, R){
     else if(v>0) DB.anticipi.push({id:uid(), data:_ripDefData(da,al), dipId:pid, dipNome:nome, importo:v, metodo:'Contanti', note:''});
   } else if(tipo==='pag'){
     if(r0){ if(v>0) r0.pagato=v; else DB.pagamenti=DB.pagamenti.filter(x=>x!==r0); }
-    else if(v>0) DB.pagamenti.push({id:uid(), data:_ripDefData(da,al), dipId:pid, dipNome:nome, periodoDa:da, periodoAl:al,
+    else if(v>0) DB.pagamenti.push({id:uid(), data:_ripDefData(da,al), dipId:pid, dipNome:nome, periodoDa:(da===SAL_INIZIO?'':da), periodoAl:al,
       maturato:_matRange(pid,da,al), anticipiDati:_antRange(pid,da,al), pagato:v, metodo:extra||'Contanti', note:''});
   } else if(tipo==='dan'){
     if(r0){
       if(v>0){ r0.importo=v; _dannoChiusura(r0); }
-      else if((r0.scalature||[]).length){ toast('⚠ Il danno ha già delle scalature: eliminalo dal dettaglio ☰'); rRiepilogo(); return; }
+      else if((r0.scalature||[]).length){ toast('⚠ Il danno ha già delle scalature: eliminalo dal dettaglio ☰'); _ripRefresh(); return; }
       else DB.addebiti=DB.addebiti.filter(x=>x!==r0);
     } else if(v>0){
       if(!DB.addebiti) DB.addebiti=[];
@@ -7968,9 +7968,9 @@ function _ripSalvaCella(tipo, pid, da, al, extra, raw, R){
   } else if(tipo==='sto'){
     const diff=Math.round((v-_ripStorico(pid,da))*100)/100;
     if(!DB.rettificheDip) DB.rettificheDip=[];
-    DB.rettificheDip.push({id:uid(), dipId:pid, dipNome:nome, data:_isoPrev(da), importo:diff, note:'Rettifica storico dal Riepilogo', creato:new Date().toISOString()});
+    DB.rettificheDip.push({id:uid(), dipId:pid, dipNome:nome, data:_isoPrev(da), importo:diff, note:(curPg==='saldi'?'Rettifica saldo dalla pagina Saldi':'Rettifica storico dal Riepilogo'), creato:new Date().toISOString()});
   }
-  ricalcolaSaldi(); save(); rRiepilogo();
+  ricalcolaSaldi(); save(); _ripRefresh();
   toast(`${nome}: salvato ✓`);
 }
 // — Maturato: compensi dei turni di competenza nei giorni della cella —
@@ -8006,7 +8006,7 @@ function _ripEdMat(){
       </div>
     </div>`;
   }).join('');
-  _ripModal('✏️ Maturato — '+nome, giorni.length===1?fdate(da):fdate(da)+' → '+fdate(al)+' · modifica i compensi dei turni',
+  _ripModal('✏️ Maturato — '+nome, giorni.length===1?fdate(da):_ripPerTxt(da,al)+' · modifica i compensi dei turni',
     `<datalist id="rip-cant-dl">${nomiCant.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">`).join('')}</datalist>
      <div style="max-height:60vh;overflow:auto">${blocchi}</div>
      <div style="font-size:11px;color:var(--text2);margin-top:6px">Per orari e cantieri completi usa la pagina Presenze. Un importo a 0 lascia il turno con compenso zero.</div>`,
@@ -8071,7 +8071,7 @@ function _ripEdAnt(){
     ${nuovo?'<span></span>':`<button class="bd" onclick="_ripDel('anticipi','${a.id}')" title="Elimina">✕</button>`}
   </div>`;
   const defData = (today()>=da && today()<=al) ? today() : al;
-  _ripModal('💸 Anticipi — '+nome, fdate(da)+' → '+fdate(al),
+  _ripModal('💸 Anticipi — '+nome, _ripPerTxt(da,al),
     `<div style="overflow-x:auto"><div style="min-width:520px">
       <div style="display:grid;grid-template-columns:130px 100px 105px 1fr 34px;gap:6px;font-size:10.5px;text-transform:uppercase;color:var(--text2);margin-bottom:4px"><span>Data</span><span style="text-align:right">Importo</span><span>Metodo</span><span>Note</span><span></span></div>
       ${lista.map(a=>riga(a,false)).join('')}
@@ -8113,7 +8113,7 @@ function _ripEdPag(){
     ${nuovo?'<span></span>':`<button class="bd" onclick="_ripDel('pagamenti','${p.id}')" title="Elimina">✕</button>`}
   </div>`;
   const defData = (today()>=da && today()<=al) ? today() : al;
-  _ripModal('💶 '+(extra?'Pagamenti '+extra:'Effettivamente corrisposto')+' — '+nome, fdate(da)+' → '+fdate(al),
+  _ripModal('💶 '+(extra?'Pagamenti '+extra:'Effettivamente corrisposto')+' — '+nome, _ripPerTxt(da,al),
     `<div style="overflow-x:auto"><div style="min-width:520px">
       <div style="display:grid;grid-template-columns:130px 100px 105px 1fr 34px;gap:6px;font-size:10.5px;text-transform:uppercase;color:var(--text2);margin-bottom:4px"><span>Data</span><span style="text-align:right">Pagato</span><span>Metodo</span><span>Note</span><span></span></div>
       ${lista.map(p=>riga(p,false)).join('')}
@@ -8135,7 +8135,7 @@ function _ripSalvaPag(){
         p.data=data||p.data; p.pagato=imp; p.metodo=metodo; p.note=note; n++;
       }
     } else if(imp){
-      DB.pagamenti.push({id:uid(), data:data||today(), dipId:pid, dipNome:nome, periodoDa:da, periodoAl:al,
+      DB.pagamenti.push({id:uid(), data:data||today(), dipId:pid, dipNome:nome, periodoDa:(da===SAL_INIZIO?'':da), periodoAl:al,
         maturato:_matRange(pid,da,al), anticipiDati:_antRange(pid,da,al), pagato:imp, metodo, note}); n++;
     }
   });
@@ -8145,7 +8145,7 @@ function _ripSalvaPag(){
 function _ripDel(col, id){
   if(!confirm('Eliminare questo movimento?')) return;
   DB[col]=(DB[col]||[]).filter(x=>x.id!==id);
-  ricalcolaSaldi(); save(); rRiepilogo();
+  ricalcolaSaldi(); save(); _ripRefresh();
   ({anticipi:_ripEdAnt, pagamenti:_ripEdPag, rettificheDip:_ripEdSto}[col]||(()=>{}))();
   toast('Eliminato ✓');
 }
@@ -8169,7 +8169,7 @@ function _ripEdDan(){
     ${nuovo?'<span></span>':`<button class="bd" onclick="_ripDelDanno('${a.id}')" title="Elimina">✕</button>`}
   </div>`;};
   const defData = (today()>=da && today()<=al) ? today() : al;
-  _ripModal('⚠️ '+(soloPer?'Danni del periodo':'Danni ancora da scalare')+' — '+nome, soloPer?fdate(da)+' → '+fdate(al):'situazione al '+fdate(al),
+  _ripModal('⚠️ '+(soloPer?'Danni del periodo':'Danni ancora da scalare')+' — '+nome, soloPer?_ripPerTxt(da,al):'situazione al '+fdate(al),
     `<div style="overflow-x:auto"><div style="min-width:600px">
       <div style="${grid};font-size:10.5px;text-transform:uppercase;color:var(--text2);margin-bottom:4px"><span>Data</span><span>Descrizione</span><span>Mezzo</span><span style="text-align:right">Importo</span><span style="text-align:right">Stato</span><span></span></div>
       ${lista.map(a=>riga(a,false)).join('')}
@@ -8204,7 +8204,7 @@ function _ripDelDanno(id){
   const sc=(a.scalature||[]).length;
   if(!confirm('Eliminare questo danno?'+(sc?`\nVerranno eliminate anche le sue ${sc} scalature (le quote trattenute tornano nel saldo del dipendente).`:''))) return;
   DB.addebiti=DB.addebiti.filter(x=>x.id!==id);
-  ricalcolaSaldi(); save(); rRiepilogo(); _ripEdDan(); toast('Danno eliminato ✓');
+  ricalcolaSaldi(); save(); _ripRefresh(); _ripEdDan(); toast('Danno eliminato ✓');
 }
 // — Scalature danni del periodo: quote trattenute dalla paga —
 function _ripEdSca(){
@@ -8230,7 +8230,7 @@ function _ripEdSca(){
     <select class="r-danno" style="${_ripInp}"><option value="">Automatico: dal danno più vecchio (FIFO)</option>${aperti.map(a=>`<option value="${a.id}">${lbl(a)} — res. ${fmt(resDi(a))}</option>`).join('')}</select>
     <input type="number" step="0.01" inputmode="decimal" class="r-imp" placeholder="€"${quote.length?'':' data-focus'} style="${_ripInp};text-align:right">
     <span></span></div>` : '<div style="font-size:12px;color:var(--text2);padding:4px 0">Nessun danno aperto da scalare.</div>';
-  _ripModal('✂️ Scalature danni — '+nome, fdate(da)+' → '+fdate(al)+' · quote trattenute dalla paga',
+  _ripModal('✂️ Scalature danni — '+nome, _ripPerTxt(da,al)+' · quote trattenute dalla paga',
     `<div style="overflow-x:auto"><div style="min-width:520px">
       <div style="${grid};font-size:10.5px;text-transform:uppercase;color:var(--text2);margin-bottom:4px"><span>Data</span><span>Danno</span><span style="text-align:right">Quota</span><span></span></div>
       ${righe||'<div style="font-size:12px;color:var(--text2);padding:4px 0 8px">Nessuna scalatura nel periodo.</div>'}
@@ -8281,7 +8281,7 @@ function _ripDelScal(aid, sid, old){
   const i=_ripTrovaScal(a, sid, old); if(i<0) return;
   if(!confirm('Eliminare questa scalatura? La quota torna nel saldo del dipendente e nel residuo del danno.')) return;
   a.scalature.splice(i,1); _dannoChiusura(a);
-  ricalcolaSaldi(); save(); rRiepilogo(); _ripEdSca(); toast('Scalatura eliminata ✓');
+  ricalcolaSaldi(); save(); _ripRefresh(); _ripEdSca(); toast('Scalatura eliminata ✓');
 }
 // — Anticipi storici: rettifica datata del saldo pregresso —
 function _ripEdSto(){
@@ -8297,7 +8297,7 @@ function _ripEdSto(){
     ['Danni scalati fino al '+fdate(vigilia), -_scalRange(pid,null,vigilia)]
   ].filter(x=>Math.abs(x[1])>0.009);
   const rett=(DB.rettificheDip||[]).filter(r=>r.dipId===pid).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
-  _ripModal('📌 Anticipi storici — '+nome, 'Saldo trascinato al '+fdate(da)+' (tutto ciò che è successo prima)',
+  _ripModal((curPg==='saldi'?'📌 Saldo al '+fdate(vigilia):'📌 Anticipi storici')+' — '+nome, curPg==='saldi'?'Saldo progressivo: tutto ciò che è successo fino al '+fdate(vigilia)+' compreso':'Saldo trascinato al '+fdate(da)+' (tutto ciò che è successo prima)',
     `<table style="width:100%;font-size:12.5px;margin-bottom:12px">${comp.map(c=>`<tr><td style="padding:3px 0">${c[0]}</td><td class="mn" style="text-align:right;color:${c[1]<0?'var(--red)':'var(--text)'}">${fmt(c[1])}</td></tr>`).join('')}
       <tr style="border-top:2px solid var(--brd)"><td style="padding:5px 0"><b>Storico al ${fdate(da)}</b></td><td class="mn" style="text-align:right;font-weight:800;color:${sto<-0.009?'var(--gold)':'var(--green)'}">${fmt(sto)}</td></tr></table>
     <div style="font-size:12px;color:var(--text2);margin-bottom:8px">${sto<-0.009?`Anticipo storico: ${nome} ha ricevuto ${fmt(-sto)} in più del maturato.`:sto>0.009?`Credito: a ${nome} spettano ancora ${fmt(sto)} dai periodi precedenti.`:'Nessun residuo dai periodi precedenti.'}</div>
