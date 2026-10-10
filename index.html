@@ -2590,6 +2590,13 @@ function _ricavoCommessa(c){
   return Math.max(prev, _fatturatoCantiere(c));
 }
 
+// ── IVA: budget/ricavo sono NETTI, le fatture nel DB sono LORDE (solo totale).
+// Per confrontare "da fatturare" (netto) e per il margine (costi netti) si
+// converte lordo→netto con l'aliquota standard (default 22%, modificabile in
+// DB.config.ivaStd). "Da incassare" e "debito fornitori" restano LORDI (cassa).
+function _ivaStd(){ const v=(DB.config&&DB.config.ivaStd!=null)?parseFloat(DB.config.ivaStd):0.22; return (isFinite(v)&&v>=0&&v<1)?v:0.22; }
+function _netIVA(gross){ return (parseFloat(gross)||0)/(1+_ivaStd()); }
+
 // Salva/aggiorna il budget di un cantiere nel Gestionale
 function setBudget(cantiereId, cantiereName, ricavo, note){
   if(!DB.budgetCantieri) DB.budgetCantieri=[];
@@ -5295,7 +5302,7 @@ function _buildCostiCache(){
   _fa.forEach(f=>{
     let nome=f.cantiere_nome||'';
     if(!nome && f.cantiere_id){ const c=(DB.cantieri||[]).find(x=>x.id===f.cantiere_id); if(c) nome=c.nome; }
-    if(nome) reg(nome,'fornitori', f.importo||0);
+    if(nome) reg(nome,'fornitori', _netIVA(f.importo||0));   // costo NETTO: l'IVA sugli acquisti è recuperabile, non è un costo
   });
 }
 
@@ -5736,7 +5743,7 @@ async function rDettFatture(cant, nome){
   const fatturato=vive.reduce((s,f)=>s+(+f.importo||0),0);
   const incassato=vive.reduce((s,f)=> s + (f.stato==='pagata' ? (+f.importo||0) : Math.min(_fattAccTot(f),+f.importo||0)), 0);
   const daIncassare=vive.reduce((s,f)=> s + (f.stato==='emessa' ? _fattResiduo(f) : 0), 0);
-  const daFatturare=budget>0 ? Math.max(0, budget-fatturato) : 0;
+  const daFatturare=budget>0 ? Math.max(0, budget-_netIVA(fatturato)) : 0;   // budget netto − fatturato convertito a netto (IVA)
   const tuttoSaldato=vive.length>0 && daIncassare<=0.01 && daFatturare<=0.01;
   const statoBadge={da_emettere:['Da emettere','#8a94a6'],emessa:['Emessa','#4a8fd0'],pagata:['Pagata','#3aa08c'],annullata:['⊘ Annullata (NC)','#6b7280']};
   let h=`<div style="background:var(--card);border:1px solid ${tuttoSaldato?'rgba(58,160,140,.4)':'var(--brd)'};border-radius:12px;padding:14px 16px">
@@ -5762,7 +5769,7 @@ async function rDettFatture(cant, nome){
     <span style="color:var(--text2)">Fatturato: <b style="color:var(--text)">${fmtE(fatturato)}</b></span>
     <span style="color:var(--text2)">Incassato: <b style="color:var(--green)">${fmtE(incassato)}</b></span>
     <span style="color:var(--text2)">Da incassare: <b style="color:${daIncassare>0.01?'var(--gold)':'var(--green)'}">${fmtE(daIncassare)}</b></span>
-    ${budget>0?`<span style="color:var(--text2)">Da fatturare: <b style="color:${daFatturare>0.01?'#c98fd0':'var(--green)'}">${fmtE(daFatturare)}</b> <span style="font-size:10px">(budget ${fmtE(budget)})</span></span>`:''}
+    ${budget>0?`<span style="color:var(--text2)">Da fatturare: <b style="color:${daFatturare>0.01?'#c98fd0':'var(--green)'}">${fmtE(daFatturare)}</b> <span style="font-size:10px">(budget netto ${fmtE(budget)} − fatturato netto)</span></span>`:''}
   </div></div>`;
   box.innerHTML=h;
 }
@@ -11906,11 +11913,13 @@ function _pcCompute(){
       const tp = periodiC.reduce((s,p)=>s+(parseFloat(p.importo)||0),0);
       if(tp>0){ e.daFatt.push({c, r:tp, inc:incC, soc:socNome, periodi:periodiC.length}); e.daFattTot+=tp; ps.daFatturare+=tp; }
     } else {
-      const quasiCoperto = fatt>0 && (fatt>=r*0.98 || fatt>=(r/1.22)*0.98);            // tollera IVA 22% (budget netto vs fattura lorda)
+      // budget è NETTO: confronto col fatturato convertito a netto (IVA) e con gli incassi senza fattura a netto
+      const fattNet=_netIVA(fatt), incCnet=_netIVA(incC);
+      const quasiCoperto = fattNet>0 && fattNet>=r*0.98;
       if(r>0 && !quasiCoperto){
         if(fatt<=0 && copertoDaFattSciolta(c,key,r)){ /* coperto da fattura sciolta: niente da-fatturare */ }
         else {
-          const daF=Math.max(0, r - fatt - incC);                                      // budget MENO già fatturato MENO incassi senza fattura
+          const daF=Math.max(0, r - fattNet - incCnet);                                 // budget netto MENO fatturato netto MENO incassi netti senza fattura
           if(daF>Math.max(1,r*0.02)){ e.daFatt.push({c, r:daF, inc:incC, soc:socNome}); e.daFattTot+=daF; ps.daFatturare+=daF; }
         }
       } else if(r<=0 && incC<=0 && fatt<=0 && c.stato==='concluso'){
