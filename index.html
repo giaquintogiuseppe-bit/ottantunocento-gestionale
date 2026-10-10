@@ -7723,7 +7723,7 @@ function _rRiepilogo(){
     const saldo = apertura + maturato + retSett - antSett - scalSett;
     // riporto = saldo − pagato = saldo di chiusura → storico del periodo dopo
     const riporto = saldo - pagSett;
-    return {id:p.id, nome:p.nome, daily, maturato, antSett, apertura, retSett, scalSett, danniSett, danniRes, saldo, met, pagSett, riporto};
+    return {id:p.id, nome:p.nome, daily, maturato, antSett, daCorr:maturato-antSett, apertura, retSett, scalSett, danniSett, danniRes, saldo, met, pagSett, riporto};
   }).filter(r=> RIP_TUTTI
       ? (_matRange(r.id,null,null)>0.009 || _antRange(r.id,null,null)>0.009 || _pagRange(r.id,null,null)>0.009 || Math.abs(r.apertura)>0.009)
       : (r.maturato>0.009 || r.antSett>0.009 || r.pagSett>0.009 || r.danniSett>0.009 || r.scalSett>0.009 || r.danniRes>0.009 || Math.abs(r.apertura)>0.009 || Math.abs(r.riporto)>0.009) )
@@ -7751,6 +7751,7 @@ function _rRiepilogo(){
     ${C.cols.map(c=>`<th style="text-align:right;font-size:11px;white-space:nowrap">${c.label}</th>`).join('')}
     <th style="text-align:right">Maturato</th>
     <th style="text-align:right">Anticipi periodo</th>
+    <th style="text-align:right" title="Maturato del periodo − anticipi del periodo (senza lo storico)">Da corrispondere periodo</th>
     <th style="text-align:right" title="Saldo trascinato dai periodi precedenti: in oro = anticipo storico da recuperare, in verde = credito del dipendente">Anticipi storici</th>
     <th style="text-align:right" title="Danni registrati nel periodo (data dell'evento)">Danni</th>
     <th style="text-align:right" title="Quote dei danni trattenute dalla paga nel periodo: riducono il saldo">Scalature danni</th>
@@ -7766,6 +7767,7 @@ function _rRiepilogo(){
     ${r.daily.map((v,i)=>`<td ${ed('mat',r.id,C.cols[i].da,C.cols[i].al)} style="text-align:right;font-size:12px;${v>0?'':'color:var(--text2)'}">${v>0?fmt(v):'·'}</td>`).join('')}
     <td class="mn" style="text-align:right;font-weight:800">${fmt(r.maturato)}</td>
     <td ${ed('ant',r.id,da,al)} style="text-align:right">${fmtCell(r.antSett,'rr')}</td>
+    <td class="mn" style="text-align:right;font-weight:700;background:rgba(154,122,31,.06)">${r.daCorr>0.009?`<span class="or">${fmt(r.daCorr)}</span>`:r.daCorr<-0.009?`<span style="color:var(--gold)">${fmt(r.daCorr)}</span>`:dash}</td>
     <td ${ed('sto',r.id,da,al)} style="text-align:right">${r.apertura<-0.009?`<span style="color:var(--gold)">${fmt(r.apertura)}</span>`:fmtCell(r.apertura,'gr')}${Math.abs(r.retSett)>0.009?`<div style="font-size:10px;color:var(--teal)">rett. ${fmt(r.retSett)}</div>`:''}</td>
     <td ${ed('dan',r.id,da,al)} style="text-align:right">${r.danniSett>0.009?`<span style="color:var(--red)">${fmt(r.danniSett)}</span>`:dash}</td>
     <td ${ed('sca',r.id,da,al)} style="text-align:right">${r.scalSett>0.009?`<span style="color:var(--red)">−${fmt(r.scalSett)}</span>`:dash}</td>
@@ -7780,7 +7782,7 @@ function _rRiepilogo(){
   const foot=`<tr style="border-top:2px solid var(--brd);background:rgba(255,255,255,.03)">
     <td class="rip-stk"><b>TOTALE</b></td>
     ${C.cols.map((c,i)=>tf(righe.reduce((a,r)=>a+r.daily[i],0))).join('')}
-    ${tf(T('maturato'))}${tf(T('antSett'))}${tf(T('apertura'))}${tf(T('danniSett'))}${tf(T('scalSett'))}${tf(T('danniRes'))}${tf(T('saldo'))}
+    ${tf(T('maturato'))}${tf(T('antSett'))}${tf(T('daCorr'))}${tf(T('apertura'))}${tf(T('danniSett'))}${tf(T('scalSett'))}${tf(T('danniRes'))}${tf(T('saldo'))}
     ${tf(T(r=>r.met.Bonifico))}${tf(T(r=>r.met.Revolut))}${tf(T(r=>r.met.Contanti))}${tf(T('riporto'))}
   </tr>`;
   document.getElementById('rip-tbwrap').innerHTML = righe.length
@@ -7789,6 +7791,7 @@ function _rRiepilogo(){
 
   document.getElementById('rip-note').innerHTML=`
     <b>✏️ Tocca una cella e scrivi il nuovo importo</b> (Invio o tocca fuori per salvare, Esc per annullare; 0 o vuoto elimina il movimento). Su un giorno con più turni (più cantieri) il totale scritto viene <b>ripartito in proporzione alle ore</b> di ogni turno. Se dietro la cella ci sono più movimenti, o tocchi ☰, si apre il dettaglio: i giorni/settimane mostrano i compensi dei turni, <b>Anticipi periodo</b> gli anticipi dati, <b>Danni/Scalature/Residui</b> i danni e le trattenute, <b>Bonifico/Revolut/Contanti</b> i pagamenti, <b>Anticipi storici</b> la rettifica del saldo pregresso. Il nome apre l'estratto conto.<br>
+    <b>Da corrispondere periodo</b> = maturato del periodo − anticipi del periodo (solo questo periodo, senza storico né danni).
     <b>Anticipi storici</b> = saldo trascinato dai periodi precedenti (in oro = anticipo non ancora recuperato; in verde = credito del dipendente).
     <b>Danni</b> = danni registrati nel periodo (non toccano il saldo finché non vengono scalati); <b>Scalature danni</b> = quote trattenute dalla paga nel periodo; <b>Danni residui</b> = ancora da trattenere a fine periodo.
     <b>Saldo</b> = storico + maturato − anticipi − scalature danni = quanto resta da regolare.
@@ -8324,9 +8327,9 @@ function _ripSalvaSto(){
 
 function _ripIntest(){
   const {cols}=_RIP_ULTIMO;
-  return ['Dipendente',...cols.map(c=>c.label),'Maturato','Anticipi periodo','Anticipi storici','Danni registrati','Scalature danni','Danni residui','Saldo','Bonifico','Revolut','Contanti','Riporto periodo succ.'];
+  return ['Dipendente',...cols.map(c=>c.label),'Maturato','Anticipi periodo','Da corrispondere periodo','Anticipi storici','Danni registrati','Scalature danni','Danni residui','Saldo','Bonifico','Revolut','Contanti','Riporto periodo succ.'];
 }
-function _ripRigaVals(r){ return [r.maturato,r.antSett,r.apertura,r.danniSett,r.scalSett,r.danniRes,r.saldo,r.met.Bonifico,r.met.Revolut,r.met.Contanti,r.riporto]; }
+function _ripRigaVals(r){ return [r.maturato,r.antSett,r.daCorr,r.apertura,r.danniSett,r.scalSett,r.danniRes,r.saldo,r.met.Bonifico,r.met.Revolut,r.met.Contanti,r.riporto]; }
 function ripExportCSV(){
   if(!_RIP_ULTIMO){ rRiepilogo(); }
   const {da,al,cols,righe}=_RIP_ULTIMO;
@@ -8355,7 +8358,7 @@ function ripExportXLSX(){
   const tot=_ripRigaVals({}).map((_,i)=>righe.reduce((a,r)=>a+_ripRigaVals(r)[i],0));
   aoa.push(['TOTALE',...cols.map((c,i)=>r2(righe.reduce((a,r)=>a+r.daily[i],0))),...tot.map(r2)]);
   const ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols']=[{wch:24},...cols.map(()=>({wch:11})),{wch:10},{wch:16},{wch:15},{wch:14},{wch:14},{wch:13},{wch:10},{wch:11},{wch:10},{wch:10},{wch:18}];
+  ws['!cols']=[{wch:24},...cols.map(()=>({wch:11})),{wch:10},{wch:16},{wch:22},{wch:15},{wch:14},{wch:14},{wch:13},{wch:10},{wch:11},{wch:10},{wch:10},{wch:18}];
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Riepilogo Dipendenti');
   const fn=`riepilogo_dipendenti_${da}_${al}.xlsx`;
   try{ XLSX.writeFile(wb,fn); }
