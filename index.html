@@ -11759,6 +11759,25 @@ function _pcNorm(s){
 function _pcAcc(f){ return Array.isArray(f.acconti)?f.acconti.reduce(function(s,a){return s+(+a.importo||0);},0):0; }
 function _pcRicavo(c){ return (+c.ricavo||0) || getBudget(c.id,c.nome) || 0; }
 
+// Periodi di fatturazione (tabella cloud 'periodi') per cantiere APERTI (da fatturare).
+// Caricati da rPosizioneClienti e usati da _pcCompute per le commesse continuative (es. Gaeta).
+let _pcPeriodiByCant = {};
+async function _pcCaricaPeriodi(){
+  try{
+    const A=_INTAPI();
+    const r=await fetch(A.url+'?select=commessa_id,importo,fatturato,stato,numero,data_inizio,data_fine&limit=5000',{headers:A.h,cache:'no-cache'});
+    const rows=r.ok?await r.json():[];
+    const m={};
+    (Array.isArray(rows)?rows:[]).forEach(p=>{
+      if(!p||!p.commessa_id) return;
+      const aperto = !(p.fatturato===true || p.stato==='fatturato');   // "da fatturare"
+      if(!aperto) return;
+      (m[p.commessa_id]=m[p.commessa_id]||[]).push(p);
+    });
+    _pcPeriodiByCant=m;
+  }catch(e){ _pcPeriodiByCant={}; }
+}
+
 // Costruisce la mappa clienti unendo fatture (esposizione) e cantieri (da fatturare/quantificare)
 function _pcCompute(){
   const map={};
@@ -11826,15 +11845,23 @@ function _pcCompute(){
     const incC = (typeof _pcCantIncassi==='function') ? _pcCantIncassi(c.id) : 0;   // incassi registrati SENZA fattura sul cantiere
     const fatt = fattByCant[c.id]||0;                                                // già fatturato (qualsiasi società)
     if(incC>0){ e.incassato += Math.min(incC, r||incC); ps.incassato += Math.min(incC, r||incC); } // incassi senza fattura: contano come incassato
-    const quasiCoperto = fatt>0 && (fatt>=r*0.98 || fatt>=(r/1.22)*0.98);            // tollera IVA 22% (budget netto vs fattura lorda)
-    if(r>0 && !quasiCoperto){
-      if(fatt<=0 && copertoDaFattSciolta(c,key,r)){ /* coperto da fattura sciolta: niente da-fatturare */ }
-      else {
-        const daF=Math.max(0, r - fatt - incC);                                      // budget MENO già fatturato MENO incassi senza fattura
-        if(daF>Math.max(1,r*0.02)){ e.daFatt.push({c, r:daF, inc:incC, soc:socNome}); e.daFattTot+=daF; ps.daFatturare+=daF; }
+    // Periodi di fatturazione registrati (tabella 'periodi', es. continuative come Gaeta):
+    // se il cantiere ha periodi APERTI, sono LORO il "da fatturare" autorevole, NON il budget−fatturato.
+    const periodiC = (_pcPeriodiByCant && _pcPeriodiByCant[c.id]) ? _pcPeriodiByCant[c.id] : null;
+    if(periodiC && periodiC.length){
+      const tp = periodiC.reduce((s,p)=>s+(parseFloat(p.importo)||0),0);
+      if(tp>0){ e.daFatt.push({c, r:tp, inc:incC, soc:socNome, periodi:periodiC.length}); e.daFattTot+=tp; ps.daFatturare+=tp; }
+    } else {
+      const quasiCoperto = fatt>0 && (fatt>=r*0.98 || fatt>=(r/1.22)*0.98);            // tollera IVA 22% (budget netto vs fattura lorda)
+      if(r>0 && !quasiCoperto){
+        if(fatt<=0 && copertoDaFattSciolta(c,key,r)){ /* coperto da fattura sciolta: niente da-fatturare */ }
+        else {
+          const daF=Math.max(0, r - fatt - incC);                                      // budget MENO già fatturato MENO incassi senza fattura
+          if(daF>Math.max(1,r*0.02)){ e.daFatt.push({c, r:daF, inc:incC, soc:socNome}); e.daFattTot+=daF; ps.daFatturare+=daF; }
+        }
+      } else if(r<=0 && incC<=0 && fatt<=0 && c.stato==='concluso'){
+        e.daQuant.push(c);
       }
-    } else if(r<=0 && incC<=0 && fatt<=0 && c.stato==='concluso'){
-      e.daQuant.push(c);
     }
   });
   const list=Object.values(map);
@@ -11847,6 +11874,7 @@ function _pcCompute(){
 async function rPosizioneClienti(){
   const el=document.getElementById('pc-list'); if(el) el.innerHTML='<div style="color:var(--text2);padding:16px">Carico le fatture…</div>';
   try{ const F=_FAPI(); const r=await fetch(F.url+'?select=*',{headers:F.h,cache:'no-cache'}); _fatture=await r.json(); }catch(e){ /* usa quelle in memoria */ }
+  await _pcCaricaPeriodi();   // periodi di fatturazione aperti (commesse continuative come Gaeta)
   if((!REF||!REF.length) && typeof refLoad==='function'){ try{ await refLoad(); }catch(e){} }  // serve per la ricerca per referente
   pcRender();
 }
@@ -11918,7 +11946,7 @@ function _pcCard(e,i){
   if(e.daFatt.length){
     det+='<div class="sl" style="margin-top:12px">📝 Cantieri da fatturare</div>';
     det+=e.daFatt.slice().sort((a,b)=>b.r-a.r).map(o=>'<div onclick="event.stopPropagation();apriDett(\''+o.c.id+'\')" style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--brd);cursor:pointer">'+
-      '<div><span style="font-weight:600">'+esc(o.c.nome)+'</span> <span style="color:var(--text2);font-size:11px">· '+esc(o.c.stato||'')+'</span>'+((o.inc>0)?' <span style="color:var(--green);font-size:11px">· già incassato '+fmtE(o.inc)+' senza fattura</span>':'')+'</div>'+
+      '<div><span style="font-weight:600">'+esc(o.c.nome)+'</span> <span style="color:var(--text2);font-size:11px">· '+esc(o.c.stato||'')+'</span>'+(o.periodi?' <span style="color:#c98fd0;font-size:11px">· '+o.periodi+' periodi</span>':'')+((o.inc>0)?' <span style="color:var(--green);font-size:11px">· già incassato '+fmtE(o.inc)+' senza fattura</span>':'')+'</div>'+
       '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0"><div style="font-family:\'DM Mono\',monospace;font-weight:700;color:#c98fd0">'+fmtE(o.r)+'</div>'+
       '<button onclick="event.stopPropagation();incApriCantiere(\''+o.c.id+'\')" style="border:1px solid var(--green);color:var(--green);background:transparent;border-radius:8px;padding:5px 9px;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer">💶 Senza fatt.</button></div></div>').join('');
   }
@@ -11975,7 +12003,7 @@ function pcReportPosizione(key){
   if(e.daFatt.length){
     dfH=`<div class="sl" style="margin-top:16px">📝 Cantieri da fatturare</div>`+
       e.daFatt.slice().sort((a,b)=>b.r-a.r).map(o=>`<div onclick="document.getElementById('modal-pc-report')?.remove();apriDett('${o.c.id}')" style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--brd);cursor:pointer">
-        <div style="min-width:0"><span style="font-weight:600">${esc(o.c.nome)}</span> <span style="color:var(--text2);font-size:11px">${o.soc?'· '+esc(o.soc):''} · ${esc(o.c.stato||'')}</span></div>
+        <div style="min-width:0"><span style="font-weight:600">${esc(o.c.nome)}</span> <span style="color:var(--text2);font-size:11px">${o.soc?'· '+esc(o.soc):''} · ${esc(o.c.stato||'')}${o.periodi?' · '+o.periodi+' periodi da fatturare':''}</span></div>
         <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:#c98fd0;flex-shrink:0">${money(o.r)}</div></div>`).join('');
   }
   let emH='';
