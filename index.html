@@ -3632,10 +3632,12 @@ async function fattImportaXML(input){
   // fornitori in `fatture_acquisto` (alimentata anche dalla riconciliazione banca).
   const _nrm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
   let esistenti=[], esistentiFA=[];
-  try{ const F=_FAPI(); const r=await fetch(F.url+'?select=numero,cliente&limit=5000',{headers:F.h,cache:'no-cache'}); esistenti=await r.json(); }catch(e){}
+  try{ const F=_FAPI(); const r=await fetch(F.url+'?select=numero,cliente,importo,data_fattura,stato&limit=5000',{headers:F.h,cache:'no-cache'}); esistenti=await r.json(); }catch(e){}
   try{ const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=numero,rif_fornitore,fornitore&limit=8000',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'}); esistentiFA=await r.json(); }catch(e){}
   const chiaveCli=new Set(esistenti.map(f=>_nrm(String(f.numero||'').split('/')[0])+'|'+_nrm(f.cliente)));
+  const chiaveCliImp=new Set((esistenti||[]).filter(f=>f.stato!=='annullata').map(f=>_dupChiaveCliImporto(f.numero,f.data_fattura,f.importo)).filter(Boolean));
   const chiaveFor=new Set(); (esistentiFA||[]).forEach(f=>{ const nf=_nrm(f.fornitore); chiaveFor.add(nf+'|'+_nrm(f.rif_fornitore)); chiaveFor.add(nf+'|'+_nrm(String(f.numero||'').split('/').pop())); });
+  const chiaveForN=new Set(); (esistentiFA||[]).forEach(f=>_dupChiaviForn(f).forEach(k=>chiaveForN.add(k)));
   const nuove=[], doppie=[], errori=[];
   for(const file of utili){
     try{
@@ -3646,7 +3648,10 @@ async function fattImportaXML(input){
       const isFor = d.tipo==='fornitore';
       const chiave = isFor ? (_nrm(d.controparte)+'|'+_nrm(d.numero))
                            : (_nrm(String(d.numero||'').split('/')[0])+'|'+_nrm(d.controparte));
-      if(isFor ? chiaveFor.has(chiave) : chiaveCli.has(chiave)){ doppie.push(d); continue; }
+      const _dupF = isFor && _dupChiaviForn({fornitore:d.controparte, numero:d.numero}).some(k=>chiaveForN.has(k));
+      const _ckI = !isFor ? _dupChiaveCliImporto(d.numero, d.data, d.importo) : '';
+      const _dupC = !isFor && _ckI && chiaveCliImp.has(_ckI);
+      if(isFor ? (chiaveFor.has(chiave)||_dupF) : (chiaveCli.has(chiave)||_dupC)){ doppie.push(d); continue; }
       // suggerisce cantiere dalla descrizione (cerca un nome cantiere citato)
       d._cantiereSugg='';
       const desc=(d.descrizione||'').toLowerCase();
@@ -3734,7 +3739,8 @@ async function fattImportaConferma(){
       let es=[]; try{ const r=await fetch(faURL+'?select=numero,rif_fornitore,fornitore&limit=8000',{headers:faH,cache:'no-cache'}); es=await r.json(); }catch(e){}
       if(!Array.isArray(es) || es.length===0){ toast('⚠ Non leggo le fatture fornitore già presenti (sessione scaduta?). Import annullato per non creare doppioni.'); _impInCorso=false; if(btn) btn.disabled=false; return; }
       const gia=new Set(); (es||[]).forEach(f=>{ const nf=_n2(f.fornitore); gia.add(nf+'|'+_n2(f.rif_fornitore)); gia.add(nf+'|'+_n2(String(f.numero||'').split('/').pop())); });
-      const da=forn.filter(d=>!gia.has(_n2(d.controparte)+'|'+_n2(d.numero)));
+      const giaN=new Set(); (es||[]).forEach(f=>_dupChiaviForn(f).forEach(k=>giaN.add(k)));
+      const da=forn.filter(d=>!gia.has(_n2(d.controparte)+'|'+_n2(d.numero)) && !_dupChiaviForn({fornitore:d.controparte, numero:d.numero}).some(k=>giaN.has(k)));
       skip += forn.length-da.length;
       if(da.length){
         const payload=da.map(d=>{ const cant=(DB.cantieri||[]).find(c=>c.id===d._cantiereFinale); return {
@@ -5331,6 +5337,7 @@ function _buildCostiCache(){
   // della commessa. Usa le righe caricate dalla pagina Fatture Fornitori o dal cruscotto.
   const _fa=(typeof _faRows!=='undefined'&&Array.isArray(_faRows))?_faRows:((typeof _fffRows!=='undefined'&&Array.isArray(_fffRows))?_fffRows:[]);
   _fa.forEach(f=>{
+    if(f.stato_verificato==='doppione') return;   // doppione di import: non è un costo
     let nome=f.cantiere_nome||'';
     if(!nome && f.cantiere_id){ const c=(DB.cantieri||[]).find(x=>x.id===f.cantiere_id); if(c) nome=c.nome; }
     if(nome) reg(nome,'fornitori', _netIVA(f.importo||0));   // costo NETTO: l'IVA sugli acquisti è recuperabile, non è un costo
@@ -5696,7 +5703,7 @@ function rDettEco(cant, nome){
   // Elenco fatture fornitori agganciate a questo cantiere (voce per voce, senza doppio conteggio: leggo le stesse righe già sommate nel totale)
   const _kNomeFa=(nome||'').toLowerCase().trim().replace(/\s+/g,' ');
   const _faList=((typeof _faRows!=='undefined'&&Array.isArray(_faRows))?_faRows:((typeof _fffRows!=='undefined'&&Array.isArray(_fffRows))?_fffRows:[]))
-    .filter(f=>{ let n=f.cantiere_nome||''; if(!n && f.cantiere_id){ const c=(DB.cantieri||[]).find(x=>x.id===f.cantiere_id); if(c) n=c.nome; } return (n||'').toLowerCase().trim().replace(/\s+/g,' ')===_kNomeFa; })
+    .filter(f=>{ if(f.stato_verificato==='doppione') return false; let n=f.cantiere_nome||''; if(!n && f.cantiere_id){ const c=(DB.cantieri||[]).find(x=>x.id===f.cantiere_id); if(c) n=c.nome; } return (n||'').toLowerCase().trim().replace(/\s+/g,' ')===_kNomeFa; })
     .sort((a,b)=>(parseFloat(b.importo)||0)-(parseFloat(a.importo)||0));
   const rigaForn=(costi.fornitori||0)
     ? riga('Fatture fornitori', -(costi.fornitori||0))
@@ -6032,6 +6039,7 @@ async function esportaDettExcel(nomeArg){
   const _kNomeFaX=(nome||'').toLowerCase().trim().replace(/\s+/g,' ');
   const _faAllX=(typeof _faRows!=='undefined'&&Array.isArray(_faRows))?_faRows:((typeof _fffRows!=='undefined'&&Array.isArray(_fffRows))?_fffRows:[]);
   const faList=_faAllX.filter(f=>{
+    if(f.stato_verificato==='doppione') return false;
     let n=f.cantiere_nome||''; if(!n && f.cantiere_id){ const c=(DB.cantieri||[]).find(x=>x.id===f.cantiere_id); if(c) n=c.nome; }
     if((n||'').toLowerCase().trim().replace(/\s+/g,' ')!==_kNomeFaX) return false;
     return (!da||(f.data_fattura&&f.data_fattura>=da)) && (!al||(f.data_fattura&&f.data_fattura<=al));
@@ -14100,20 +14108,23 @@ async function _wdProcessFatt(rows, opt){
     }
     // carica esistenti per anti-doppione (stessa chiave del modale: numero-base + cliente)
     let esistenti=[];
-    try{ const F=_FAPI(); const r=await fetch(F.url+'?select=numero,cliente&limit=5000',{headers:F.h,cache:'no-cache'}); esistenti=await r.json(); }catch(e){}
+    try{ const F=_FAPI(); const r=await fetch(F.url+'?select=numero,cliente,importo,data_fattura,stato&limit=5000',{headers:F.h,cache:'no-cache'}); esistenti=await r.json(); }catch(e){}
     // 🛡 GUARDIA ANTI-DUPLICAZIONE (04/10/2026): se la lettura delle fatture già presenti
     // torna vuota (tipicamente sessione scaduta → l'RLS vede l'app come anon e nasconde tutto),
     // l'anti-doppione sarebbe CIECO e importerebbe l'intero storico come "nuovo". Meglio fermarsi.
     if(!Array.isArray(esistenti) || esistenti.length===0){ toast('⚠ Non riesco a leggere le fatture già presenti (sessione scaduta?). Esci e rientra, poi riprova — import annullato per non creare doppioni.'); return; }
     const _nrm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
     const gia=new Set((esistenti||[]).map(f=>_nrm(String(f.numero||'').split('/')[0])+'|'+_nrm(f.cliente)));
+    // stesso numero + anno + importo = doppione anche col nome cliente scritto diverso (es. "EVENT GENERETION")
+    const giaImp=new Set((esistenti||[]).filter(f=>f.stato!=='annullata').map(f=>_dupChiaveCliImporto(f.numero,f.data_fattura,f.importo)).filter(Boolean));
     const nuove=[], doppie=[];
     Object.values(inv).forEach(d=>{
       d.descrizione=[...new Set(d.descrizioni)].join(' · ').slice(0,200); delete d.descrizioni;
       // stato: SOLO "Pagata" → pagata (trappola Web Desk: "Scaduta" ≠ non pagata)
       d._statoFinale = (/pagat/i.test(d._statoWD)) ? 'pagata' : 'emessa';
       const chiave=_nrm(String(d.numero||'').split('/')[0])+'|'+_nrm(d.controparte);
-      if(gia.has(chiave)){ doppie.push(d); return; }
+      const _ckI=_dupChiaveCliImporto(d.numero, d.data, d.importo);
+      if(gia.has(chiave) || (_ckI && giaImp.has(_ckI))){ doppie.push(d); return; }
       // suggerisce cantiere dalla descrizione
       d._cantiereSugg='';
       const desc=(d.descrizione||'').toLowerCase();
@@ -14125,6 +14136,28 @@ async function _wdProcessFatt(rows, opt){
     _impDaImportare=nuove;
     if(_fuoriAnno) toast('ℹ '+_fuoriAnno+' fatture di altri anni ignorate (filtro anno '+annoSel+')');
     _fattMostraImport(nuove, doppie, [], 0);
+}
+
+// ── ANTI-DOPPIONE ROBUSTO (12/10/2026) ──
+// Nome azienda normalizzato: senza accenti, punteggiatura e forma giuridica
+// ("TELEPASS S.P.A." = "Telepass SpA", "Audax Energia S.r.l." = "AUDAX ENERGIA Srl").
+function _dupAzienda(s){
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9 ]+/g,' ')
+    .replace(/\b(s ?r ?l ?s?|s ?p ?a|s ?a ?s|s ?n ?c|s ?c ?a ?r ?l|unipersonale|societa|a responsabilita limitata|semplificata|di)\b/g,' ')
+    .replace(/\s+/g,'').trim();
+}
+// Numero documento normalizzato: ultimo segmento dopo "/", solo alfanumerici, senza zeri iniziali
+function _dupNum(n){ const t=String(n||'').split('/').filter(Boolean); const seg=(t.length>1 && /^\d{4}$/.test(t[t.length-1]))?t[0]:(t.pop()||''); return seg.replace(/[^a-z0-9]/gi,'').toLowerCase().replace(/^0+/,''); }
+// Chiavi di una fattura fornitore esistente: numero interno E riferimento del fornitore
+// (Genya salva il protocollo in numero e il n. del fornitore in rif_fornitore, l'XML il contrario)
+function _dupChiaviForn(f){ const a=_dupAzienda(f.fornitore); const out=[]; [f.numero,f.rif_fornitore].forEach(x=>{ const n=_dupNum(x); if(n) out.push(a+'|'+n); }); return out; }
+// Fattura cliente: stesso numero-base + stesso anno + stesso importo = doppione anche se il nome cliente è scritto diverso
+function _dupChiaveCliImporto(numero, data, importo){
+  const nb=String(numero||'').split('/')[0].trim().replace(/^0+/,'');
+  const anno=(String(numero||'').split('/')[1]||'').trim()||String(data||'').slice(0,4);
+  const imp=Math.round((parseFloat(importo)||0)*100);
+  return nb&&imp ? nb+'|'+anno+'|'+imp : '';
 }
 
 // ── FORNITORI: fatture RICEVUTE → tabella fatture_acquisto (SOLO additivo) ──
@@ -14173,13 +14206,15 @@ async function _wdProcessForn(rows, srcName, opt){
     // Il rif_fornitore è storicamente incoerente tra le fonti (a volte è il n. protocollo,
     // a volte il n. documento del fornitore) quindi NON è affidabile per il confronto.
     let esistenti=[];
-    try{ const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=numero,fornitore&limit=20000',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'}); esistenti=await r.json(); }catch(e){}
+    try{ const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=numero,rif_fornitore,fornitore&limit=20000',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'}); esistenti=await r.json(); }catch(e){}
     // 🛡 GUARDIA ANTI-DUPLICAZIONE (04/10/2026): vedi nota in _wdProcessFatt. Se non vedo le
     // fatture esistenti (sessione scaduta → RLS anon → 0 righe) mi fermo invece di duplicare.
     if(!Array.isArray(esistenti) || esistenti.length===0){ toast('⚠ Non riesco a leggere le fatture fornitore già presenti (sessione scaduta?). Esci e rientra, poi riprova — import annullato per non creare doppioni.'); return; }
     const keyNF=(numero,forn)=>_nrm(numero)+'||'+_nrm(forn);
     const gia=new Set((esistenti||[]).map(f=>keyNF(f.numero, f.fornitore)));
-    const nuove=Object.values(inv).filter(d=>!gia.has(keyNF(d.numero, d.fornitore)));
+    // in più: stesso fornitore (nome normalizzato) + stesso n. documento, confrontando numero E rif_fornitore
+    const giaN=new Set(); (esistenti||[]).forEach(f=>_dupChiaviForn(f).forEach(k=>giaN.add(k)));
+    const nuove=Object.values(inv).filter(d=>!gia.has(keyNF(d.numero, d.fornitore)) && !_dupChiaviForn(d).some(k=>giaN.has(k)));
     const saltate=Object.keys(inv).length-nuove.length;
     if(!nuove.length){ toast('⊘ Tutte le '+Object.keys(inv).length+' fatture fornitore sono già presenti'); return; }
     nuove.sort((a,b)=>(a.data_fattura||'').localeCompare(b.data_fattura||''));
