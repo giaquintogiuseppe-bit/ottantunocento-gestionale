@@ -12584,7 +12584,9 @@ function _pcCompute(){
     });
   };
   (DB.cantieri||[]).forEach(c=>{
-    if(c.archiviato || c.stato==='perso') return;
+    // NB: c.archiviato è l'archivio OPERATIVO del Planning (pulizia della vista):
+    // non chiude la posizione economica, quindi il cantiere resta nel "da fatturare".
+    if(c.stato==='perso') return;
     const key0raw = (c.clienteId && cliById[c.clienteId]) ? _pcNorm(cliById[c.clienteId].ragioneSociale) : _pcNorm(c.committente);
     const key0 = key0raw || '(senza cliente)';
     const socNome = (c.clienteId && cliById[c.clienteId]) ? cliById[c.clienteId].ragioneSociale : (nomeAnag[key0]||c.committente||'(cliente da assegnare)');
