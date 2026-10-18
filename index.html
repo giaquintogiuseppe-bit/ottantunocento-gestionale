@@ -2682,7 +2682,9 @@ function save(){
   if(typeof cloudAutoSave === 'function') cloudAutoSave();
 }
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
-function today(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function today(){ return isoLocale(new Date()); }
+// Data di calendario LOCALE in YYYY-MM-DD (toISOString usa UTC: a mezzanotte locale dà il giorno prima)
+function isoLocale(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function fmt(n){return parseFloat(n||0).toLocaleString('it-IT',{style:'currency',currency:'EUR'});}
 function fdate(s){if(!s)return '—';const[y,m,d]=s.split('-');return`${d}/${m}/${y}`;}
 function gv(id){const e=document.getElementById(id);return e?e.value:'';}
@@ -2704,7 +2706,7 @@ function generaReport(){
   const dow = now.getDay(); // 0=dom
   const dom = new Date(now); dom.setDate(now.getDate() - dow);
   const sab = new Date(dom); sab.setDate(dom.getDate() + 6);
-  const fmt8 = d => d.toISOString().slice(0,10);
+  const fmt8 = isoLocale;
   const settDa = fmt8(dom);
   const settAl = fmt8(sab);
 
@@ -2772,7 +2774,7 @@ function generaReport(){
   const totMat  = righe.reduce((a,r)=>a+r.maturato,0);
 
   function kpiBox(x,y,w,lbl,val,color){
-    ctx.fillStyle = 'var(--brd)';
+    ctx.fillStyle = '#1a2d52'; // il canvas non risolve le var CSS: colori espliciti (report su fondo scuro)
     roundRect(ctx,x,y,w,36,8); ctx.fill();
     ctx.fillStyle = '#8a95a8';
     ctx.font = '10px -apple-system,Helvetica,Arial,sans-serif';
@@ -2821,7 +2823,7 @@ function generaReport(){
     ctx.textAlign='left';
 
     // Nome
-    ctx.fillStyle = 'var(--text)';
+    ctx.fillStyle = '#e8ecf3';
     ctx.font = 'bold 14px -apple-system,Helvetica,Arial,sans-serif';
     ctx.fillText(r.nome.split(' ').slice(0,2).join(' '), cols.nome+34, cy);
 
@@ -2838,7 +2840,7 @@ function generaReport(){
 
     // Valori
     function numCol(val, x){
-      ctx.fillStyle = val<0 ? '#4be87a' : val>0.01 ? 'var(--text)' : '#8a95a8';
+      ctx.fillStyle = val<0 ? '#4be87a' : val>0.01 ? '#e8ecf3' : '#8a95a8';
       ctx.font = '13px -apple-system,Helvetica,Arial,sans-serif';
       ctx.fillText(fm(val), x, cy);
     }
@@ -2856,7 +2858,7 @@ function generaReport(){
     ctx.fillText(saldoTxt, cols.sal-40, cy);
 
     // linea separatore
-    ctx.strokeStyle = 'var(--brd)';
+    ctx.strokeStyle = 'rgba(255,255,255,.08)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, y+ROW_H); ctx.lineTo(W, y+ROW_H); ctx.stroke();
   });
@@ -2951,6 +2953,22 @@ async function cloudVerificaConnessione(){
     return false;
   }
 }
+
+// Barra persistente "non salvato": resta finché un salvataggio non va a buon fine
+function _nonSalvatoMostra(motivo){
+  let b=document.getElementById('l81-nonsalvato');
+  if(!b){
+    b=document.createElement('div'); b.id='l81-nonsalvato';
+    b.setAttribute('style','position:fixed;top:0;left:0;right:0;z-index:2147482500;background:var(--red,#b23a2e);color:#fff;font-size:12.5px;font-weight:600;padding:calc(6px + env(safe-area-inset-top,0px)) 12px 6px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.25)');
+    b.innerHTML='<span class="ns-txt"></span><button type="button" style="background:#fff;color:var(--red,#b23a2e);border:0;border-radius:6px;padding:3px 10px;font-weight:700;font-size:12px;cursor:pointer;flex-shrink:0">Riprova</button>';
+    b.querySelector('button').onclick=()=>cloudSalva(false);
+    document.body.appendChild(b);
+  }
+  b.querySelector('.ns-txt').textContent='⚠ Modifiche NON salvate sul cloud: '+(motivo||'errore sconosciuto');
+  b.style.display='flex';
+  _modifichePendenti=true;   // finché non si salva, niente ricarica automatica (dati o codice) al rientro
+}
+function _nonSalvatoNascondi(){ const b=document.getElementById('l81-nonsalvato'); if(b && b.style.display!=='none'){ b.style.display='none'; _modifichePendenti=false; } }
 
 // Salva tutto il DB sul cloud
 async function cloudSalva(silenzioso){
@@ -3067,11 +3085,15 @@ async function cloudSalva(silenzioso){
       cloudUltimoSalvataggio = Date.now();
       const dot = document.getElementById('cloud-status-dot');
       if(dot) dot.style.background = '#4be87a';
+      _nonSalvatoNascondi();
     } else {
-      if(!silenzioso && log) log.innerHTML = `<div class="sl-warn">⚠ Errore: ${res.status}</div>`;
+      const motivo = await _httpErr(res);
+      if(!silenzioso && log) log.innerHTML = `<div class="sl-warn">⚠ Errore: ${esc(motivo)}</div>`;
+      _nonSalvatoMostra(motivo);
     }
   } catch(err){
-    if(!silenzioso && log) log.innerHTML = `<div class="sl-warn">⚠ Errore di rete: ${err.message}</div>`;
+    if(!silenzioso && log) log.innerHTML = `<div class="sl-warn">⚠ Errore di rete: ${esc(err.message)}</div>`;
+    _nonSalvatoMostra('errore di rete ('+(err.message||err)+')');
   } finally {
     cloudSyncInCorso = false;
   }
@@ -3235,7 +3257,7 @@ let RANGE = {from: null, to: null, preset: 'all'};
 function initRange(){
   // default all'apertura: SETTIMANA CORRENTE (Dom -> Sab)
   const now = new Date();
-  const fmt8 = d => d.toISOString().slice(0,10);
+  const fmt8 = isoLocale;
   const dom = new Date(now); dom.setDate(now.getDate()-now.getDay());   // domenica
   const sab = new Date(dom); sab.setDate(dom.getDate()+6);              // sabato
   const from = fmt8(dom), to = fmt8(sab);
@@ -3253,7 +3275,7 @@ function initRange(){
 
 function setPreset(p){
   const now = new Date();
-  const fmt8 = d => d.toISOString().slice(0,10);
+  const fmt8 = isoLocale;
   let from, to;
 
   if(p==='today'){
@@ -3355,7 +3377,11 @@ function parcoAperto(m){ return !['rientrata','trasferita','annullata'].includes
 function parcoTodayISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function parcoEuro(n){n=Number(n)||0;return '€ '+n.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function parcoDepNome(id){const d=PARCO.dep.find(x=>x.id===id);return d?d.nome:(id||'Deposito');}
-function parcoFuoriDi(id){const t=parcoTodayISO();return PARCO.mov.filter(m=>m.risorsa_id===id&&parcoAperto(m)&&m.a_tipo&&m.a_tipo!=='deposito'&&m.data_uscita<=t&&(!m.data_rientro||m.data_rientro>=t));}
+// Regola unica (come Planning): un'allocazione APERTA già uscita è FUORI finché non rientra davvero,
+// anche oltre il rientro previsto (in quel caso è "in ritardo", non torna in deposito da sola).
+function parcoFuori(m,t){ return parcoAperto(m)&&m.a_tipo&&m.a_tipo!=='deposito'&&m.data_uscita<=t; }
+function parcoInRitardo(m,t){ return parcoFuori(m,t)&&m.data_rientro&&m.data_rientro<t; }
+function parcoFuoriDi(id){const t=parcoTodayISO();return PARCO.mov.filter(m=>m.risorsa_id===id&&parcoFuori(m,t));}
 async function renderParco(){
   const kpi=document.getElementById('parco-kpi'), tb=document.getElementById('parco-tb');
   if(!kpi||!tb) return;
@@ -3363,8 +3389,8 @@ async function renderParco(){
     try{ await parcoLoad(); }catch(e){ tb.innerHTML='<tr><td colspan="6">Errore di caricamento.</td></tr>'; return; } }
   const t=parcoTodayISO();
   const valore=PARCO.ris.reduce((s,r)=>s+(Number(r.valore)||0)*(r.gestione==='univoca'?1:(Number(r.qty_totale)||0)),0);
-  const fuori=PARCO.mov.filter(m=>parcoAperto(m)&&m.a_tipo&&m.a_tipo!=='deposito'&&m.data_uscita<=t&&(!m.data_rientro||m.data_rientro>=t));
-  const ritardo=PARCO.mov.filter(m=>parcoAperto(m)&&m.a_tipo&&m.a_tipo!=='deposito'&&m.data_rientro&&m.data_rientro<t);
+  const fuori=PARCO.mov.filter(m=>parcoFuori(m,t));
+  const ritardo=PARCO.mov.filter(m=>parcoInRitardo(m,t));
   const nUniv=PARCO.ris.filter(r=>r.gestione==='univoca').length;
   kpi.innerHTML=`
     <div class="sc"><div class="scv">${PARCO.ris.length}</div><div class="scl">Risorse (${nUniv} attrezzi)</div></div>
@@ -3375,7 +3401,8 @@ async function renderParco(){
     const fu=parcoFuoriDi(r.id);
     const inDep=(Number(r.qty_totale)||0)-fu.reduce((s,m)=>s+(Number(m.qty)||0),0);
     let pos=[]; if(inDep>0.0001||!fu.length) pos.push('🏠 '+esc(parcoDepNome(r.deposito_base))+(r.gestione!=='univoca'?' ('+inDep+')':''));
-    fu.forEach(m=>pos.push((m.a_tipo==='mezzo'?'🚐':'🏗️')+' '+esc(m.a_nome||'')+(r.gestione!=='univoca'?' ('+m.qty+')':'')));
+    fu.forEach(m=>pos.push((m.a_tipo==='mezzo'?'🚐':'🏗️')+' '+esc(m.a_nome||'')+(r.gestione!=='univoca'?' ('+esc(m.qty)+')':'')
+      +(parcoInRitardo(m,t)?' <span style="color:var(--red);font-weight:700" title="Rientro previsto '+fdate(String(m.data_rientro).slice(0,10))+'">⏰ in ritardo</span>':'')));
     const glab=r.gestione==='univoca'?'attrezzo':(r.gestione==='consumabile'?'consumabile':'quantità');
     const val=(Number(r.valore)||0)*(r.gestione==='univoca'?1:(Number(r.qty_totale)||0));
     return `<tr><td><b>${esc(r.nome)}</b></td><td>${esc(r.categoria||'—')}</td><td>${glab}</td>
@@ -3409,7 +3436,7 @@ function _ultimaAttivita(c){
   return gg.length?gg[gg.length-1]:null;
 }
 function _daRivedere(){
-  const oggi=today(); const lim=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
+  const oggi=today(); const lim=isoLocale(new Date(Date.now()-7*864e5));
   return (DB.cantieri||[]).filter(c=>{
     if(c.stato!=='in corso'||c.archiviato) return false;
     if(c.revisioneSnooze && c.revisioneSnooze>oggi) return false;
@@ -3424,20 +3451,20 @@ function revisioneAzione(cid,az){
   const c=(DB.cantieri||[]).find(x=>x.id===cid); if(!c) return;
   if(az==='chiudi'){ c.stato='concluso'; c._statoManuale=false; toast('✅ "'+c.nome.slice(0,28)+'" chiuso'); }
   else if(az==='fermo'){ c.stato='fermo'; toast('⏸ "'+c.nome.slice(0,28)+'" fermo in attesa'); }
-  else if(az==='snooze'){ c.revisioneSnooze=new Date(Date.now()+7*864e5).toISOString().slice(0,10); toast('⏰ Te lo richiedo tra una settimana'); }
+  else if(az==='snooze'){ c.revisioneSnooze=isoLocale(new Date(Date.now()+7*864e5)); toast('⏰ Te lo richiedo tra una settimana'); }
   save(); rDash();
 }
 function rCruscotto(){
   const elR=document.getElementById('ds-revisione'), elC=document.getElementById('ds-cruscotto');
   if(!elC) return;
-  const oggi=today(); const tra7=new Date(Date.now()+7*864e5).toISOString().slice(0,10);
+  const oggi=today(); const tra7=isoLocale(new Date(Date.now()+7*864e5));
   const vivi=(DB.cantieri||[]).filter(c=>!c.archiviato&&!['concluso','perso'].includes(c.stato));
   // ❓ revisione
   const rev=_daRivedere();
   elR.innerHTML=!rev.length?'':`<div style="background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.35);border-radius:12px;padding:12px 14px;margin-bottom:14px">
     <div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:8px">❓ Che si fa con questi? (fermi da oltre una settimana, nessuna attività in vista)</div>
     ${rev.map(c=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid rgba(240,180,41,.15);flex-wrap:wrap">
-      <div style="font-size:12.5px;font-weight:600">${c.nome}<span style="color:var(--text2);font-weight:400"> · ultima attività ${_ultimaAttivita(c)?fdate(_ultimaAttivita(c)):'—'} · </span>${_pagBadge(c)}</div>
+      <div style="font-size:12.5px;font-weight:600">${esc(c.nome)}<span style="color:var(--text2);font-weight:400"> · ultima attività ${_ultimaAttivita(c)?fdate(_ultimaAttivita(c)):'—'} · </span>${_pagBadge(c)}</div>
       <div style="display:flex;gap:6px">
         <button class="bs" style="font-size:11px;padding:4px 10px" onclick="revisioneAzione('${c.id}','chiudi')">✅ Chiudi</button>
         <button class="bs" style="font-size:11px;padding:4px 10px" onclick="revisioneAzione('${c.id}','fermo')">⏸ Fermo</button>
@@ -3458,17 +3485,17 @@ function rCruscotto(){
     const quando=gg[0]===oggi?'OGGI':fdate(gg[0]).slice(0,5);
     return `<div onclick="apriDett('${c.id}')" style="background:var(--card);border:1px solid ${gg[0]===oggi?'var(--teal)':'var(--brd)'};border-radius:12px;padding:12px 14px;cursor:pointer;min-width:0">
       <div style="display:flex;justify-content:space-between;gap:6px;align-items:baseline">
-        <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nome}</div>
+        <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.nome)}</div>
         <span style="font-size:10px;font-weight:800;color:${gg[0]===oggi?'var(--teal)':'var(--gold)'}">${quando}</span>
       </div>
-      <div style="font-size:11px;color:var(--text2);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ivOggi.map(iv=>iv.descrizione||'attività').join(' · ')||'attività in programma'}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(ivOggi.map(iv=>iv.descrizione||'attività').join(' · ')||'attività in programma')}</div>
       <div style="display:flex;justify-content:space-between;margin-top:6px;align-items:center">
         <span style="font-size:10px;color:var(--text2)">👷 ${sq.length?sq.length+' pers.':'—'} · 📅 ${gg.length} gg/sett.</span>
         <span onclick="event.stopPropagation();ciclaStatoPag('${c.id}')" style="cursor:pointer" title="Tocca per cambiare lo stato pagamenti">${_pagBadge(c)}</span>
       </div></div>`;
   }).join('');
-  const rigaPiedi=piedi.map(c=>`<span onclick="apriDett('${c.id}')" style="display:inline-flex;align-items:center;gap:6px;background:rgba(122,138,160,.08);border:1px solid var(--brd);border-radius:8px;padding:4px 10px;font-size:11px;color:var(--text2);cursor:pointer;opacity:.75">${c.nome.length>26?c.nome.slice(0,24)+'…':c.nome} <span onclick="event.stopPropagation();ciclaStatoPag('${c.id}')">${_pagBadge(c)}</span></span>`).join(' ');
-  const rigaFermi=fermi.map(c=>`<span onclick="apriDett('${c.id}')" style="display:inline-flex;align-items:center;gap:6px;background:rgba(122,138,160,.06);border:1px dashed var(--brd);border-radius:8px;padding:4px 10px;font-size:11px;color:var(--text2);cursor:pointer;opacity:.6">⏸ ${c.nome.length>24?c.nome.slice(0,22)+'…':c.nome} <span onclick="event.stopPropagation();ciclaStatoPag('${c.id}')">${_pagBadge(c)}</span></span>`).join(' ');
+  const rigaPiedi=piedi.map(c=>`<span onclick="apriDett('${c.id}')" style="display:inline-flex;align-items:center;gap:6px;background:rgba(122,138,160,.08);border:1px solid var(--brd);border-radius:8px;padding:4px 10px;font-size:11px;color:var(--text2);cursor:pointer;opacity:.75">${esc(c.nome.length>26?c.nome.slice(0,24)+'…':c.nome)} <span onclick="event.stopPropagation();ciclaStatoPag('${c.id}')">${_pagBadge(c)}</span></span>`).join(' ');
+  const rigaFermi=fermi.map(c=>`<span onclick="apriDett('${c.id}')" style="display:inline-flex;align-items:center;gap:6px;background:rgba(122,138,160,.06);border:1px dashed var(--brd);border-radius:8px;padding:4px 10px;font-size:11px;color:var(--text2);cursor:pointer;opacity:.6">⏸ ${esc(c.nome.length>24?c.nome.slice(0,22)+'…':c.nome)} <span onclick="event.stopPropagation();ciclaStatoPag('${c.id}')">${_pagBadge(c)}</span></span>`).join(' ');
   elC.innerHTML=`
     <div class="sl">🔥 In lavorazione — prossimi 7 giorni</div>
     ${lav.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-bottom:14px">${cardLav}</div>`:'<div style="font-size:12px;color:var(--text2);margin-bottom:14px">Nessuna attività programmata nei prossimi 7 giorni.</div>'}
@@ -3518,7 +3545,7 @@ function rDash(){
   });
   document.getElementById('ds-cant').innerHTML=
     (cantieriAttivi.length
-      ? cantieriAttivi.map(c=>`<div class="ri"><div><div class="rlt">${c.nome}</div><div class="rls">${c.stato||'—'} · ${c.periodo||''}</div></div><span class="mn or">${fmt(getBudget(c.id,c.nome))}</span></div>`).join('')
+      ? cantieriAttivi.map(c=>`<div class="ri"><div><div class="rlt">${esc(c.nome)}</div><div class="rls">${esc(c.stato||'—')} · ${esc(c.periodo||'')}</div></div><span class="mn or">${fmt(getBudget(c.id,c.nome))}</span></div>`).join('')
       : `<div class="ri"><div class="rlt" style="color:var(--text2)">Nessun cantiere attivo</div></div>`)
     + (cantieriConclusi.length
       ? `<div class="ri" style="cursor:pointer;border-top:1px dashed var(--brd);margin-top:4px" onclick="nav('cantieri')"><div style="font-size:12px;color:var(--text2)">+ ${cantieriConclusi.length} cantier${cantieriConclusi.length>1?'i':'e'} conclus${cantieriConclusi.length>1?'i':'o'} — vedi nel Kanban</div></div>`
@@ -3541,7 +3568,7 @@ function rDash(){
   // alert documenti in scadenza nella dash
   const oggiD=today();
   const tra30D=new Date(); tra30D.setDate(tra30D.getDate()+30);
-  const tra30DS=tra30D.toISOString().slice(0,10);
+  const tra30DS=isoLocale(tra30D);
   const docWarn=(DB.documenti||[]).filter(d=>d.scadenza&&d.scadenza<=tra30DS);
   if(docWarn.length){
     const existing=document.getElementById('ds-docwarn');
@@ -3608,18 +3635,25 @@ function ffAddAcconto(){
 }
 function ffDelAcconto(i){ _ffAcconti.splice(i,1); ffRenderAcconti(); }
 const _FAPI=()=>({url:SUPABASE_URL+'/rest/v1/fatture',h:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'}});
+// Motivo leggibile da una risposta HTTP non ok (PostgREST mette il dettaglio in .message)
+async function _httpErr(r){ let t=''; try{ t=await r.text(); try{ const j=JSON.parse(t); t=j.message||j.error||j.hint||t; }catch(e){} }catch(e){} return 'HTTP '+r.status+(t?' – '+String(t).slice(0,120):''); }
 
-async function renderFatture(){
-  const F=_FAPI();
+// Ricarica _fatture dal cloud. Se fallisce tiene quelle in memoria e avvisa: mai un oggetto-errore al posto dell'array
+async function _fattureCarica(order){
   try{
-    const r=await fetch(F.url+'?select=*&order=scadenza.asc',{headers:F.h,cache:'no-cache'});
-    _fatture=await r.json();
-  }catch(e){ _fatture=[]; }
+    const F=_FAPI(); const r=await fetch(F.url+'?select=*'+(order?'&order='+order:''),{headers:F.h,cache:'no-cache'});
+    if(!r.ok) throw new Error(await _httpErr(r));
+    const j=await r.json(); if(!Array.isArray(j)) throw new Error('risposta non valida');
+    _fatture=j; return true;
+  }catch(e){ if(!Array.isArray(_fatture)) _fatture=[]; toast('⚠ Fatture non caricate dal cloud: '+(e.message||e)); return false; }
+}
+async function renderFatture(){
+  await _fattureCarica('scadenza.asc');
   fattRenderAlert();
   fattRenderLista();
 }
 
-function _oggi(){ return new Date().toISOString().slice(0,10); }
+function _oggi(){ return today(); }
 function _ggTra(d1,d2){ return Math.round((new Date(d2)-new Date(d1))/86400000); }
 
 // ═══ IMPORT FATTURE DA XML/P7M (formato ministeriale) ═══
@@ -3679,8 +3713,11 @@ async function fattImportaXML(input){
   // fornitori in `fatture_acquisto` (alimentata anche dalla riconciliazione banca).
   const _nrm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
   let esistenti=[], esistentiFA=[];
-  try{ const F=_FAPI(); const r=await fetch(F.url+'?select=numero,cliente,importo,data_fattura,stato&limit=5000',{headers:F.h,cache:'no-cache'}); esistenti=await r.json(); }catch(e){}
-  try{ const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=numero,rif_fornitore,fornitore&limit=8000',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'}); esistentiFA=await r.json(); }catch(e){}
+  try{
+    const F=_FAPI(); const r=await fetch(F.url+'?select=numero,cliente,importo,data_fattura,stato&limit=5000',{headers:F.h,cache:'no-cache'}); if(!r.ok) throw new Error(await _httpErr(r)); esistenti=await r.json();
+    const r2=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=numero,rif_fornitore,fornitore&limit=8000',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'}); if(!r2.ok) throw new Error(await _httpErr(r2)); esistentiFA=await r2.json();
+  }catch(e){ toast('⚠ Non leggo le fatture già presenti ('+(e.message||e)+'): import annullato'); return; }
+  if(!Array.isArray(esistenti)) esistenti=[]; if(!Array.isArray(esistentiFA)) esistentiFA=[];
   const chiaveCli=new Set(esistenti.map(f=>_nrm(String(f.numero||'').split('/')[0])+'|'+_nrm(f.cliente)));
   const chiaveCliImp=new Set((esistenti||[]).filter(f=>f.stato!=='annullata').map(f=>_dupChiaveCliImporto(f.numero,f.data_fattura,f.importo)).filter(Boolean));
   const chiaveFor=new Set(); (esistentiFA||[]).forEach(f=>{ const nf=_nrm(f.fornitore); chiaveFor.add(nf+'|'+_nrm(f.rif_fornitore)); chiaveFor.add(nf+'|'+_nrm(String(f.numero||'').split('/').pop())); });
@@ -3904,7 +3941,7 @@ function fattRenderLista(){
       return `<tr onclick="fattApri(${f.id})" style="border-top:1px solid var(--brd);cursor:pointer${isDup?';background:rgba(232,75,75,.05)':''}">
         <td style="padding:8px"><div style="font-weight:600">${esc(f.cliente||'—')}${dupTag}</div>${f.cantiere_nome?`<div style="font-size:11px;color:var(--text2)">${esc(f.cantiere_nome)}</div>`:'<div style="font-size:11px;color:var(--text2)">libera</div>'}</td>
         <td style="padding:8px">${esc(f.numero||'—')}</td>
-        <td style="padding:8px">${f.tipo||''}</td>
+        <td style="padding:8px">${esc(f.tipo||'')}</td>
         <td style="padding:8px;color:var(--text2)">${f.data_fattura?f.data_fattura.split('-').reverse().join('/'):'—'}</td>
         <td style="padding:8px;color:${scadCol}">${scadTxt}${s?`<div style="font-size:10px">${s.txt}</div>`:''}</td>
         <td style="padding:8px"><span style="background:${bc}22;color:${bc};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">${bt}</span>${f.stato==='pagata'&&f.data_pagamento?`<div style="font-size:10px;color:var(--text2)">il ${f.data_pagamento.split('-').reverse().join('/')}</div>`:''}${f.note?`<div style="font-size:10px;color:var(--text2)" title="${esc(f.note)}">${esc(f.note.length>28?f.note.slice(0,26)+'…':f.note)}</div>`:''}</td>
@@ -3979,9 +4016,9 @@ function ffToggleStato(){
 function ffCalcScadenza(){ /* la data fattura è cambiata: se c'è un preset giorni attivo lo ricalcolo — qui lasciamo manuale */ }
 function ffScadGiorni(gg){
   const df=document.getElementById('ff-data').value;
-  const base=df?new Date(df):new Date();
+  const base=df?new Date(df+'T12:00:00'):new Date();
   base.setDate(base.getDate()+gg);
-  document.getElementById('ff-scadenza').value=base.toISOString().slice(0,10);
+  document.getElementById('ff-scadenza').value=isoLocale(base);
 }
 // ── PONTE FATTURE→INCASSI: una fattura pagata genera da sola il suo incasso ──
 function _numBaseFatt(n){ return String(n||'').split('/')[0].trim(); }
@@ -4029,22 +4066,32 @@ async function fattSalva(){
       rec.data_pagamento=_ffAcconti.reduce(function(m,a){return a.data>m?a.data:m;},"") || _oggi();
     }
   }
-  const F=_FAPI();
+  const F=_FAPI(), h={...F.h,Prefer:'return=representation'};
   try{
-    if(_fattEditId){ await fetch(F.url+'?id=eq.'+_fattEditId,{method:'PATCH',headers:F.h,body:JSON.stringify(rec)}); }
-    else{ await fetch(F.url,{method:'POST',headers:F.h,body:JSON.stringify(rec)}); }
-    _syncIncassoDaFattura(rec);
+    const r=_fattEditId ? await fetch(F.url+'?id=eq.'+encodeURIComponent(_fattEditId),{method:'PATCH',headers:h,body:JSON.stringify(rec)})
+                        : await fetch(F.url,{method:'POST',headers:h,body:JSON.stringify(rec)});
+    if(!r.ok) throw new Error(await _httpErr(r));
+    const rows=await r.json().catch(()=>null);
+    if(!Array.isArray(rows)||!rows.length) throw new Error('nessuna riga salvata (fattura eliminata o permessi)');
+    _syncIncassoDaFattura(rec);   // l'incasso solo se la fattura è davvero sul cloud
     closeModal('modal-fattura');
     toast('✓ Fattura salvata');
     renderFatture();
-  }catch(e){ toast('⚠ Errore salvataggio'); }
+  }catch(e){ toast('⚠ Fattura NON salvata: '+(e.message||e)); }
 }
 async function fattElimina(){
   if(!_fattEditId) return;
   if(!confirm('Eliminare questa fattura dal tracciamento?')) return;
+  try{ await _fattDelete(_fattEditId); closeModal('modal-fattura'); toast('✓ Eliminata'); renderFatture(); }
+  catch(e){ toast('⚠ Fattura NON eliminata: '+(e.message||e)); }
+}
+// DELETE con verifica: con RLS un DELETE negato risponde 204 senza cancellare nulla
+async function _fattDelete(id){
   const F=_FAPI();
-  try{ await fetch(F.url+'?id=eq.'+_fattEditId,{method:'DELETE',headers:F.h}); closeModal('modal-fattura'); toast('✓ Eliminata'); renderFatture(); }
-  catch(e){ toast('⚠ Errore'); }
+  const r=await fetch(F.url+'?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:{...F.h,Prefer:'return=representation'}});
+  if(!r.ok) throw new Error(await _httpErr(r));
+  const rows=await r.json().catch(()=>null);
+  if(Array.isArray(rows)&&!rows.length) throw new Error('nessuna riga eliminata (permessi?)');
 }
 // Possibili doppioni: stesso cliente + stesso numero (base), oppure stesso
 // cliente + stesso importo + stessa data. Flag per revisione, non auto-cancella.
@@ -4066,17 +4113,16 @@ function _fattDupSet(){
 async function fattEliminaId(id){
   const f=(_fatture||[]).find(x=>String(x.id)===String(id));
   if(!confirm('Eliminare questa fattura?\n\n'+(f?((f.cliente||'')+' · '+(f.numero||'')+' · '+fmtE(f.importo)):''))) return;
-  const F=_FAPI();
-  try{ await fetch(F.url+'?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:F.h}); toast('✓ Eliminata'); renderFatture(); }
-  catch(e){ toast('⚠ Errore'); }
+  try{ await _fattDelete(id); toast('✓ Eliminata'); renderFatture(); }
+  catch(e){ toast('⚠ Fattura NON eliminata: '+(e.message||e)); }
 }
 function fmtE(n){ return '€ '+parseFloat(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
 
 function openModalExportPresenze(){
   const oggi=new Date(); const primo=new Date(oggi.getFullYear(),oggi.getMonth(),1);
-  document.getElementById('exp-da').value=primo.toISOString().slice(0,10);
-  document.getElementById('exp-a').value=oggi.toISOString().slice(0,10);
+  document.getElementById('exp-da').value=isoLocale(primo);
+  document.getElementById('exp-a').value=isoLocale(oggi);
   openModal('modal-export-presenze');
 }
 function expRange(tipo){
@@ -4085,11 +4131,11 @@ function expRange(tipo){
   else if(tipo==='scorso'){ da=new Date(oggi.getFullYear(),oggi.getMonth()-1,1); a=new Date(oggi.getFullYear(),oggi.getMonth(),0); }
   else { // tutto: trova min e max tra le presenze
     const date=Object.keys(DB.presenze||{}).sort();
-    da=date.length?new Date(date[0]):new Date(oggi.getFullYear(),0,1);
-    a=date.length?new Date(date[date.length-1]):oggi;
+    da=date.length?new Date(date[0]+'T12:00:00'):new Date(oggi.getFullYear(),0,1);
+    a=date.length?new Date(date[date.length-1]+'T12:00:00'):oggi;
   }
-  document.getElementById('exp-da').value=da.toISOString().slice(0,10);
-  document.getElementById('exp-a').value=a.toISOString().slice(0,10);
+  document.getElementById('exp-da').value=isoLocale(da);
+  document.getElementById('exp-a').value=isoLocale(a);
 }
 function _nomeDip(id){ const p=(DB.personale||[]).find(x=>x.id===id); return p?(p.nome||id):id; }
 // Calcola ORE EFFETTIVE + COSTO per cantiere dalle presenze reali.
@@ -4650,9 +4696,9 @@ function presJump(d){
 function presNav(delta){
   const di=document.getElementById('pres-date');
   if(!di.value)di.value=today();
-  const d=new Date(di.value);
+  const d=new Date(di.value+'T12:00:00');
   d.setDate(d.getDate()+delta);
-  di.value=d.toISOString().slice(0,10);
+  di.value=isoLocale(d);
   loadPres();
   rPresHist();
 }
@@ -4713,8 +4759,8 @@ function impostaSettimana(){
   const dow=oggi.getDay()||7; // 1=lun, 7=dom
   const lun=new Date(oggi); lun.setDate(oggi.getDate()-(dow-1));
   const dom=new Date(oggi); dom.setDate(oggi.getDate()+(7-dow));
-  document.getElementById('imp-da').value=lun.toISOString().slice(0,10);
-  document.getElementById('imp-al').value=dom.toISOString().slice(0,10);
+  document.getElementById('imp-da').value=isoLocale(lun);
+  document.getElementById('imp-al').value=isoLocale(dom);
   aggiornaAntepimaImport();
 }
 
@@ -4877,10 +4923,28 @@ async function _stgRead(){
   if(!Array.isArray(d.changeRequests)) d.changeRequests=[];
   return d;
 }
-async function _stgWrite(dati){
-  const a=_STGAPI();
-  const r=await fetch(a.url,{method:'POST',headers:{...a.h,'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:'roberto_staging',dati,aggiornato_il:new Date().toISOString()})});
-  if(!r.ok) throw new Error('HTTP '+r.status);
+// Scrittura su staging SENZA perdere le proposte di Roberto: rilegge riga+versione, applica SOLO la
+// mutazione (muta(d); false = niente da scrivere) ai dati freschi e fa PATCH condizionato alla versione
+// (lock ottimistico). 0 righe = qualcuno ha scritto nel frattempo → riprova (max 5). Mai uno snapshot intero.
+async function _stgMuta(muta){
+  const a=_STGAPI(), h={...a.h,Prefer:'return=representation'};
+  for(let i=0;i<5;i++){
+    if(i) await new Promise(r=>setTimeout(r,150*i+Math.random()*200));
+    const r=await fetch(a.url+'?id=eq.roberto_staging&select=dati,versione',{headers:a.h,cache:'no-cache'});
+    if(!r.ok) throw new Error(await _httpErr(r));
+    const rows=await r.json(), row=Array.isArray(rows)?rows[0]:null;
+    const d=(row&&row.dati)||{changeRequests:[],config:{}};
+    if(!Array.isArray(d.changeRequests)) d.changeRequests=[];
+    if(muta(d)===false) return d;
+    const body=JSON.stringify(row?{dati:d,aggiornato_il:new Date().toISOString()}:{id:'roberto_staging',dati:d,aggiornato_il:new Date().toISOString()});
+    const w=row ? await fetch(a.url+'?id=eq.roberto_staging&versione='+(row.versione==null?'is.null':'eq.'+row.versione)+'&select=versione',{method:'PATCH',headers:h,body})
+                : await fetch(a.url+'?select=versione',{method:'POST',headers:h,body});   // riga assente: INSERT semplice
+    if(!row && w.status===409) continue;   // creata da Roberto nel frattempo
+    if(!w.ok) throw new Error(await _httpErr(w));
+    const out=await w.json().catch(()=>null);
+    if(Array.isArray(out)&&out.length) return d;
+  }
+  throw new Error('staging modificato di continuo da un altro dispositivo, riprova');
 }
 
 const _PCAMPO_STYLE={
@@ -4908,7 +4972,7 @@ async function apriPresenzeCampo(){
     _rPresenzeCampoList(stg);
     _presCampoBadgeFrom(stg);
   }catch(e){
-    if(el) el.innerHTML='<div style="color:var(--red);font-size:13px;text-align:center;padding:20px">Errore di rete: '+e.message+'</div>';
+    if(el) el.innerHTML='<div style="color:var(--red);font-size:13px;text-align:center;padding:20px">Errore di rete: '+esc(e.message)+'</div>';
   }
 }
 
@@ -4923,13 +4987,13 @@ function _rPresenzeCampoList(stg){
     const chips=voci.map(v=>{
       const st=_PCAMPO_STYLE[v.tipo]||_PCAMPO_STYLE.intero;
       const trovato=v.tipo==='assente'||_matchPersona(v.nome);
-      const ore=v.tipo==='parziale'?` ${v.oraI||''}–${v.oraF||''}`:'';
-      return `<div style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:600;background:${st.bg};color:${st.col};border:1px solid ${st.col}">${trovato?'':'⚠ '}${v.nome} · ${v.cantiere||'—'}${ore} <span style="opacity:.7">(${v.tipo})</span></div>`;
+      const ore=v.tipo==='parziale'?` ${esc(v.oraI||'')}–${esc(v.oraF||'')}`:'';
+      return `<div style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:600;background:${st.bg};color:${st.col};border:1px solid ${st.col}">${trovato?'':'⚠ '}${esc(v.nome)} · ${esc(v.cantiere||'—')}${ore} <span style="opacity:.7">(${esc(v.tipo)})</span></div>`;
     }).join('');
     const nonMatch=voci.filter(v=>v.tipo!=='assente'&&!_matchPersona(v.nome)).length;
     return `<div style="background:var(--card);border:1px solid var(--brd);border-radius:10px;padding:12px 14px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
-        <div style="font-size:13px;font-weight:700">🗓 ${fdate(cr.data)} <span style="color:var(--text2);font-weight:400;font-size:11px">· ${cr.autore||'Roberto'} · ${cr.timestamp?new Date(cr.timestamp).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</span></div>
+        <div style="font-size:13px;font-weight:700">🗓 ${fdate(cr.data)} <span style="color:var(--text2);font-weight:400;font-size:11px">· ${esc(cr.autore||'Roberto')} · ${cr.timestamp?new Date(cr.timestamp).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</span></div>
         <div style="font-size:11px;color:var(--text2)">${cr.nInt||0} intero · ${cr.nPar||0} parziale · ${cr.nAss||0} assente</div>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">${chips}</div>
@@ -4975,10 +5039,10 @@ async function applicaPresenzaCampo(crId){
   _costiCache=null; save();
   // marca la proposta come applicata (read-modify-write fresco su staging)
   try{
-    const fresh=await _stgRead();
-    const fc=(fresh.changeRequests||[]).find(c=>c.id===crId);
-    if(fc){ fc.stato='approved'; fc.applicatoIl=new Date().toISOString(); }
-    await _stgWrite(fresh);
+    const fresh=await _stgMuta(st=>{
+      const fc=st.changeRequests.find(c=>c.id===crId); if(!fc) return false;
+      fc.stato='approved'; fc.applicatoIl=new Date().toISOString();
+    });
     window._stgCache=fresh;
     _rPresenzeCampoList(fresh); _presCampoBadgeFrom(fresh);
   }catch(e){ toast('Turni salvati, ma stato proposta non aggiornato: '+e.message); }
@@ -4993,10 +5057,10 @@ async function applicaPresenzaCampo(crId){
 async function rifiutaPresenzaCampo(crId){
   if(!confirm('Rifiutare questa proposta di presenze? Non verrà applicata.')) return;
   try{
-    const fresh=await _stgRead();
-    const fc=(fresh.changeRequests||[]).find(c=>c.id===crId);
-    if(fc){ fc.stato='rejected'; fc.motivoRifiuto='Rifiutata dal gestionale'; }
-    await _stgWrite(fresh);
+    const fresh=await _stgMuta(st=>{
+      const fc=st.changeRequests.find(c=>c.id===crId); if(!fc) return false;
+      fc.stato='rejected'; fc.motivoRifiuto='Rifiutata dal gestionale';
+    });
     window._stgCache=fresh;
     _rPresenzeCampoList(fresh); _presCampoBadgeFrom(fresh);
     toast('Proposta rifiutata');
@@ -5332,12 +5396,16 @@ function _getCostiCantiere(nome){
 
 // Carica una volta le fatture fornitori (per includerle nei costi commessa) e
 // invalida la cache costi. _faRows è condiviso con cruscotto e pagina Fatture Fornitori.
+// Se la lettura fallisce NON mette in cache [] (costi fornitori finti a zero): avvisa e riprova alla prossima chiamata.
 async function _ensureFaRows(force){
   if(Array.isArray(_faRows) && !force) return _faRows;
-  try{ const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=*&limit=8000',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'}); _faRows=r.ok?await r.json():[]; }
-  catch(e){ _faRows=_faRows||[]; }
-  invalidaCache();
-  return _faRows;
+  try{
+    const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=*&limit=8000',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'});
+    if(!r.ok) throw new Error(await _httpErr(r));
+    const j=await r.json(); if(!Array.isArray(j)) throw new Error('risposta non valida');
+    _faRows=j; invalidaCache();
+  }catch(e){ toast('⚠ Fatture fornitori non caricate: costi fornitori esclusi dai conti ('+(e.message||e)+')'); }
+  return Array.isArray(_faRows)?_faRows:[];
 }
 
 // ── Rifornimenti dal modulo riconciliazione (tabella Supabase 'rifornimenti') ──
@@ -5559,10 +5627,10 @@ function rCant(){
           const overBudget=ricavo>0&&costi.totale>ricavo;
           return `<div class="kb-card" onclick="aprDett(${gi})">
             ${overBudget?`<div class="kb-warn">⚠ Budget superato di ${fmt(costi.totale-ricavo)}</div>`:''}
-            ${c.codice?`<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);letter-spacing:.5px;margin-bottom:2px">${c.codice}${c.preventivoId?' · 🧾 '+c.preventivoId:''}</div>`:''}
-            <div class="kb-name" title="${c.nome}">${c.nome}</div>
+            ${c.codice?`<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);letter-spacing:.5px;margin-bottom:2px">${esc(c.codice)}${c.preventivoId?' · 🧾 '+esc(c.preventivoId):''}</div>`:''}
+            <div class="kb-name" title="${esc(c.nome)}">${esc(c.nome)}</div>
             ${badgeTipiHtml(c)}
-            <div class="kb-periodo">${c.tipo==='lungo_periodo'?'📦 Deposito':'📅'} ${c.periodo||c.periodoInizio||'—'}${c.committente?' · '+c.committente:''}${c.tipo==='lungo_periodo'&&c.dataRitiro?`<br>ritiro: <b>${fdate(c.dataRitiro)}</b>`:''}</div>
+            <div class="kb-periodo">${c.tipo==='lungo_periodo'?'📦 Deposito':'📅'} ${esc(c.periodo||c.periodoInizio||'—')}${c.committente?' · '+esc(c.committente):''}${c.tipo==='lungo_periodo'&&c.dataRitiro?`<br>ritiro: <b>${fdate(c.dataRitiro)}</b>`:''}</div>
             ${ricavo===0?`<div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-style:italic">💰 Budget non impostato</div>`:''}
             ${ricavo>0?`<div class="kb-bar-wrap"><div class="kb-bar" style="width:${pctBarra}%;background:${barCol}"></div></div>`:''}
             <div class="kb-costs">
@@ -5576,7 +5644,7 @@ function rCant(){
               <button class="bs" title="Esporta Excel costi/ricavi del cantiere" onclick="_expCant('${c.id}')">📊</button>
               <button class="bs" onclick="apriModificaCantiere('${c.id}')">✏️</button>
               ${c.preventivoRef
-                ? `<button class="bs" title="Preventivo ${c.preventivoRef}" onclick="toast('Preventivo collegato: ${c.preventivoRef}')">🧾✓</button>`
+                ? `<button class="bs" title="Preventivo ${esc(c.preventivoRef)}" onclick="toast('Preventivo collegato: ${c.preventivoRef}')">🧾✓</button>`
                 : `<button class="bs" title="Crea preventivo (bozza)" onclick="creaPreventivoCantiere('${c.id}',{after:rCant})">🧾</button>`}
               <button class="bs" style="font-size:11px" onclick="archiviaCantiere('${c.id}')">🗄</button>
               <button class="bd" onclick="elimCantiere('${c.id}')">✕</button>
@@ -5606,10 +5674,10 @@ function rCant(){
                 const gi=window._cantieri.indexOf(c);
                 const isArch=archIds.has(c.id);
                 return `<div class="kb-card archiviato" onclick="aprDett(${gi})">
-                  ${c.codice?`<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);letter-spacing:.5px;margin-bottom:2px">${c.codice}</div>`:''}
-                  <div class="kb-name">${c.nome}</div>
+                  ${c.codice?`<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);letter-spacing:.5px;margin-bottom:2px">${esc(c.codice)}</div>`:''}
+                  <div class="kb-name">${esc(c.nome)}</div>
                   ${badgeTipiHtml(c)}
-                  <div class="kb-periodo">📅 ${c.periodo||c.periodoInizio||'—'}${c.committente?' · '+c.committente:''}</div>
+                  <div class="kb-periodo">📅 ${esc(c.periodo||c.periodoInizio||'—')}${c.committente?' · '+esc(c.committente):''}</div>
                   <div class="kb-actions" onclick="event.stopPropagation()">
                     <button class="bs" onclick="aprDett(${gi})">📋</button>
                     <button class="bs" title="Esporta Excel costi/ricavi del cantiere" onclick="_expCant('${c.id}')">📊</button>
@@ -5816,7 +5884,7 @@ async function rDettFatture(cant, nome){
   const box=document.getElementById('dett-fatture'); if(!box) return;
   // assicura che _fatture sia caricato
   if(!_fatture || !_fatture.length){
-    try{ const F=_FAPI(); const r=await fetch(F.url+'?select=*&order=scadenza.asc',{headers:F.h,cache:'no-cache'}); _fatture=await r.json(); }catch(e){ _fatture=_fatture||[]; }
+    await _fattureCarica('scadenza.asc');
   }
   const cid=cant?cant.id:null;
   const mie=_fatture.filter(f=> (cid&&f.cantiere_id===cid) || (f.cantiere_nome&&nome&&f.cantiere_nome.trim().toLowerCase()===nome.trim().toLowerCase()) );
@@ -6315,7 +6383,8 @@ async function rDettInterventi(c){
   window._intCommessa=c;
   box.innerHTML='<div style="font-size:12px;color:var(--text2)">Carico interventi…</div>';
   let list=[];
-  try{ const A=_INTAPI(); const r=await fetch(A.url+'?commessa_id=eq.'+encodeURIComponent(c.id)+'&order=data_inizio.asc,creato_il.asc',{headers:A.h,cache:'no-cache'}); if(r.ok) list=await r.json(); }catch(e){ list=[]; }
+  try{ const A=_INTAPI(); const r=await fetch(A.url+'?commessa_id=eq.'+encodeURIComponent(c.id)+'&order=data_inizio.asc,creato_il.asc',{headers:A.h,cache:'no-cache'}); if(!r.ok) throw new Error(await _httpErr(r)); list=await r.json(); }
+  catch(e){ box.innerHTML='<div style="font-size:12px;color:var(--red)">⚠ Impossibile caricare i periodi: '+esc(e.message||e)+'</div>'; return; }
   if(!Array.isArray(list)) list=[];
   const SOC=_intSocietaDi(c);   // società del referente, per scegliere chi fattura ogni riga (split)
   const attivi = list.filter(x=>!x.cancellato_il);
@@ -6400,32 +6469,41 @@ async function intSalva(){
     data_inizio:document.getElementById('int-di').value||null, data_fine:document.getElementById('int-df').value||null,
     stato, importo:parseFloat(document.getElementById('int-importo').value)||null, fatturato:(stato==='fatturato'), creato_da:'gestionale',
     prestazione:document.getElementById('int-prest')?.value||null, intestatario_cliente_id:intId||null, intestatario_nome:intNome };
-  try{ const A=_INTAPI(); const r=await fetch(A.url,{method:'POST',headers:{...A.h,Prefer:'return=minimal'},body:JSON.stringify(body)}); if(!r.ok) throw 0; toast('✓ Periodo aggiunto'); rDettInterventi(c); }
-  catch(e){ toast('⚠ Errore nel salvataggio'); }
+  try{ const A=_INTAPI(); const r=await fetch(A.url,{method:'POST',headers:{...A.h,Prefer:'return=minimal'},body:JSON.stringify(body)}); if(!r.ok) throw new Error(await _httpErr(r)); toast('✓ Periodo aggiunto'); rDettInterventi(c); }
+  catch(e){ toast('⚠ Periodo NON salvato: '+(e.message||e)); }
 }
 // Cambia l'intestatario (società che fattura) di una riga: è così che si ottiene lo split di
 // fatturazione tra più società dello stesso referente, anche dopo aver creato la riga.
 async function intCambiaIntestatario(id, clienteId){
   const c=window._intCommessa; const SOC=_intSocietaDi(c);
   const nome=(SOC.soc.find(s=>s.id===clienteId)||{}).nome || null;
-  try{ const A=_INTAPI(); const r=await fetch(A.url+'?id=eq.'+id,{method:'PATCH',headers:{...A.h,Prefer:'return=minimal'},body:JSON.stringify({intestatario_cliente_id:clienteId||null, intestatario_nome:nome})}); if(!r.ok) throw 0; toast('✓ Intestatario aggiornato'+(nome?': '+nome:'')); rDettInterventi(window._intCommessa); }
-  catch(e){ toast('⚠ Errore'); }
+  try{ await _intScrivi(id,'PATCH',{intestatario_cliente_id:clienteId||null, intestatario_nome:nome}); toast('✓ Intestatario aggiornato'+(nome?': '+nome:'')); rDettInterventi(window._intCommessa); }
+  catch(e){ toast('⚠ Intestatario NON aggiornato: '+(e.message||e)); }
+}
+// PATCH/DELETE su una riga di periodi con verifica: errore se HTTP non ok o se nessuna riga è stata toccata (RLS)
+async function _intScrivi(id,method,body){
+  const A=_INTAPI();
+  const r=await fetch(A.url+'?id=eq.'+encodeURIComponent(id),{method,headers:{...A.h,Prefer:'return=representation'},body:body?JSON.stringify(body):undefined});
+  if(!r.ok) throw new Error(await _httpErr(r));
+  const rows=await r.json().catch(()=>null);
+  if(Array.isArray(rows)&&!rows.length) throw new Error('nessuna riga modificata (permessi?)');
 }
 async function intToggleFatt(id,val){
-  try{ const A=_INTAPI(); await fetch(A.url+'?id=eq.'+id,{method:'PATCH',headers:{...A.h,Prefer:'return=minimal'},body:JSON.stringify({fatturato:val, stato:val?'fatturato':'aperto'})}); rDettInterventi(window._intCommessa); }catch(e){ toast('⚠ Errore'); }
+  try{ await _intScrivi(id,'PATCH',{fatturato:val, stato:val?'fatturato':'aperto'}); }catch(e){ toast('⚠ Periodo NON aggiornato: '+(e.message||e)); }
+  rDettInterventi(window._intCommessa);
 }
 function intToggleCestino(){ const e=document.getElementById('int-cestino'); if(e) e.style.display=e.style.display==='none'?'block':'none'; }
 // Cancellazione SOFT: il periodo va nel cestino (recuperabile), non viene distrutto.
 async function intElimina(id){
   if(!confirm('Spostare questo periodo nel cestino?\n\nNon viene eliminato del tutto: puoi ripristinarlo dal 🗑 Cestino.')) return;
-  try{ const A=_INTAPI(); const r=await fetch(A.url+'?id=eq.'+id,{method:'PATCH',headers:{...A.h,Prefer:'return=minimal'},body:JSON.stringify({cancellato_il:new Date().toISOString()})}); if(!r.ok) throw 0; toast('🗑 Periodo spostato nel cestino'); rDettInterventi(window._intCommessa); }catch(e){ toast('⚠ Errore'); }
+  try{ await _intScrivi(id,'PATCH',{cancellato_il:new Date().toISOString()}); toast('🗑 Periodo spostato nel cestino'); rDettInterventi(window._intCommessa); }catch(e){ toast('⚠ Periodo NON eliminato: '+(e.message||e)); }
 }
 async function intRipristina(id){
-  try{ const A=_INTAPI(); const r=await fetch(A.url+'?id=eq.'+id,{method:'PATCH',headers:{...A.h,Prefer:'return=minimal'},body:JSON.stringify({cancellato_il:null})}); if(!r.ok) throw 0; toast('↩︎ Periodo ripristinato'); rDettInterventi(window._intCommessa); }catch(e){ toast('⚠ Errore'); }
+  try{ await _intScrivi(id,'PATCH',{cancellato_il:null}); toast('↩︎ Periodo ripristinato'); rDettInterventi(window._intCommessa); }catch(e){ toast('⚠ Periodo NON ripristinato: '+(e.message||e)); }
 }
 async function intEliminaDef(id){
   if(!confirm('Eliminare DEFINITIVAMENTE questo periodo?\n\nQuesta operazione NON è recuperabile.')) return;
-  try{ const A=_INTAPI(); await fetch(A.url+'?id=eq.'+id,{method:'DELETE',headers:A.h}); toast('Periodo eliminato definitivamente'); rDettInterventi(window._intCommessa); }catch(e){ toast('⚠ Errore'); }
+  try{ await _intScrivi(id,'DELETE'); toast('Periodo eliminato definitivamente'); rDettInterventi(window._intCommessa); }catch(e){ toast('⚠ Periodo NON eliminato: '+(e.message||e)); }
 }
 
 function aprDett(i){
@@ -6636,11 +6714,11 @@ function rSpeseCantiere(){
   document.getElementById('sc-tb').innerHTML = [...DB.speseCantiere].sort((a,b)=>(a.data||'0').localeCompare(b.data||'0')).map(s=>`
     <tr>
       <td class="mn">${fdate(s.data)}</td>
-      <td><b>${s.cantiere}</b></td>
-      <td><span class="bx bz">${s.categoria}</span></td>
-      <td style="font-size:12px">${s.fornitore||'—'}</td>
+      <td><b>${esc(s.cantiere)}</b></td>
+      <td><span class="bx bz">${esc(s.categoria)}</span></td>
+      <td style="font-size:12px">${esc(s.fornitore||'—')}</td>
       <td class="mn or">${fmt(s.importo)}</td>
-      <td style="font-size:11px;color:var(--text2)">${s.descrizione||'—'}</td>
+      <td style="font-size:11px;color:var(--text2)">${esc(s.descrizione||'—')}</td>
       <td>
         <div style="display:flex;gap:4px">
           <button class="bs" style="font-size:11px;padding:4px 7px" onclick="apriModificaSpesa('${s.id}')">✏️</button>
@@ -6690,6 +6768,7 @@ async function rImportSpeseBot(){
   try{
     const A=_SBAPI();
     const r=await fetch(A.url+'?stato=eq.proposta&order=creato_il.asc',{headers:A.h,cache:'no-cache'});
+    if(!r.ok) throw new Error(await _httpErr(r));
     _speseBotPend=await r.json();
   }catch(e){ if(box) box.innerHTML='⚠ Errore nel leggere le spese dal bot: '+e.message; return; }
   const b=document.getElementById('sb-import-box'); if(!b) return;
@@ -6983,7 +7062,7 @@ function attrToggleDismiss(){
   const dism = document.getElementById('at-stato').value==='dismesso';
   document.getElementById('at-dismiss-box').style.display = dism?'block':'none';
   if(dism && !document.getElementById('at-data-dism').value)
-    document.getElementById('at-data-dism').value = new Date().toISOString().slice(0,10);
+    document.getElementById('at-data-dism').value = today();
 }
 
 async function salvaAttr(){
@@ -6993,7 +7072,7 @@ async function salvaAttr(){
   const custodeIniz=document.getElementById('modal-attr').dataset.custodeIniziale||'';
   const esistente=_attrEditId?ATTREZZERIA.find(x=>String(x.id)===String(_attrEditId)):null;
   let storico=(esistente?.storico_custodi||[]).slice();
-  const oggi=new Date().toISOString().slice(0,10);
+  const oggi=today();
   // gestione passaggio di custode: chiude il precedente e apre il nuovo
   if(custodeNuovo!==custodeIniz){
     if(storico.length && !storico[storico.length-1].al) storico[storico.length-1].al=oggi;
@@ -7228,23 +7307,6 @@ function classificaAttrezzo(desc){
   return null; // incerto: lo lascio deciso dall'utente (deselezionato di default)
 }
 
-async function parseFatturaAI(file){
-  const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
-  const isPdf=file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf');
-  const content=[
-    isPdf ? {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
-          : {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:b64}},
-    {type:'text',text:'Questa è una fattura di un fornitore. Estrai fornitore, numero e data fattura, e TUTTE le righe con descrizione, quantità e prezzo unitario. Per ogni riga indica se è un ATTREZZO/UTENSILE durevole (attrezzo:true) oppure un materiale di consumo tipo viti, nastro, dischi, lame, silicone (attrezzo:false). Rispondi SOLO con JSON valido, nessun altro testo, in questo formato: {"fornitore":"","numero":"","data":"AAAA-MM-GG","righe":[{"descrizione":"","quantita":1,"prezzo":0,"attrezzo":true}]}'}
-  ];
-  const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,messages:[{role:'user',content}]})});
-  const data=await resp.json();
-  const txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').replace(/```json|```/g,'').trim();
-  const parsed=JSON.parse(txt);
-  return {meta:{fornitore:parsed.fornitore,numero:parsed.numero,data:parsed.data},
-          righe:(parsed.righe||[]).map(r=>({descrizione:r.descrizione,quantita:r.quantita||1,prezzo:r.prezzo||0,attrezzo:r.attrezzo===true?true:(r.attrezzo===false?false:null)}))};
-}
-
 function renderRigheFattura(){
   const custodi=_custodi(), ubic=_ubicazioni();
   const tb=document.getElementById('if-righe');
@@ -7284,7 +7346,7 @@ async function salvaImportFattura(){
     const q=Math.max(1,Math.round(r.quantita||1));
     const base={nome:r.descrizione, valore:r.prezzo||null, custode:cust, ubicazione:ubi,
       stato:'attivo', fornitore:forn!=='—'?forn:null, fattura_rif:_fatRif,
-      data_acquisto:dataIso, storico_custodi:cust?[{custode:cust,dal:dataIso||new Date().toISOString().slice(0,10),al:null}]:[],
+      data_acquisto:dataIso, storico_custodi:cust?[{custode:cust,dal:dataIso||today(),al:null}]:[],
       aggiornato_il:new Date().toISOString()};
     if(q>5){
       // quantità alta = consumabile: UNA riga sola, quantità in nota (mai più 500 righe di viti)
@@ -7318,7 +7380,7 @@ function rFlotta(){
     <div class="sc"><div class="lb">DKV</div><div class="vl" style="font-size:20px">${fmt(dkv)}</div></div>
     <div class="sc"><div class="lb">Contanti</div><div class="vl rr" style="font-size:20px">${fmt(tot-dkv)}</div></div>`;
   document.getElementById('fl-tb').innerHTML=[...carbR].sort((a,b)=>(a.data||'0').localeCompare(b.data||'0')).map(f=>`
-    <tr><td class="mn">${fdate(f.data)}</td><td><span class="bx bz">${f.prodotto}</span></td>
+    <tr><td class="mn">${fdate(f.data)}</td><td><span class="bx bz">${esc(f.prodotto)}</span></td>
     <td class="mn">${f.litri!=='—'?f.litri+'L':'—'}</td>
     <td class="mn">${f.prezzo!=='—'?'€'+f.prezzo:'—'}</td>
     <td class="mn rr">${fmt(f.totale)}</td>
@@ -7328,7 +7390,7 @@ function rFlotta(){
         ${_optCantByNome(f.cantiere)}
       </select>
     </td>
-    <td style="font-size:11px;color:var(--text2)">${f.note}</td>
+    <td style="font-size:11px;color:var(--text2)">${esc(f.note)}</td>
     <td><button class="bd" onclick="delItem('carburante','${f.id}',rFlotta)">✕</button></td></tr>`).join('');
   const di=document.getElementById('rf-data');if(di&&!di.value)di.value=today();
 }
@@ -9351,7 +9413,8 @@ function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function toast(msg){
   const t=document.getElementById('toast');t.textContent=msg;
-  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);
+  clearTimeout(toast._t);   // gli avvisi (⚠) restano più a lungo, leggibili
+  t.classList.add('show');toast._t=setTimeout(()=>t.classList.remove('show'),/^\s*⚠/.test(String(msg))?5500:2200);
 }
 function exportJSON(){ syncSalva(); }
 function importJSON(e){
@@ -9580,7 +9643,7 @@ function setSettimanaCorrente(){
   const day=now.getDay()||7;
   const lun=new Date(now); lun.setDate(now.getDate()-day+1);
   const dom=new Date(lun); dom.setDate(lun.getDate()+6);
-  const fmt8=d=>d.toISOString().slice(0,10);
+  const fmt8=isoLocale;
   document.getElementById('pag-da').value=fmt8(lun);
   document.getElementById('pag-al').value=fmt8(dom);
 }
@@ -9781,7 +9844,7 @@ async function rGrafici(){
     <div class="sc" onclick="nav('grafici');setTimeout(()=>{var m=document.getElementById('cru-margine');if(m)m.scrollIntoView({behavior:'smooth',block:'center'});},120)" style="cursor:pointer" title="Vedi il dettaglio margini per commessa"><div class="lb">📈 Margine cantieri 🔍</div><div class="vl ${margineTot>=0?'gr':'rr'}" style="font-size:20px">${fmt(margineTot)}</div><div class="sb2">ricavi − costi</div></div>`;
   // fornitori (async, tabella fatture_acquisto)
   (async()=>{ try{
-    if(!Array.isArray(_faRows)){ const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=*',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'}); _faRows=r.ok?await r.json():[]; }
+    await _ensureFaRows();   // in errore avvisa e non mette in cache []
     const forn=(_faRows||[]).reduce((s,f)=>s+(typeof _pfNum==='function'?_pfNum(f.residuo):parseFloat(f.residuo||0)),0);
     const el=document.getElementById('cru-forn'); if(el) el.innerHTML=`<div class="lb">🧾 Da pagare fornitori</div><div class="vl or" style="font-size:20px">${fmt(forn)}</div><div class="sb2">residuo fatture ricevute</div>`;
   }catch(e){ const el=document.getElementById('cru-forn'); if(el){ const v=el.querySelector('.vl'); if(v)v.textContent='—'; } } })();
@@ -9904,7 +9967,7 @@ function rDocumenti(){
   // alert scadenze imminenti (entro 30 giorni)
   const oggi=today();
   const tra30=new Date(); tra30.setDate(tra30.getDate()+30);
-  const tra30s=tra30.toISOString().slice(0,10);
+  const tra30s=isoLocale(tra30);
   const scadImm=DB.documenti.filter(d=>d.scadenza&&d.scadenza<=tra30s&&d.scadenza>=oggi);
   const scadPass=DB.documenti.filter(d=>d.scadenza&&d.scadenza<oggi);
   const alerts=document.getElementById('doc-alerts');
@@ -10020,8 +10083,10 @@ async function caricaScontriniTelegram(){
   try{
     const r=await fetch(`${SUPABASE_URL}/rest/v1/scontrini_telegram?select=*&order=ts.desc&limit=60`,
       {headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`},cache:'no-cache'});
-    _tgScontrini=await r.json();
-  }catch(e){ board.innerHTML='<div style="color:var(--red);font-size:13px;padding:10px">⚠ Impossibile caricare (offline?)</div>'; return; }
+    if(!r.ok) throw new Error(await _httpErr(r));
+    const j=await r.json(); if(!Array.isArray(j)) throw new Error('risposta non valida');
+    _tgScontrini=j;
+  }catch(e){ board.innerHTML='<div style="color:var(--red);font-size:13px;padding:10px">⚠ Impossibile caricare: '+esc(e.message||'offline?')+'</div>'; return; }
   renderScontriniTelegram();
 }
 function renderScontriniTelegram(){
@@ -10061,7 +10126,7 @@ function rScontrini(){
     const cants = [...new Set(DB.scontrini.map(s=>s.cantiere).filter(Boolean))];
     const cur = cantSel.value;
     cantSel.innerHTML = '<option value="">Tutti i cantieri</option>' +
-      cants.map(c=>`<option ${c===cur?'selected':''}>${c}</option>`).join('');
+      cants.map(c=>`<option ${c===cur?'selected':''}>${esc(c)}</option>`).join('');
   }
 
   // applica filtri
@@ -10084,7 +10149,7 @@ function rScontrini(){
     <div class="sc"><div class="lb">Totale spesa</div><div class="vl or" style="font-size:20px">${fmt(tot)}</div></div>
     ${nCont?`<div class="sc" style="border-color:var(--teal)"><div class="lb">✓ Contabilizzati</div><div class="vl" style="color:var(--teal)">${nCont}</div></div>`:''}
     ${nPend?`<div class="sc" style="border-color:var(--gold)"><div class="lb">⚠ Da contabilizzare</div><div class="vl" style="color:var(--gold)">${nPend}</div></div>`:''}
-    ${topCat.map(([cat,v])=>`<div class="sc"><div class="lb">${cat}</div><div class="vl" style="font-size:18px">${fmt(v)}</div></div>`).join('')}`;
+    ${topCat.map(([cat,v])=>`<div class="sc"><div class="lb">${esc(cat)}</div><div class="vl" style="font-size:18px">${fmt(v)}</div></div>`).join('')}`;
 
   // GRIGLIA CARD
   const grid = document.getElementById('scon-grid');
@@ -10093,7 +10158,7 @@ function rScontrini(){
       <div class="scon-card" style="${s.contabilizzato?'border-color:rgba(154,122,31,.4)':'!s.cantiere?\'\':\' border-color:rgba(232,184,75,.4)\''}">
         ${s.foto?`<img class="sc-img" ${fotoAttr(s.foto)} onclick="sconZoom('${s.id}')" alt="scontrino">`:''}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <span class="bx bz scon-badge">${s.categoria||'—'}</span>
+          <span class="bx bz scon-badge">${esc(s.categoria||'—')}</span>
           ${s.contabilizzato
             ? `<span style="font-size:11px;font-weight:700;color:var(--teal)">✓ Contabilizzato</span>`
             : s.cantiere
@@ -10104,11 +10169,11 @@ function rScontrini(){
         <div class="sc-imp">${fmt(s.importo)}</div>
         <div class="sc-meta">
           📅 ${fdate(s.data)}<br>
-          🏪 ${s.fornitore||'—'}<br>
-          🏗️ ${s.cantiere||'—'}<br>
-          💳 ${s.metodo||'Contanti'}
+          🏪 ${esc(s.fornitore||'—')}<br>
+          🏗️ ${esc(s.cantiere||'—')}<br>
+          💳 ${esc(s.metodo||'Contanti')}
         </div>
-        ${s.note?`<div style="font-size:11px;color:var(--text2);margin-top:6px;font-style:italic">${s.note}</div>`:''}
+        ${s.note?`<div style="font-size:11px;color:var(--text2);margin-top:6px;font-style:italic">${esc(s.note)}</div>`:''}
         <div style="display:flex;gap:5px;margin-top:8px">
           ${!s.contabilizzato&&s.cantiere
             ? `<button class="bp" style="flex:1;font-size:11px;padding:5px" onclick="contabilizzaScontrino('${s.id}');rScontrini()">✓ Contabilizza</button>`
@@ -10128,10 +10193,10 @@ function rScontrini(){
       <tr style="${s.contabilizzato?'opacity:.7':''}">
         <td class="mn">${fdate(s.data)}</td>
         <td class="mn or">${fmt(s.importo)}</td>
-        <td>${s.fornitore||'—'}</td>
-        <td><span class="bx bz">${s.categoria||'—'}</span></td>
-        <td>${s.cantiere||'—'}</td>
-        <td>${s.metodo||'—'}</td>
+        <td>${esc(s.fornitore||'—')}</td>
+        <td><span class="bx bz">${esc(s.categoria||'—')}</span></td>
+        <td>${esc(s.cantiere||'—')}</td>
+        <td>${esc(s.metodo||'—')}</td>
         <td>
           ${s.contabilizzato
             ? `<span style="font-size:11px;font-weight:700;color:var(--teal)">✓ Contabilizzato</span>`
@@ -10695,15 +10760,13 @@ async function creaPreventivoCantiere(id, opts){
   if(c.preventivoRef){ toast('Preventivo già collegato: '+c.preventivoRef); return; }
   try{
     const committente = opts.committente || c.committente || c.clienteNome || '';
-    const anno=new Date().getFullYear(); let nn=1;
-    try{
-      const r=await fetch(SUPABASE_URL+'/rest/v1/preventivi?select=numero&numero=like.PREV-'+anno+'-*&order=numero.desc&limit=1',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}});
-      if(r.ok){ const rows=await r.json(); const m=rows&&rows[0]&&rows[0].numero&&rows[0].numero.match(/(\d+)\s*$/); if(m) nn=parseInt(m[1])+1; }
-    }catch(_){}
-    const numero='PREV-'+anno+'-'+String(nn).padStart(3,'0');
-    const body={ numero, data:today(), cliente_nome:committente, oggetto:(c.nome||'Cantiere')+' — da completare (creato dal Gestionale)', stato:'bozza', modalita:'dettagliata', righe:[], elenco_materiali:[], imponibile:0, iva_perc:22, iva_importo:0, totale:0, cantiere_ref:c.id, cantiere_id:c.id };
-    const res=await fetch(SUPABASE_URL+'/rest/v1/preventivi',{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(body)});
-    if(!res.ok){ let tx=''; try{tx=await res.text();}catch(_){} throw new Error(res.status+(tx?' '+tx.slice(0,80):'')); }
+    // numero assegnato dal DB (trigger BEFORE INSERT, PREV-<anno>-NNN): niente doppioni tra dispositivi/app
+    const body={ numero:null, data:today(), cliente_nome:committente, oggetto:(c.nome||'Cantiere')+' — da completare (creato dal Gestionale)', stato:'bozza', modalita:'dettagliata', righe:[], elenco_materiali:[], imponibile:0, iva_perc:22, iva_importo:0, totale:0, cantiere_ref:c.id, cantiere_id:c.id };
+    const res=await fetch(SUPABASE_URL+'/rest/v1/preventivi?select=numero',{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(body)});
+    if(!res.ok) throw new Error(await _httpErr(res));
+    const rows=await res.json().catch(()=>null);
+    const numero=Array.isArray(rows)&&rows[0]&&rows[0].numero;
+    if(!numero) throw new Error('il database non ha restituito il numero (verifica in Preventivi prima di riprovare)');
     c.preventivoRef=numero;
     save(); // il Gestionale è proprietario del blob: preventivoRef viene persistito
     toast('✓ '+numero+' creato in Preventivi');
@@ -10861,7 +10924,7 @@ function _incassiUnificati(){
 async function rIncassi(){
   if(!DB.incassi) DB.incassi=[];
   // fonte fatture sempre fresca dal cloud (come Posizione clienti)
-  try{ const F=_FAPI(); const r=await fetch(F.url+'?select=*',{headers:F.h,cache:'no-cache'}); _fatture=await r.json(); }catch(e){}
+  await _fattureCarica();
   const INC=_incassiUnificati();
 
   // Popola select cantieri
@@ -10900,8 +10963,8 @@ async function rIncassi(){
     html+=`<div class="tc" style="margin-bottom:18px">
       <div class="th">
         <div>
-          <h3 style="font-size:15px">${c.nome}</h3>
-          ${c.committente?`<div style="font-size:11px;color:var(--text2);margin-top:2px">${c.committente}</div>`:''}
+          <h3 style="font-size:15px">${esc(c.nome)}</h3>
+          ${c.committente?`<div style="font-size:11px;color:var(--text2);margin-top:2px">${esc(c.committente)}</div>`:''}
         </div>
         <div style="text-align:right">
           <div style="font-size:11px;color:var(--text2);margin-bottom:3px">${stato}</div>
@@ -10921,10 +10984,10 @@ async function rIncassi(){
             <tr>
               <td class="mn">${fdate(x.data)}</td>
               <td class="mn gr" style="font-weight:700">+${fmt(x.importo)}</td>
-              <td><span class="bx bt">${x.metodo||'—'}</span></td>
-              <td class="mn" style="color:var(--text2)">${x.fattura||'—'}</td>
-              <td style="color:var(--text2);font-size:12px">${x.note||''}</td>
-              <td>${x._fonte==='blob'?`<button class="bd" onclick="eliminaIncasso('${x.id}')">✕</button>`:`<span title="Da fattura ${x.fattura||''} — si modifica dalla scheda fattura" style="color:var(--text2);font-size:11px">🧾</span>`}</td>
+              <td><span class="bx bt">${esc(x.metodo||'—')}</span></td>
+              <td class="mn" style="color:var(--text2)">${esc(x.fattura||'—')}</td>
+              <td style="color:var(--text2);font-size:12px">${esc(x.note||'')}</td>
+              <td>${x._fonte==='blob'?`<button class="bd" onclick="eliminaIncasso('${x.id}')">✕</button>`:`<span title="Da fattura ${esc(x.fattura||'')} — si modifica dalla scheda fattura" style="color:var(--text2);font-size:11px">🧾</span>`}</td>
             </tr>`).join('')
             : `<tr><td colspan="6" style="color:var(--text2);font-size:12px;padding:12px 14px;font-style:italic">Nessun incasso registrato</td></tr>`}
           ${ricavo>0&&residuo>0?`<tr style="border-top:2px solid var(--brd)">
@@ -10961,8 +11024,8 @@ async function rIncassi(){
       <tbody>${senza.slice().sort((a,b)=>(a.data||'').localeCompare(b.data||'')).map(x=>`
         <tr><td class="mn">${fdate(x.data)}</td>
         <td class="mn gr" style="font-weight:700">+${fmt(x.importo)}</td>
-        <td><span class="bx bt">${x.metodo||'—'}</span></td>
-        <td class="mn" style="color:var(--text2)">${x.fattura||'—'}</td>
+        <td><span class="bx bt">${esc(x.metodo||'—')}</span></td>
+        <td class="mn" style="color:var(--text2)">${esc(x.fattura||'—')}</td>
         <td style="color:var(--text2);font-size:12px">${esc(x.committente||x.note||'')}</td>
         <td>${x._fonte==='blob'?`<button class="bd" onclick="eliminaIncasso('${x.id}')">✕</button>`:`<span style="color:var(--text2);font-size:11px">🧾</span>`}</td>
         </tr>`).join('')}</tbody></table></details>`;
@@ -11454,7 +11517,7 @@ async function gpsLoad(ev){
       let d = r.data;
       if(typeof d==='number') d = new Date(Date.UTC(1899,11,30)+d*86400000); else d = new Date(d);
       if(isNaN(d)) continue;
-      const giorno = d.toISOString().slice(0,10);
+      const giorno = typeof r.data==='number' ? d.toISOString().slice(0,10) : isoLocale(d); // seriale → UTC; Date di SheetJS (cellDates) → locale
       _GPS[targa] = _GPS[targa] || {giorni:{}, kmTot:0};
       const g = _GPS[targa].giorni[giorno] = _GPS[targa].giorni[giorno] || {km:0, luoghi:new Set()};
       const km = parseFloat(r.km);
@@ -11825,15 +11888,16 @@ async function _renderBattiti(){
   try{
     const r=await fetch(`${SUPABASE_URL}/rest/v1/salvataggi_log?select=ts,versione,salvato_da&order=ts.desc&limit=12`,
       {headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}});
+    if(!r.ok) throw new Error(await _httpErr(r));
     const rows=await r.json();
     if(!Array.isArray(rows)||!rows.length){ el.innerHTML='<div style="color:var(--text2);font-size:12px">Nessun salvataggio registrato ancora.</div>'; return; }
     el.innerHTML='<div class="sl">🫀 Ultimi salvataggi sul cloud</div>'+rows.map(x=>
       `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--brd);font-size:12px">
         <span>${new Date(x.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span>
-        <span style="font-weight:600">${x.salvato_da||'(sconosciuto)'}</span>
-        <span style="color:var(--text2)">v.${x.versione||'—'}</span>
+        <span style="font-weight:600">${esc(x.salvato_da||'(sconosciuto)')}</span>
+        <span style="color:var(--text2)">v.${esc(x.versione||'—')}</span>
       </div>`).join('');
-  }catch(e){ el.innerHTML=''; }
+  }catch(e){ el.innerHTML='<div style="color:var(--red);font-size:12px">⚠ Log salvataggi non leggibile: '+esc(e.message||e)+'</div>'; }
 }
 function rSync(){
   _renderBattiti();
@@ -12065,7 +12129,7 @@ function parseXlFile(file){
           const parseData=(raw)=>{
             if(!raw) return '';
             if(typeof raw==='object' && raw instanceof Date)
-              return raw.toISOString().slice(0,10);
+              return isoLocale(raw); // cellDates: data locale
             const s=String(raw).trim();
             if(s.match(/^\d{4}-\d{2}-\d{2}/)) return s.slice(0,10);
             if(s.includes('/')){
@@ -12125,7 +12189,7 @@ function parseXlFile(file){
           if(!nome||nome.toUpperCase().includes('TOTAL')||!importo)return;
           const parseD=(raw)=>{
             if(!raw) return '';
-            if(typeof raw==='object'&&raw instanceof Date) return raw.toISOString().slice(0,10);
+            if(typeof raw==='object'&&raw instanceof Date) return isoLocale(raw);
             const s=String(raw).trim();
             if(s.match(/^\d{4}-\d{2}-\d{2}/)) return s.slice(0,10);
             if(s.includes('/')){const p=s.split('/');if(p.length>=3){let y=p[2].split(' ')[0];if(y.length===2)y='20'+y;return `${y}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;}}
@@ -12872,7 +12936,7 @@ function _pcCompute(){
 
 async function rPosizioneClienti(){
   const el=document.getElementById('pc-list'); if(el) el.innerHTML='<div style="color:var(--text2);padding:16px">Carico le fatture…</div>';
-  try{ const F=_FAPI(); const r=await fetch(F.url+'?select=*',{headers:F.h,cache:'no-cache'}); _fatture=await r.json(); }catch(e){ /* usa quelle in memoria */ }
+  await _fattureCarica();   // se fallisce usa quelle in memoria
   await _pcCaricaPeriodi();   // periodi di fatturazione aperti (commesse continuative come Gaeta)
   if((!REF||!REF.length) && typeof refLoad==='function'){ try{ await refLoad(); }catch(e){} }  // serve per la ricerca per referente
   pcRender();
@@ -13241,7 +13305,7 @@ async function incSalva(){
     else{ _incSalvaCantiere(id, imp, data, metodo, descr); }
     incChiudi();
     toast('💶 Incasso di '+fmtE(imp)+' registrato ✓');
-    try{ const F=_FAPI(); const r=await fetch(F.url+'?select=*',{headers:F.h,cache:'no-cache'}); _fatture=await r.json(); }catch(e){}
+    await _fattureCarica();
     if(typeof curPg!=='undefined' && curPg==='dettaglio-cant' && typeof rDettCant==='function') rDettCant();
     else pcRender();
   }catch(e){ toast('⚠ Errore nel salvataggio incasso'); }
@@ -13714,7 +13778,7 @@ async function bankImportFile(input){
   if(!window.XLSX){ toast('⚠ Libreria Excel non caricata'); return; }
   toast('⏳ Leggo l\'estratto conto…');
   // assicura le fatture in memoria
-  if(!_fatture||!_fatture.length){ try{ const F=_FAPI(); const r=await fetch(F.url+'?select=*',{headers:F.h,cache:'no-cache'}); _fatture=await r.json(); }catch(e){} }
+  if(!_fatture||!_fatture.length) await _fattureCarica();
   let rows;
   try{
     const buf=await file.arrayBuffer();
@@ -13823,7 +13887,7 @@ async function bankApplica(){
   }
   bankChiudi();
   toast('🏦 Registrati '+ok+' incassi'+(salt?' · '+salt+' saltati (già presenti)':''));
-  try{ const F=_FAPI(); const r=await fetch(F.url+'?select=*',{headers:F.h,cache:'no-cache'}); _fatture=await r.json(); }catch(e){}
+  await _fattureCarica();
   pcRender();
 }
 
@@ -13879,6 +13943,7 @@ async function rPosizioneFornitori(){
   const el=document.getElementById('pf-list'); if(el) el.innerHTML='<div style="color:var(--text2);padding:16px">Carico le fatture fornitori…</div>';
   try{
     const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=*',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},cache:'no-cache'});
+    if(!r.ok) throw new Error(await _httpErr(r));
     _faRows=await r.json();
     if(!Array.isArray(_faRows)) _faRows=[];
   }catch(e){ if(el) el.innerHTML='<div class="fc" style="color:#e0645f">Errore nel caricamento fornitori: '+esc(e.message||e)+'</div>'; return; }
@@ -14292,7 +14357,7 @@ function _wdHeader(rows, richieste){
   return null;
 }
 function _wdData(v){
-  if(v instanceof Date && !isNaN(v)) return v.toISOString().slice(0,10);
+  if(v instanceof Date && !isNaN(v)) return isoLocale(v); // cellDates: data locale
   const s=String(v||'').trim(); if(!s) return null;
   let m=s.match(/(\d{4})-(\d{2})-(\d{2})/); if(m) return m[1]+'-'+m[2]+'-'+m[3];
   m=s.match(/(\d{2})[\/-](\d{2})[\/-](\d{4})/); if(m) return m[3]+'-'+m[2]+'-'+m[1];
