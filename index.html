@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-10-17b · cache-buster: forza i dispositivi a scaricare il Riepilogo che si aggiorna in tempo reale -->
+<!-- build 2026-10-18 · periodi: cestino (cancellazione soft recuperabile) -->
 <html lang="it">
 <head>
 <meta charset="UTF-8">
@@ -6251,7 +6251,9 @@ async function rDettInterventi(c){
   let list=[];
   try{ const A=_INTAPI(); const r=await fetch(A.url+'?commessa_id=eq.'+encodeURIComponent(c.id)+'&order=data_inizio.asc,creato_il.asc',{headers:A.h,cache:'no-cache'}); if(r.ok) list=await r.json(); }catch(e){ list=[]; }
   if(!Array.isArray(list)) list=[];
-  const rows=list.map(it=>{
+  const attivi = list.filter(x=>!x.cancellato_il);
+  const cestino = list.filter(x=>x.cancellato_il).sort((a,b)=>String(b.cancellato_il||'').localeCompare(String(a.cancellato_il||'')));
+  const rows=attivi.map(it=>{
     const st=_INT_STA[it.stato]||{l:it.stato||'—',c:'#8a95a3'};
     const per=[it.data_inizio,it.data_fine].filter(Boolean).map(fdate).join(' → ');
     return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--brd)">
@@ -6260,14 +6262,31 @@ async function rDettInterventi(c){
       <div style="display:flex;gap:5px;align-items:center;flex-shrink:0">
         <span style="font-size:10px;font-weight:700;color:#0a0f16;background:${st.c};padding:2px 7px;border-radius:6px">${st.l}</span>
         <button class="bs" style="font-size:11px;padding:3px 7px" onclick="intToggleFatt('${it.id}',${!it.fatturato})" title="${it.fatturato?'Riporta a concluso':'Marca fatturato'}">${it.fatturato?'↩︎':'€'}</button>
-        <button class="bd" style="font-size:11px;padding:3px 7px" onclick="intElimina('${it.id}')">✕</button>
+        <button class="bd" style="font-size:11px;padding:3px 7px" onclick="intElimina('${it.id}')" title="Sposta nel cestino">🗑</button>
+      </div></div>`;
+  }).join('');
+  const cestinoRows=cestino.map(it=>{
+    const per=[it.data_inizio,it.data_fine].filter(Boolean).map(fdate).join(' → ');
+    return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px dashed var(--brd);opacity:.85">
+      <div><div style="font-weight:700;font-size:12.5px;text-decoration:line-through;color:var(--text2)">${esc(it.titolo||it.numero||'Periodo')}</div>
+        <div style="font-size:11px;color:var(--text2)">${per||'—'}${it.importo?' · '+fmt(it.importo):''} · cestinato ${it.cancellato_il?fdate(String(it.cancellato_il).slice(0,10)):''}</div></div>
+      <div style="display:flex;gap:5px;align-items:center;flex-shrink:0">
+        <button class="bs" style="font-size:11px;padding:3px 8px" onclick="intRipristina('${it.id}')" title="Ripristina il periodo">↩︎ Ripristina</button>
+        <button class="bd" style="font-size:11px;padding:3px 7px" onclick="intEliminaDef('${it.id}')" title="Elimina definitivamente">✕</button>
       </div></div>`;
   }).join('');
   box.innerHTML=`<div style="background:var(--navy2);border:1px solid var(--brd);border-radius:12px;padding:14px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div style="font-size:13px;font-weight:800;color:var(--teal)">🧾 Periodi di fatturazione <span style="color:var(--text2);font-weight:600">(${list.length})</span></div>
-      <button class="bs" style="font-size:12px;padding:6px 12px" onclick="intToggleForm()">➕ Nuovo periodo</button>
+      <div style="font-size:13px;font-weight:800;color:var(--teal)">🧾 Periodi di fatturazione <span style="color:var(--text2);font-weight:600">(${attivi.length})</span></div>
+      <div style="display:flex;gap:6px;align-items:center">
+        ${cestino.length?`<button class="bs" style="font-size:12px;padding:6px 10px" onclick="intToggleCestino()">🗑 Cestino (${cestino.length})</button>`:''}
+        <button class="bs" style="font-size:12px;padding:6px 12px" onclick="intToggleForm()">➕ Nuovo periodo</button>
+      </div>
     </div>
+    ${cestino.length?`<div id="int-cestino" style="display:none;margin:4px 0 10px;border:1px solid var(--brd);border-radius:10px;padding:8px 10px;background:rgba(232,84,84,.05)">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Periodi cestinati — "Ripristina" li rimette tra quelli da fatturare; "✕" li elimina per sempre.</div>
+      ${cestinoRows}
+    </div>`:''}
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Periodi da fatturare della commessa (distinti dai turni/squadre del Planning). Utile per le continuative: registri ogni periodo — es. "Gaeta settimana 1" — e lo marchi fatturato.</div>
     ${list.length?rows:'<div style="font-size:12px;color:var(--text2);padding:6px 0">Nessun periodo ancora.</div>'}
     <div id="int-form" style="display:none;margin-top:10px;border-top:1px dashed var(--brd);padding-top:10px">
@@ -6299,9 +6318,18 @@ async function intSalva(){
 async function intToggleFatt(id,val){
   try{ const A=_INTAPI(); await fetch(A.url+'?id=eq.'+id,{method:'PATCH',headers:{...A.h,Prefer:'return=minimal'},body:JSON.stringify({fatturato:val, stato:val?'fatturato':'aperto'})}); rDettInterventi(window._intCommessa); }catch(e){ toast('⚠ Errore'); }
 }
+function intToggleCestino(){ const e=document.getElementById('int-cestino'); if(e) e.style.display=e.style.display==='none'?'block':'none'; }
+// Cancellazione SOFT: il periodo va nel cestino (recuperabile), non viene distrutto.
 async function intElimina(id){
-  if(!confirm('Eliminare questo periodo?')) return;
-  try{ const A=_INTAPI(); await fetch(A.url+'?id=eq.'+id,{method:'DELETE',headers:A.h}); rDettInterventi(window._intCommessa); }catch(e){ toast('⚠ Errore'); }
+  if(!confirm('Spostare questo periodo nel cestino?\n\nNon viene eliminato del tutto: puoi ripristinarlo dal 🗑 Cestino.')) return;
+  try{ const A=_INTAPI(); const r=await fetch(A.url+'?id=eq.'+id,{method:'PATCH',headers:{...A.h,Prefer:'return=minimal'},body:JSON.stringify({cancellato_il:new Date().toISOString()})}); if(!r.ok) throw 0; toast('🗑 Periodo spostato nel cestino'); rDettInterventi(window._intCommessa); }catch(e){ toast('⚠ Errore'); }
+}
+async function intRipristina(id){
+  try{ const A=_INTAPI(); const r=await fetch(A.url+'?id=eq.'+id,{method:'PATCH',headers:{...A.h,Prefer:'return=minimal'},body:JSON.stringify({cancellato_il:null})}); if(!r.ok) throw 0; toast('↩︎ Periodo ripristinato'); rDettInterventi(window._intCommessa); }catch(e){ toast('⚠ Errore'); }
+}
+async function intEliminaDef(id){
+  if(!confirm('Eliminare DEFINITIVAMENTE questo periodo?\n\nQuesta operazione NON è recuperabile.')) return;
+  try{ const A=_INTAPI(); await fetch(A.url+'?id=eq.'+id,{method:'DELETE',headers:A.h}); toast('Periodo eliminato definitivamente'); rDettInterventi(window._intCommessa); }catch(e){ toast('⚠ Errore'); }
 }
 
 function aprDett(i){
@@ -12517,7 +12545,7 @@ let _pcPeriodiByCant = {};
 async function _pcCaricaPeriodi(){
   try{
     const A=_INTAPI();
-    const r=await fetch(A.url+'?select=commessa_id,importo,fatturato,stato,numero,data_inizio,data_fine&limit=5000',{headers:A.h,cache:'no-cache'});
+    const r=await fetch(A.url+'?select=commessa_id,importo,fatturato,stato,numero,data_inizio,data_fine&cancellato_il=is.null&limit=5000',{headers:A.h,cache:'no-cache'});
     const rows=r.ok?await r.json():[];
     const m={};
     (Array.isArray(rows)?rows:[]).forEach(p=>{
