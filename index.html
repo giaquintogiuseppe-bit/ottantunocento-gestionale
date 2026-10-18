@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-10-18 · periodi: cestino (cancellazione soft recuperabile) -->
+<!-- build 2026-10-18b · referenti: cruscotto economico (da fatturare/da incassare per referente) -->
 <html lang="it">
 <head>
 <meta charset="UTF-8">
@@ -12182,8 +12182,13 @@ async function refLoad(){
 function _refClienti(refId){ return (DB.clienti||[]).filter(c=>c.referenteId===refId); }
 async function rReferenti(){
   const el=document.getElementById('ref-list'); if(!el) return;
-  el.innerHTML='<div class="dc"><div class="dl">Carico…</div></div>';
+  el.innerHTML='<div class="dc"><div class="dl">Carico cruscotto referenti…</div></div>';
   await refLoad();
+  // Dati economici (come la Posizione clienti): fatture + periodi, poi aggregazione per referente.
+  try{ const F=_FAPI(); const rr=await fetch(F.url+'?select=*',{headers:F.h,cache:'no-cache'}); const d=await rr.json(); if(Array.isArray(d)) _fatture=d; }catch(e){}
+  try{ if(typeof _pcCaricaPeriodi==='function') await _pcCaricaPeriodi(); }catch(e){}
+  let posByRef={};
+  try{ const {list}=_pcCompute(); list.forEach(p=>{ const k=String(p.key||''); if(k.startsWith('ref:')) posByRef[k.slice(4)]=p; }); }catch(e){}
   const q=(document.getElementById('ref-search')?.value||'').toLowerCase();
   const list=REF.filter(r=>!q||((r.nome||'')+' '+(r.societa||'')+' '+(r.telefono||'')).toLowerCase().includes(q));
   const senza=(DB.clienti||[]).filter(c=>!c.referenteId);
@@ -12193,25 +12198,30 @@ async function rReferenti(){
       :`<div class="dc"><div class="dl">Nessun referente ancora. Crea il primo con "+ Nuovo referente" (es. Patrone, Carlucci) e poi collega i clienti dalla loro scheda.</div></div>`)+notaSenza;
     return;
   }
+  // ordina per esposizione (da incassare + da fatturare) decrescente
+  list.sort((a,b)=>{ const pa=posByRef[a.id]||{}, pb=posByRef[b.id]||{}; return ((pb.residuo||0)+(pb.daFattTot||0))-((pa.residuo||0)+(pa.daFattTot||0)) || (a.nome||'').localeCompare(b.nome||''); });
   el.innerHTML=list.map(r=>{
     const cli=_refClienti(r.id);
     const cants=(DB.cantieri||[]).filter(x=>cli.some(c=>c.id===x.clienteId));
-    const incTot=(DB.incassi||[]).filter(i=>cants.some(ct=>ct.id===i.cantiereId)).reduce((a,i)=>a+parseFloat(i.importo||0),0);
+    const p=posByRef[r.id]||{residuo:0,daFattTot:0,fatturato:0,incassato:0,membri:{}};
+    const nSoc=Object.keys(p.membri||{}).length||cli.length;
+    const daInc=p.residuo||0, daFat=p.daFattTot||0;
     return `<div class="ri">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+        <div style="min-width:0">
           <div class="rn">${esc(r.nome)}</div>
-          ${(r.telefono||r.email)?`<div class="rls">${esc(r.telefono||'')}${r.telefono&&r.email?' · ':''}${esc(r.email||'')}</div>`:''}
-          ${r.numero?`<div class="rls" style="opacity:.7">${esc(r.numero)}</div>`:''}
+          <div class="rls">${nSoc} societ&agrave; · ${cants.length} commesse${r.telefono?' · '+esc(r.telefono):''}</div>
+          ${cli.length?`<div style="margin-top:6px;font-size:11px;color:var(--text2)">${cli.map(c=>esc(c.ragioneSociale)).join(' · ')}</div>`:'<div style="margin-top:6px;font-size:11px;color:var(--gold)">Nessun cliente collegato — collegali dalla scheda cliente</div>'}
         </div>
-        <div style="text-align:right">
-          <div style="font-size:18px;font-weight:800;color:var(--teal)">${cli.length}</div>
-          <div style="font-size:11px;color:var(--text2)">clienti · ${cants.length} commesse</div>
-          ${incTot>0?`<div style="font-size:13px;font-weight:700;color:var(--green)">${fm(incTot)}</div>`:''}
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">Da incassare</div>
+          <div style="font-size:17px;font-weight:800;color:${daInc>0?'var(--gold)':'var(--text2)'}">${fm(daInc)}</div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-top:4px">Da fatturare</div>
+          <div style="font-size:15px;font-weight:700;color:${daFat>0?'#c98fd0':'var(--text2)'}">${fm(daFat)}</div>
         </div>
       </div>
-      ${cli.length?`<div style="margin-top:8px;font-size:12px;color:var(--text2)">${cli.map(c=>esc(c.ragioneSociale)).join(' · ')}</div>`:'<div style="margin-top:8px;font-size:12px;color:var(--gold)">Nessun cliente collegato — collegali dalla scheda cliente</div>'}
-      <div style="margin-top:10px;display:flex;gap:6px">
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+        <button onclick="pcReportPosizione('ref:${r.id}')" class="bs" style="font-size:11px;padding:4px 10px;border-color:var(--teal);color:var(--teal)">📄 Cruscotto</button>
         <button onclick="apriModalReferente('${r.id}')" class="bs" style="font-size:11px;padding:4px 10px">✏️ Modifica</button>
         <button onclick="eliminaReferente('${r.id}')" class="bd" style="font-size:11px;padding:4px 10px">✕ Elimina</button>
       </div>
@@ -12567,7 +12577,15 @@ function _pcCompute(){
   // Se in anagrafica è valorizzato il campo "gruppo", tutte le società con lo stesso gruppo
   // confluiscono in un'unica scheda (bucket "grp:<gruppo>") e i loro numeri si sommano.
   const nomeToGruppo={}, gruppoLabel={};
-  (DB.clienti||[]).forEach(c=>{ const g=(c.gruppo||'').trim(); if(!g) return; const k=_pcNorm(c.ragioneSociale); const bk='grp:'+_pcNorm(g); if(k) nomeToGruppo[k]=bk; gruppoLabel[bk]=g; });
+  // Raggruppamento per REFERENTE (id stabile): tutte le società dello stesso referente (Patrone,
+  // Carlucci, Loffredo…) confluiscono in un'unica posizione. Ripiego sul vecchio campo testo "gruppo"
+  // per i clienti non ancora collegati a un referente.
+  const _refById={}; (typeof REF!=='undefined' && Array.isArray(REF) ? REF : []).forEach(r=>{ if(r&&r.id) _refById[r.id]=r; });
+  (DB.clienti||[]).forEach(c=>{
+    const k=_pcNorm(c.ragioneSociale); if(!k) return;
+    if(c.referenteId && _refById[c.referenteId]){ const bk='ref:'+c.referenteId; nomeToGruppo[k]=bk; gruppoLabel[bk]=_refById[c.referenteId].nome; return; }
+    const g=(c.gruppo||'').trim(); if(!g) return; const bk='grp:'+_pcNorm(g); nomeToGruppo[k]=bk; gruppoLabel[bk]=g;
+  });
   const bucket=(k)=> nomeToGruppo[k]||k;
   const get=(key,nome)=>{
     if(!map[key]) map[key]={key,nome:nome||'—',fatturato:0,incassato:0,residuo:0,fattAperte:[],daFatt:[],daFattTot:0,daEmettere:[],daEmettereTot:0,daQuant:[],gruppo:gruppoLabel[key]||'',membri:{},perSoc:{},search:''};
