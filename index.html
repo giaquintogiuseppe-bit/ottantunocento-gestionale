@@ -365,23 +365,57 @@ tbody td{padding:10px 14px;vertical-align:middle}
   function salva(j){ setSess({ access_token:j.access_token, refresh_token:j.refresh_token,
     expires_at: j.expires_at || (Math.floor(Date.now()/1000) + (j.expires_in||3600)) }); }
 
-  // ── fetch patchato: inietta il token utente sulle chiamate Supabase ──────
-  window.fetch = function(input, init){
-    try{
-      var url = (typeof input === 'string') ? input : (input && input.url) || '';
-      if(url.indexOf(SB_URL) === 0 && url.indexOf('/auth/v1/') < 0){
-        var s = getSess();
-        if(s && s.access_token){
-          var h = new Headers((init && init.headers) || (typeof input!=='string' && input.headers) || {});
-          h.set('apikey', SB_ANON);
-          h.set('Authorization', 'Bearer ' + s.access_token);
-          init = Object.assign({}, init, { headers: h });
-          if(typeof input !== 'string') input = input.url;   // usa l'URL così vincono i nostri header
-        }
+  // ── rinnovo automatico del token (scade ogni ~60 min) ────────────────────
+  var _rinnovoInCorso = null;
+  function rinnova(forza){
+    var s = getSess();
+    if(!s || !s.refresh_token) return Promise.resolve(false);
+    if(!forza && s.expires_at && (Date.now()/1000 < s.expires_at - 300)) return Promise.resolve(true);
+    if(_rinnovoInCorso) return _rinnovoInCorso;
+    _rinnovoInCorso = _fetch(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method:'POST', headers:{ 'Content-Type':'application/json', 'apikey':SB_ANON },
+      body: JSON.stringify({ refresh_token: s.refresh_token })
+    }).then(function(r){ return r.json().then(function(j){
+      if(r.ok && j.access_token){
+        setSess({ access_token:j.access_token, refresh_token:j.refresh_token,
+              expires_at: j.expires_at || (Math.floor(Date.now()/1000) + (j.expires_in||3600)) });
+        return true;
       }
-    }catch(e){}
-    return _fetch(input, init);
+      return false;
+    }); }).catch(function(){ return false; })
+      .then(function(ok){ _rinnovoInCorso = null; return ok; });
+    return _rinnovoInCorso;
+  }
+  function conToken(input, init){
+    var s = getSess();
+    if(!s || !s.access_token) return [input, init];
+    var h = new Headers((init && init.headers) || (typeof input!=='string' && input.headers) || {});
+    h.set('apikey', SB_ANON);
+    h.set('Authorization', 'Bearer ' + s.access_token);
+    return [ (typeof input !== 'string') ? input.url : input, Object.assign({}, init, { headers: h }) ];   // usa l'URL così vincono i nostri header
+  }
+
+  // ── fetch patchato: inietta il token utente sulle chiamate Supabase ──────
+  // Rinnova il token prima che scada e, se il server risponde 401, lo rinnova e riprova una volta.
+  window.fetch = function(input, init){
+    var url = '';
+    try{ url = (typeof input === 'string') ? input : (input && input.url) || ''; }catch(e){}
+    if(url.indexOf(SB_URL) !== 0 || url.indexOf('/auth/v1/') >= 0 || !getSess()) return _fetch(input, init);
+    return rinnova(false).then(function(){
+      var a = conToken(input, init);
+      return _fetch(a[0], a[1]).then(function(r){
+        if(r.status !== 401 || !(getSess()||{}).refresh_token) return r;
+        return rinnova(true).then(function(ok){
+          if(!ok) return r;
+          var b = conToken(input, init);
+          return _fetch(b[0], b[1]);
+        });
+      });
+    });
   };
+  // controllo anche al rientro nell'app e ogni 5 minuti
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) rinnova(false); });
+  setInterval(function(){ rinnova(false); }, 5*60*1000);
 
   // ── chiamate auth diritte (niente librerie) ──────────────────────────────
   function login(email, password){
@@ -503,6 +537,15 @@ tbody td{padding:10px 14px;vertical-align:middle}
     if(document.body) ins(); else document.addEventListener('DOMContentLoaded', ins);
   }
 
+  // logout globale utilizzabile dalle app: window.logout81()
+  // (definito prima dell'avvio: col return anticipato non veniva mai creato)
+  window.logout81 = function(){
+    try{ window.localStorage.removeItem(LSK); }catch(e){}
+    try{ window.sessionStorage.removeItem(LSK); }catch(e){}
+    try{ history.replaceState(null, '', location.pathname + location.search); }catch(e){}  // toglie il token del reset dall'URL
+    location.reload();
+  };
+
   // ── avvio: sessione valida? refresh? altrimenti login ────────────────────
   function mostra(){ if(document.body) overlay(); else document.addEventListener('DOMContentLoaded', overlay); }
   var s=getSess();
@@ -514,13 +557,6 @@ tbody td{padding:10px 14px;vertical-align:middle}
     }).catch(function(){ mostra(); });
   } else { mostra(); }
 
-  // logout globale utilizzabile dalle app: window.logout81()
-  window.logout81 = function(){
-    try{ window.localStorage.removeItem(LSK); }catch(e){}
-    try{ window.sessionStorage.removeItem(LSK); }catch(e){}
-    try{ history.replaceState(null, '', location.pathname + location.search); }catch(e){}  // toglie il token del reset dall'URL
-    location.reload();
-  };
 })();
 </script>
 
@@ -2639,7 +2675,9 @@ function setBudget(cantiereId, cantiereName, ricavo, note){
 
 
 function save(){
-  localStorage.setItem('otto8100_v4',JSON.stringify(DB));
+  // la copia locale è solo una cache: se il browser la rifiuta (spazio pieno) il cloud deve salvare comunque
+  try{ localStorage.setItem('otto8100_v4',JSON.stringify(DB)); }
+  catch(e){ try{ localStorage.removeItem('otto8100_v4'); }catch(_){} console.warn('Copia locale non salvata:', e && e.name); }
   // sincronizza automaticamente sul cloud 3 secondi dopo ogni modifica
   if(typeof cloudAutoSave === 'function') cloudAutoSave();
 }
@@ -2938,11 +2976,17 @@ async function cloudSalva(silenzioso){
 
       var _remoteDatiGuard = rows[0]?.dati || null;   // per il guard anti-cancellazione più sotto
       const remoteCantieriCloud = rows[0]?.dati?.cantieri||[];
+      // Cantieri eliminati (qui o in un'altra app): unione delle due liste, così nessuno risorge
+      const eliminati = new Set([...(rows[0]?.dati?._cantieriEliminati||[]), ...(DB._cantieriEliminati||[])].map(String));
+      if(eliminati.size){
+        DB._cantieriEliminati = [...eliminati].slice(-3000);
+        DB.cantieri = (DB.cantieri||[]).filter(c=>!eliminati.has(String(c.id)));
+      }
       // Aggiunge al DB locale i cantieri presenti sul cloud ma non in locale
       const idsLocali = new Set((DB.cantieri||[]).map(c=>c.id));
       let nuovi = 0;
       remoteCantieriCloud.forEach(cc=>{
-        if(!idsLocali.has(cc.id)){
+        if(!idsLocali.has(cc.id) && !eliminati.has(String(cc.id))){
           DB.cantieri.push(cc);
           nuovi++;
         }
@@ -2974,7 +3018,9 @@ async function cloudSalva(silenzioso){
       const rHR=_cnt(_remoteDatiGuard,'personaleHR'),lHR=_cnt(DB,'personaleHR');
       const svuota = (rC>=10 && lC===0) || (rP>=10 && lP===0) || (rK>=20 && lK<=2) || (rHR>=10 && lHR===0);
       let crollo=false;
-      try{ const sr=JSON.stringify(_remoteDatiGuard).length, sl=JSON.stringify(DB).length; crollo = sr>80000 && sl < sr/3; }catch(e){}
+      // le foto degli scontrini non contano: escono dal blob (Storage) e lo rimpiccioliscono legittimamente
+      const _lenSenzaFoto = o => JSON.stringify(Object.assign({}, o, { scontrini: null })).length;
+      try{ const sr=_lenSenzaFoto(_remoteDatiGuard), sl=_lenSenzaFoto(DB); crollo = sr>80000 && sl < sr/3; }catch(e){}
       if(svuota || crollo){
         cloudSyncInCorso = false;
         await cloudCarica(true);
@@ -5176,12 +5222,16 @@ function prevDay(d){ const x=new Date(d+'T12:00:00'); x.setDate(x.getDate()-1); 
 // Legge i turni di un dipendente per una certa data di REGISTRAZIONE
 // (non di competenza) con retrocompatibilità vecchio formato
 async function importaTimbrature(){
-  const d=gv('pres-date');
-  if(!d){ alert('Scegli prima la data in alto (Presenze del giorno).'); return; }
-  const fine=new Date(new Date(d+'T00:00:00').getTime()+30*3600000).toISOString(); // fino alle 06 del giorno dopo (turni notturni)
+  // il pulsante sta in "Nuova giornata": vale la data scelta lì; altrimenti quella della pagina Presenze
+  const d=gv('ng-data')||gv('pres-date');
+  if(!d){ alert('Scegli prima la data della giornata.'); return; }
+  // mezzanotte ora italiana calcolata dal browser (vale sia con l'ora legale sia con la solare)
+  const inizioMs=new Date(d+'T00:00:00').getTime();
+  const inizio=new Date(inizioMs).toISOString();
+  const fine=new Date(inizioMs+30*3600000).toISOString(); // fino alle 06 del giorno dopo (turni notturni)
   let rows=[];
   try{
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/timbrature?and=(ts.gte.${d}T00:00:00%2B02:00,ts.lt.${encodeURIComponent(fine)})&order=ts.asc`,
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/timbrature?and=(ts.gte.${encodeURIComponent(inizio)},ts.lt.${encodeURIComponent(fine)})&order=ts.asc`,
       {headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}});
     rows=await r.json();
   }catch(e){ alert('Non riesco a leggere le timbrature: '+e.message); return; }
@@ -5644,6 +5694,10 @@ function elimCantiere(id){
 
   DB.cantieri = DB.cantieri.filter(x=>x.id!==id);
   if(DB._cantieriArchiviati) DB._cantieriArchiviati = DB._cantieriArchiviati.filter(x=>x!==id);
+  // traccia condivisa (come il Planning): senza, il salvataggio lo riprenderebbe dal cloud
+  if(!Array.isArray(DB._cantieriEliminati)) DB._cantieriEliminati=[];
+  if(!DB._cantieriEliminati.includes(String(id))) DB._cantieriEliminati.push(String(id));
+  if(DB._cantieriEliminati.length>3000) DB._cantieriEliminati=DB._cantieriEliminati.slice(-3000);
   save(); rCant();
   _commessaDelRemote(id); syncCommessePerno();
   toast(incLegati.length ? `Eliminato — ${incLegati.length} incasso/i da riassegnare (vedi Riepilogo)` : 'Cantiere eliminato');
@@ -9303,7 +9357,16 @@ function exportJSON(){ syncSalva(); }
 function importJSON(e){
   const f=e.target.files[0];if(!f)return;
   const r=new FileReader();
-  r.onload=ev=>{try{Object.assign(DB,JSON.parse(ev.target.result));ricalcolaSaldi();save();render(curPg);toast('Dati ripristinati ✓');}catch{alert('File non valido');}};
+  r.onload=ev=>{
+    let dati;
+    try{ dati=JSON.parse(ev.target.result); }catch{ alert('File non valido'); e.target.value=''; return; }
+    // il ripristino sovrascrive i dati di TUTTI i dispositivi e di tutte le app: chiedi conferma esplicita
+    const quando = f.lastModified ? new Date(f.lastModified).toLocaleString('it-IT') : 'data sconosciuta';
+    const nC=(dati.cantieri||[]).length, nP=Object.keys(dati.presenze||{}).length;
+    if(!confirm(`Ripristinare il file "${f.name}" (salvato il ${quando}: ${nC} cantieri, ${nP} giorni di presenze)?\n\nSOSTITUISCE i dati attuali sul cloud per tutti i dispositivi e tutte le app. Le modifiche fatte dopo quella data andranno perse.`)){ e.target.value=''; return; }
+    Object.assign(DB,dati);ricalcolaSaldi();save();render(curPg);toast('Dati ripristinati ✓');
+    e.target.value='';
+  };
   r.readAsText(f);
 }
 function clock(){
@@ -10028,7 +10091,7 @@ function rScontrini(){
   grid.innerHTML = filtered.length
     ? [...filtered].sort((a,b)=>(a.data||"").localeCompare(b.data||"")).slice(0,12).map(s=>`
       <div class="scon-card" style="${s.contabilizzato?'border-color:rgba(154,122,31,.4)':'!s.cantiere?\'\':\' border-color:rgba(232,184,75,.4)\''}">
-        ${s.foto?`<img class="sc-img" src="${s.foto}" onclick="sconZoom('${s.id}')" alt="scontrino">`:''}
+        ${s.foto?`<img class="sc-img" ${fotoAttr(s.foto)} onclick="sconZoom('${s.id}')" alt="scontrino">`:''}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <span class="bx bz scon-badge">${s.categoria||'—'}</span>
           ${s.contabilizzato
@@ -10057,6 +10120,7 @@ function rScontrini(){
         </div>
       </div>`).join('')
     : '<div class="empty">Nessuno scontrino registrato</div>';
+  fotoAggancia(grid);
 
   // TABELLA
   document.getElementById('scon-tb').innerHTML = filtered.length
@@ -10155,6 +10219,8 @@ function _importScontrini(files){
       if(pending===0){
         save();
         rScontrini();
+        // le foto arrivate dallo Shortcut vanno nello Storage, non nel blob condiviso
+        if(imported){ _fotoSpostamentoFatto=false; fotoSpostaVecchie().then(()=>rScontrini()).catch(()=>{}); }
         const lines=[];
         if(imported) lines.push(`<div class="sl-ok">✓ ${imported} scontrino${imported>1?'i':''} importato${imported>1?'i':''}</div>`);
         if(skipped)  lines.push(`<div class="sl-info">ℹ ${skipped} già presente${skipped>1?'':'i'} — saltato${skipped>1?'':'i'}</div>`);
@@ -10214,9 +10280,76 @@ function sconZoom(id){
   if(!s?.foto) return;
   const overlay = document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:999;display:flex;align-items:center;justify-content:center;cursor:pointer';
-  overlay.innerHTML=`<img src="${s.foto}" style="max-width:90vw;max-height:90vh;border-radius:8px">`;
+  overlay.innerHTML=`<img ${fotoAttr(s.foto)} style="max-width:90vw;max-height:90vh;border-radius:8px" alt="scontrino">`;
   overlay.onclick=()=>document.body.removeChild(overlay);
   document.body.appendChild(overlay);
+  fotoAggancia(overlay);
+}
+
+// ============================================================
+// FOTO SCONTRINI — nello Storage (bucket privato), non dentro il blob condiviso.
+// Nel blob resta solo il riferimento "sb:scontrini-foto/<id>.jpg": una sola foto
+// in base64 pesava 2,7 MB e rallentava ogni salvataggio di tutte le app.
+// ============================================================
+const FOTO_BUCKET='scontrini-foto';
+function fotoComprimi(src, maxLato=1600, qualita=0.72){
+  return new Promise((ok,ko)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+      const k=Math.min(1, maxLato/Math.max(w,h));
+      const c=document.createElement('canvas');
+      c.width=Math.round(w*k); c.height=Math.round(h*k);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      c.toBlob(b=>b?ok(b):ko(new Error('compressione non riuscita')),'image/jpeg',qualita);
+    };
+    img.onerror=()=>ko(new Error('immagine non leggibile'));
+    img.src=src;
+  });
+}
+async function fotoCarica(id, blob){
+  const path=`${String(id).replace(/[^\w.-]/g,'_')}.jpg`;
+  const r=await fetch(`${SUPABASE_URL}/storage/v1/object/${FOTO_BUCKET}/${path}`,{
+    method:'POST',
+    headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'image/jpeg','x-upsert':'true'},
+    body:blob
+  });
+  if(!r.ok) throw new Error('caricamento foto non riuscito ('+r.status+')');
+  return `sb:${FOTO_BUCKET}/${path}`;
+}
+// attributo per <img>: le foto nello Storage si caricano dopo, con il token (bucket privato)
+function fotoAttr(ref){
+  const v=String(ref||'');
+  return v.startsWith('sb:') ? `data-foto="${esc(v)}"` : `src="${esc(v)}"`;
+}
+const _fotoUrlCache={};
+async function fotoUrl(ref){
+  const v=String(ref||'');
+  if(!v.startsWith('sb:')) return v;
+  if(_fotoUrlCache[v]) return _fotoUrlCache[v];
+  const r=await fetch(`${SUPABASE_URL}/storage/v1/object/authenticated/${v.slice(3)}`,{headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}});
+  if(!r.ok) throw new Error('foto non disponibile ('+r.status+')');
+  return (_fotoUrlCache[v]=URL.createObjectURL(await r.blob()));
+}
+function fotoAggancia(root){
+  (root||document).querySelectorAll('img[data-foto]').forEach(img=>{
+    const ref=img.getAttribute('data-foto'); img.removeAttribute('data-foto');
+    fotoUrl(ref).then(u=>{ if(u) img.src=u; }).catch(()=>{ img.alt='foto non disponibile'; });
+  });
+}
+// Foto pesanti rimaste nel blob (base64): le comprime, le sposta nello Storage e lascia il riferimento.
+// Se il caricamento non riesce la foto resta dov'è: non si perde nulla.
+let _fotoSpostamentoFatto=false;
+async function fotoSpostaVecchie(){
+  if(_fotoSpostamentoFatto) return;
+  _fotoSpostamentoFatto=true;
+  const pesanti=(DB.scontrini||[]).filter(s=>typeof s.foto==='string' && s.foto.startsWith('data:image') && s.foto.length>150000);
+  let spostate=0;
+  for(const s of pesanti){
+    try{ const b=await fotoComprimi(s.foto); s.foto=await fotoCarica(s.id,b); spostate++; }
+    catch(e){ console.warn('Foto scontrino non spostata', s.id, e.message); }
+  }
+  if(spostate){ save(); toast(`📷 ${spostate} foto spostate nell'archivio: salvataggi più leggeri`); }
 }
 
 
@@ -14447,6 +14580,7 @@ setTimeout(async()=>{
     await cloudCarica(true);
     const p = document.querySelector('.pg.active');
     if(p && typeof render === 'function') render(p.id.replace('pg-',''));
+    setTimeout(()=>{ fotoSpostaVecchie().catch(()=>{}); }, 5000);
   }catch(_){}
   // battesimo del dispositivo: chiesto una volta sola, all'ingresso (non al primo salvataggio)
   try{ if(!localStorage.getItem('deviceNome81100')) _nomeDispositivo(); }catch(_){}
