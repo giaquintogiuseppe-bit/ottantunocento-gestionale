@@ -2671,6 +2671,10 @@ function setBudget(cantiereId, cantiereName, ricavo, note){
   let b=DB.budgetCantieri.find(x=>x.cantiereId===cantiereId);
   if(b){ b.ricavoPrevisto=parseFloat(ricavo||0); b.cantiereName=cantiereName; if(note!==undefined)b.note=note; }
   else DB.budgetCantieri.push({cantiereId, cantiereName, ricavoPrevisto:parseFloat(ricavo||0), note:note||''});
+  // le commesse nate da Preventivi hanno anche `ricavo`, che la posizione clienti legge per primo:
+  // va tenuto allineato, altrimenti la modifica del ricavo previsto qui non avrebbe effetto
+  const c=(DB.cantieri||[]).find(x=>x.id===cantiereId);
+  if(c && c.ricavo!=null && c.ricavo!=='') c.ricavo=parseFloat(ricavo||0);
 }
 
 
