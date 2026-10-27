@@ -1109,6 +1109,14 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <button class="pf-flt fisco-flt" data-flt="nc_ricevuta" onclick="fiscoFiltra('nc_ricevuta')">↩️ NC da fornitori</button>
       <button onclick="fiscoRicarica()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text2);cursor:pointer;font-size:13px;padding:8px 12px">🔄</button>
     </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px">
+      <span style="font-size:11px;color:var(--text2)">Stato:</span>
+      <button class="pf-flt fisco-sflt on" data-sflt="tutte" onclick="fiscoSFiltra('tutte')">Tutti</button>
+      <button class="pf-flt fisco-sflt" data-sflt="pagate" onclick="fiscoSFiltra('pagate')">✓ Pagate</button>
+      <button class="pf-flt fisco-sflt" data-sflt="parziali" onclick="fiscoSFiltra('parziali')">◐ Parziali</button>
+      <button class="pf-flt fisco-sflt" data-sflt="aperte" onclick="fiscoSFiltra('aperte')">● Da incassare/pagare</button>
+      <button class="pf-flt fisco-sflt" data-sflt="stornate" onclick="fiscoSFiltra('stornate')">↩️ Stornate</button>
+    </div>
     <div id="fisco-list"></div>
     </div><!-- /fisco-view-doc -->
 
@@ -15204,7 +15212,7 @@ async function fiscoImportFile(input,ctx){
     input.value=''; FISCO.loaded=false; await rFisco();
   }catch(e){ stato.textContent='⚠ Errore import: '+String(e.message||e).slice(0,180); console.error('fisco import',e); input.value=''; }
 }
-const FISCO={rows:[], flt:'tutte', loaded:false, righeByFatt:{}};
+const FISCO={rows:[], flt:'tutte', sflt:'tutte', loaded:false, righeByFatt:{}};
 // lettura paginata: PostgREST limita a ~1000 righe per richiesta, quindi scorriamo a pagine
 async function _fFetchAll(path){
   const page=1000; let from=0, all=[];
@@ -15232,6 +15240,11 @@ async function fiscoCarica(){
 async function rFisco(){ if(!FISCO.loaded) await fiscoCarica(); fiscoRender(); }
 async function fiscoRicarica(){ FISCO.loaded=false; await rFisco(); }
 function fiscoFiltra(f){ FISCO.flt=f; document.querySelectorAll('.fisco-flt').forEach(b=>b.classList.toggle('on',b.dataset.flt===f)); fiscoRender(); }
+function fiscoSFiltra(s){ FISCO.sflt=s; document.querySelectorAll('.fisco-sflt').forEach(b=>b.classList.toggle('on',b.dataset.sflt===s)); fiscoRender(); }
+// stato di pagamento di una fattura dalla mappa SM: 'pagate'|'parziali'|'aperte'|null
+function _fStatoPag(x,SM){ if(!(BANCA.rows&&BANCA.rows.length)) return null; if(!(x.tipo==='emessa'||x.tipo==='ricevuta')) return null;
+  const tot=Number(x.totale)||0, inc=(SM&&SM[x.id]&&SM[x.id].incassato)||0;
+  if(inc<=0.01) return 'aperte'; if(Math.abs(inc-tot)<=Math.max(0.5,tot*0.01)) return 'pagate'; if(inc<tot) return 'parziali'; return 'pagate'; }
 // stato per fattura: stornata da NC (match controparte+importo) e pagata (da riconciliazione banca)
 function fiscoStatoMap(){
   const map={};
@@ -15286,9 +15299,14 @@ function fiscoRender(){
   const intest={emessa:'🟢 Fatture emesse verso clienti',ricevuta:'🔵 Fatture ricevute da fornitori',nc_emessa:'↩️ Note di credito emesse verso i clienti (riducono le emesse)',nc_ricevuta:'↩️ Note di credito ricevute dai fornitori (riducono le ricevute)'}[FISCO.flt];
   const tot=rows.reduce((s,x)=>s+(Number(x.totale)||0),0);
   const SM=fiscoStatoMap();
+  if(FISCO.sflt&&FISCO.sflt!=='tutte'){
+    if(FISCO.sflt==='stornate') rows=rows.filter(x=>SM[x.id]&&SM[x.id].storni&&SM[x.id].storni.length);
+    else rows=rows.filter(x=>_fStatoPag(x,SM)===FISCO.sflt);
+  }
+  const tot2=rows.reduce((s,x)=>s+(Number(x.totale)||0),0);
   const mostraStato=(FISCO.flt==='emessa'||FISCO.flt==='ricevuta'||FISCO.flt==='tutte');
   const legenda=mostraStato?'<div style="font-size:11px;color:var(--text2);margin:0 2px 8px">'+(BANCA.rows&&BANCA.rows.length?'<span style="color:#34d399">✓</span> pagata · <span style="color:#fbbf24">◐</span> parziale · <span style="color:#f87171">●</span> da incassare/pagare · ':'')+'<span style="color:#f0abfc">↩️</span> stornata da nota di credito'+(BANCA.rows&&BANCA.rows.length?'':' — <i>importa l\'estratto conto in «Banca» per vedere anche i pagamenti</i>')+'</div>':'';
-  const head=(intest?'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:0 2px 8px;font-size:13px"><b>'+intest+'</b><span style="color:var(--text2)">'+rows.length+' doc · '+_fEur(tot)+'</span></div>':'')+legenda;
+  const head=(intest?'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:0 2px 8px;font-size:13px"><b>'+intest+'</b><span style="color:var(--text2)">'+rows.length+' doc · '+_fEur(tot2)+'</span></div>':'')+legenda;
   if(!rows.length){ box.innerHTML=head+'<div style="padding:18px;color:var(--text2);text-align:center">Nessun documento in questa sezione. Importa gli Excel di Genya qui sopra.</div>'; return; }
   const badge=t=>({emessa:'🟢 Emessa',ricevuta:'🔵 Ricevuta',nc_emessa:'↩️ NC a cliente',nc_ricevuta:'↩️ NC da fornitore'}[t]||t);
   rows.sort((a,b)=>String(b.data_fattura||'').localeCompare(String(a.data_fattura||'')));
@@ -15370,7 +15388,7 @@ function _bControparte(op,det,segno){ op=op||''; det=det||'';
   return '';
 }
 function _bFatture(op,det){ const txt=((op||'')+' '+(det||'')); const out=new Set();
-  const re=/\b(?:fatture|fattura|fatt|ft)\b\.?\s*n?\.?\s*([0-9][0-9\s\/eE.,]{0,30})/gi; let m;
+  const re=/\b(?:fatture|fattura|fatt|ft)\b\.?\s*(?:n(?:r|ro|um|°|º|\.)?\s*\.?\s*)?([0-9][0-9\s\/eE.,]{0,30})/gi; let m;
   while((m=re.exec(txt))){ const nums=m[1].split(/[^0-9]+/).filter(Boolean);
     for(const n of nums){ const v=parseInt(n,10); if(v>0 && v<=9999 && !(v>=2020&&v<=2035)) out.add(String(v)); if(out.size>=6) break; } }
   return [...out];
@@ -15439,6 +15457,8 @@ async function fiscoVista(v){
   document.getElementById('fisco-tab-banca').classList.toggle('on',v==='banca');
   if(v==='banca'){ if(!FISCO.loaded) await fiscoCarica(); if(!BANCA.loaded) await bancaCarica(); bancaRender(); }
 }
+// una fattura può essere pagata solo se emessa non oltre ~7 giorni dopo il movimento
+function _bDateOk(f,m){ if(!f.data_fattura||!m.data) return true; const g=new Date(m.data+'T00:00:00'); if(isNaN(g)) return true; g.setDate(g.getDate()+7); const gs=g.toISOString().slice(0,10); return String(f.data_fattura)<=gs; }
 // Riconciliazione: assegna ogni movimento ad al più una fattura (per numero, poi per nome+importo)
 function bancaRiconcilia(){
   const emesse=FISCO.rows.filter(f=>f.tipo==='emessa'), ricevute=FISCO.rows.filter(f=>f.tipo==='ricevuta');
@@ -15451,7 +15471,7 @@ function bancaRiconcilia(){
     const pool=m.segno==='entrata'?'emessa':'ricevuta'; const rif=(m.fatture_rif||'').split(',').filter(Boolean);
     if(!rif.length) return;
     const targets=[]; const seen=new Set();
-    rif.forEach(n=>{ let cands=byNum[pool][n]||[]; if(!cands.length) return;
+    rif.forEach(n=>{ let cands=(byNum[pool][n]||[]).filter(f=>_bDateOk(f,m)); if(!cands.length) return;
       let pick=cands.find(f=>_bNomeMatch(f.controparte_nome,m.controparte_estratta)) || cands.slice().sort((a,b)=>Math.abs((a.totale||0)-m.importo)-Math.abs((b.totale||0)-m.importo))[0];
       if(pick && !seen.has(pick.id)){ seen.add(pick.id); targets.push(pick); } });
     if(!targets.length) return;
@@ -15466,11 +15486,11 @@ function bancaRiconcilia(){
   BANCA.rows.forEach(m=>{
     if(movInfo[m.chiave]) return; const pool=(m.segno==='entrata'?emesse:ricevute);
     if(!m.controparte_estratta) return;
-    const cands=pool.filter(f=>_bNomeMatch(f.controparte_nome,m.controparte_estratta));
+    const cands=pool.filter(f=>_bNomeMatch(f.controparte_nome,m.controparte_estratta) && _bDateOk(f,m));
     if(!cands.length) return;
     // preferisci fattura col residuo più vicino all'importo del movimento
     let best=null,bd=1e15; cands.forEach(f=>{ const res=(f.totale||0)-(attr[f.id]||0); const d=Math.abs(res-m.importo); if(d<bd){ bd=d; best=f; } });
-    if(best && bd<=Math.max(5,(best.totale||0)*0.02)){ add(best,m.importo); movInfo[m.chiave]={fatt:[{f:best,imp:m.importo}],tipo:'nome'}; }
+    if(best && bd<=Math.max(2,(best.totale||0)*0.01)){ add(best,m.importo); movInfo[m.chiave]={fatt:[{f:best,imp:m.importo}],tipo:'nome'}; }
   });
   return {attr,movInfo,emesse,ricevute};
 }
@@ -15542,7 +15562,7 @@ async function bancaSvuota(){
 window.fiscoVista=fiscoVista; window.bancaImportFile=bancaImportFile; window.bancaRender=bancaRender; window.bancaFiltra=bancaFiltra; window.bancaRicarica=bancaRicarica; window.bancaSvuota=bancaSvuota;
 window.fiscoImportFile=fiscoImportFile; window.rFisco=rFisco; window.fiscoRender=fiscoRender;
 window.fiscoFiltra=fiscoFiltra; window.fiscoRicarica=fiscoRicarica; window.fiscoDettaglio=fiscoDettaglio;
-window.fiscoSvuotaTutto=fiscoSvuotaTutto;
+window.fiscoSvuotaTutto=fiscoSvuotaTutto; window.fiscoSFiltra=fiscoSFiltra;
 })();
 </script>
 </body>
