@@ -1078,8 +1078,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
           <input type="file" accept=".xlsx,.xls" onchange="fiscoImportFile(this,'emesse')"></label>
         <label style="display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text2)">📥 Fatture RICEVUTE (fornitori)
           <input type="file" accept=".xlsx,.xls" onchange="fiscoImportFile(this,'ricevute')"></label>
-        <label style="display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text2)">↩️ NOTE DI CREDITO
-          <input type="file" accept=".xlsx,.xls" onchange="fiscoImportFile(this,'ricevute')" title="Carica l'export Note di Credito (fornitori o clienti): il tipo lo riconosco dal documento"></input></label>
+        <label style="display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text2)">↩️ NC a CLIENTI (nostre)
+          <input type="file" accept=".xlsx,.xls" onchange="fiscoImportFile(this,'emesse')" title="Export delle note di credito EMESSE verso i clienti — riducono le emesse"></label>
+        <label style="display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text2)">↩️ NC da FORNITORI
+          <input type="file" accept=".xlsx,.xls" onchange="fiscoImportFile(this,'ricevute')" title="Export delle note di credito RICEVUTE dai fornitori — riducono le ricevute"></label>
       </div>
       <div id="fisco-imp-stato" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
     </div>
@@ -15182,17 +15184,20 @@ function fiscoRender(){
   const base=anno?FISCO.rows.filter(x=>String(x.anno)===anno):FISCO.rows;
   const sum=pred=>base.filter(pred).reduce((s,x)=>s+(Number(x.totale)||0),0);
   const em=sum(x=>x.tipo==='emessa'||x.tipo==='nc_emessa'), ri=sum(x=>x.tipo==='ricevuta'||x.tipo==='nc_ricevuta');
+  const ncE=sum(x=>x.tipo==='nc_emessa'), ncR=sum(x=>x.tipo==='nc_ricevuta');
   if(kpi) kpi.innerHTML='<div class="sc"><div class="scv">'+_fEur(em)+'</div><div class="scl">Emesse (nette)</div></div>'+
     '<div class="sc"><div class="scv">'+_fEur(ri)+'</div><div class="scl">Ricevute (nette)</div></div>'+
     '<div class="sc"><div class="scv">'+_fEur(em-ri)+'</div><div class="scl">Saldo (em − ric)</div></div>'+
-    '<div class="sc"><div class="scv">'+base.length+'</div><div class="scl">Documenti</div></div>';
+    '<div class="sc"><div class="scv">'+base.length+'</div><div class="scl">Documenti</div></div>'+
+    ((ncE||ncR)?'<div class="sc"><div class="scv">'+_fEur(ncE)+'</div><div class="scl">NC a clienti</div></div>'+
+      '<div class="sc"><div class="scv">'+_fEur(ncR)+'</div><div class="scl">NC da fornitori</div></div>':'');
   let rows=base.slice();
   if(FISCO.flt==='emessa') rows=rows.filter(x=>x.tipo==='emessa'||x.tipo==='nc_emessa');
   else if(FISCO.flt==='ricevuta') rows=rows.filter(x=>x.tipo==='ricevuta'||x.tipo==='nc_ricevuta');
   else if(FISCO.flt==='nc') rows=rows.filter(x=>x.tipo==='nc_emessa'||x.tipo==='nc_ricevuta');
   if(q) rows=rows.filter(x=>((x.numero||'')+' '+(x.controparte_nome||'')+' '+(x.oggetto||'')).toLowerCase().includes(q));
   if(!rows.length){ box.innerHTML='<div style="padding:18px;color:var(--text2);text-align:center">Nessun documento. Importa gli Excel di Genya qui sopra.</div>'; return; }
-  const badge=t=>({emessa:'🟢 Emessa',ricevuta:'🔵 Ricevuta',nc_emessa:'↩️ NC em.',nc_ricevuta:'↩️ NC ric.'}[t]||t);
+  const badge=t=>({emessa:'🟢 Emessa',ricevuta:'🔵 Ricevuta',nc_emessa:'↩️ NC a cliente',nc_ricevuta:'↩️ NC da fornitore'}[t]||t);
   rows.sort((a,b)=>String(b.data_fattura||'').localeCompare(String(a.data_fattura||'')));
   box.innerHTML='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'+
     '<thead><tr style="text-align:left;color:var(--text2)"><th style="padding:7px 8px">Tipo</th><th>Numero</th><th>Data</th><th>Controparte</th><th>Oggetto</th><th style="text-align:right">Imponibile</th><th style="text-align:right">IVA</th><th style="text-align:right">Totale</th></tr></thead><tbody>'+
