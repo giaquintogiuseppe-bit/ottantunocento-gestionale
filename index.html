@@ -1092,9 +1092,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <input id="fisco-q" oninput="fiscoRender()" placeholder="Cerca numero, controparte, oggetto…" style="flex:1;min-width:200px;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:9px 12px">
       <select id="fisco-anno" onchange="fiscoRender()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:9px 10px"></select>
       <button class="pf-flt fisco-flt on" data-flt="tutte" onclick="fiscoFiltra('tutte')">Tutte</button>
-      <button class="pf-flt fisco-flt" data-flt="emessa" onclick="fiscoFiltra('emessa')">Emesse</button>
-      <button class="pf-flt fisco-flt" data-flt="ricevuta" onclick="fiscoFiltra('ricevuta')">Ricevute</button>
-      <button class="pf-flt fisco-flt" data-flt="nc" onclick="fiscoFiltra('nc')">Note credito</button>
+      <button class="pf-flt fisco-flt" data-flt="emessa" onclick="fiscoFiltra('emessa')">🟢 Fatture emesse</button>
+      <button class="pf-flt fisco-flt" data-flt="ricevuta" onclick="fiscoFiltra('ricevuta')">🔵 Fatture ricevute</button>
+      <button class="pf-flt fisco-flt" data-flt="nc_emessa" onclick="fiscoFiltra('nc_emessa')">↩️ NC a clienti</button>
+      <button class="pf-flt fisco-flt" data-flt="nc_ricevuta" onclick="fiscoFiltra('nc_ricevuta')">↩️ NC da fornitori</button>
       <button onclick="fiscoRicarica()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text2);cursor:pointer;font-size:13px;padding:8px 12px">🔄</button>
     </div>
     <div id="fisco-list"></div>
@@ -15192,14 +15193,19 @@ function fiscoRender(){
     ((ncE||ncR)?'<div class="sc"><div class="scv">'+_fEur(ncE)+'</div><div class="scl">NC a clienti</div></div>'+
       '<div class="sc"><div class="scv">'+_fEur(ncR)+'</div><div class="scl">NC da fornitori</div></div>':'');
   let rows=base.slice();
-  if(FISCO.flt==='emessa') rows=rows.filter(x=>x.tipo==='emessa'||x.tipo==='nc_emessa');
-  else if(FISCO.flt==='ricevuta') rows=rows.filter(x=>x.tipo==='ricevuta'||x.tipo==='nc_ricevuta');
-  else if(FISCO.flt==='nc') rows=rows.filter(x=>x.tipo==='nc_emessa'||x.tipo==='nc_ricevuta');
+  if(FISCO.flt==='emessa') rows=rows.filter(x=>x.tipo==='emessa');
+  else if(FISCO.flt==='ricevuta') rows=rows.filter(x=>x.tipo==='ricevuta');
+  else if(FISCO.flt==='nc_emessa') rows=rows.filter(x=>x.tipo==='nc_emessa');
+  else if(FISCO.flt==='nc_ricevuta') rows=rows.filter(x=>x.tipo==='nc_ricevuta');
   if(q) rows=rows.filter(x=>((x.numero||'')+' '+(x.controparte_nome||'')+' '+(x.oggetto||'')).toLowerCase().includes(q));
-  if(!rows.length){ box.innerHTML='<div style="padding:18px;color:var(--text2);text-align:center">Nessun documento. Importa gli Excel di Genya qui sopra.</div>'; return; }
+  // intestazione della sezione corrente
+  const intest={emessa:'🟢 Fatture emesse verso clienti',ricevuta:'🔵 Fatture ricevute da fornitori',nc_emessa:'↩️ Note di credito emesse verso i clienti (riducono le emesse)',nc_ricevuta:'↩️ Note di credito ricevute dai fornitori (riducono le ricevute)'}[FISCO.flt];
+  const tot=rows.reduce((s,x)=>s+(Number(x.totale)||0),0);
+  const head=intest?'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:0 2px 8px;font-size:13px"><b>'+intest+'</b><span style="color:var(--text2)">'+rows.length+' doc · '+_fEur(tot)+'</span></div>':'';
+  if(!rows.length){ box.innerHTML=head+'<div style="padding:18px;color:var(--text2);text-align:center">Nessun documento in questa sezione. Importa gli Excel di Genya qui sopra.</div>'; return; }
   const badge=t=>({emessa:'🟢 Emessa',ricevuta:'🔵 Ricevuta',nc_emessa:'↩️ NC a cliente',nc_ricevuta:'↩️ NC da fornitore'}[t]||t);
   rows.sort((a,b)=>String(b.data_fattura||'').localeCompare(String(a.data_fattura||'')));
-  box.innerHTML='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'+
+  box.innerHTML=head+'<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'+
     '<thead><tr style="text-align:left;color:var(--text2)"><th style="padding:7px 8px">Tipo</th><th>Numero</th><th>Data</th><th>Controparte</th><th>Oggetto</th><th style="text-align:right">Imponibile</th><th style="text-align:right">IVA</th><th style="text-align:right">Totale</th></tr></thead><tbody>'+
     rows.slice(0,1500).map(x=>'<tr style="border-top:1px solid var(--brd);cursor:pointer" onclick="fiscoDettaglio(\''+x.id+'\')">'+
       '<td style="padding:7px 8px;white-space:nowrap">'+badge(x.tipo)+'</td>'+
