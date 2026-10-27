@@ -1084,6 +1084,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
           <input type="file" accept=".xlsx,.xls" onchange="fiscoImportFile(this,'ricevute')" title="Export delle note di credito RICEVUTE dai fornitori — riducono le ricevute"></label>
       </div>
       <div id="fisco-imp-stato" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+      <div style="margin-top:12px;border-top:1px solid var(--brd);padding-top:10px">
+        <button onclick="fiscoSvuotaTutto()" style="background:transparent;border:1px solid var(--red);border-radius:8px;color:var(--red);cursor:pointer;font-size:12px;padding:7px 12px">🗑️ Svuota tutto il quadro fiscale</button>
+        <span style="font-size:11px;color:var(--text2);margin-left:8px">Cancella tutte le fatture e le righe importate — poi reimporta da zero.</span>
+      </div>
     </div>
 
     <div class="sg" id="fisco-kpi"></div>
@@ -15218,6 +15222,22 @@ function fiscoRender(){
       '<td style="text-align:right;white-space:nowrap;font-weight:700">'+_fEur(x.totale)+'</td></tr>').join('')+
     '</tbody></table></div>'+(rows.length>1500?'<div style="padding:8px;color:var(--text2);font-size:11px">Mostrati 1500 di '+rows.length+' — usa i filtri.</div>':'');
 }
+async function fiscoSvuotaTutto(){
+  const stato=document.getElementById('fisco-imp-stato');
+  if(!confirm('Cancellare TUTTE le fatture e le righe del quadro fiscale?\n\nQuesto svuota completamente la sezione (fatture emesse/ricevute e note di credito). I dati non sono recuperabili: dovrai reimportare gli Excel di Genya.\n\nProcedere?')) return;
+  if(!confirm('Conferma definitiva: svuoto tutto il quadro fiscale ora?')) return;
+  try{
+    if(stato) stato.textContent='⏳ Svuoto il quadro fiscale…';
+    // prima le righe (dipendono dalle fatture), poi le fatture
+    let r=await fetch(SUPABASE_URL+'/rest/v1/fisco_fatture_righe?id=not.is.null',{method:'DELETE',headers:Object.assign({},FH(),{Prefer:'return=minimal'})});
+    if(!r.ok && r.status!==404) throw new Error('righe HTTP '+r.status+': '+(await r.text()).slice(0,180));
+    r=await fetch(SUPABASE_URL+'/rest/v1/fisco_fatture?id=not.is.null',{method:'DELETE',headers:Object.assign({},FH(),{Prefer:'return=minimal'})});
+    if(!r.ok && r.status!==404) throw new Error('fatture HTTP '+r.status+': '+(await r.text()).slice(0,180));
+    FISCO.rows=[]; FISCO.loaded=false;
+    if(stato) stato.textContent='✅ Quadro fiscale svuotato. Reimporta gli Excel di Genya quando vuoi.';
+    await rFisco();
+  }catch(e){ if(stato) stato.textContent='❌ Errore durante lo svuotamento: '+(e.message||e); }
+}
 async function fiscoDettaglio(id){
   const f=FISCO.rows.find(x=>String(x.id)===String(id)); if(!f) return;
   const ov=document.getElementById('fisco-righe-ov'), tit=document.getElementById('fisco-righe-tit'), body=document.getElementById('fisco-righe-body');
@@ -15231,6 +15251,7 @@ async function fiscoDettaglio(id){
 // esponi le funzioni usate dagli onclick/nav
 window.fiscoImportFile=fiscoImportFile; window.rFisco=rFisco; window.fiscoRender=fiscoRender;
 window.fiscoFiltra=fiscoFiltra; window.fiscoRicarica=fiscoRicarica; window.fiscoDettaglio=fiscoDettaglio;
+window.fiscoSvuotaTutto=fiscoSvuotaTutto;
 })();
 </script>
 </body>
