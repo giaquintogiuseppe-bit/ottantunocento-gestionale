@@ -1071,6 +1071,13 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div class="pt">📑 Quadro fiscale</div>
     <div class="ps">Import degli export Excel di Genya (fatture emesse, ricevute e note di credito) con oggetto e righe. I file si leggono in locale, nessun dato esce dal dispositivo. Reimportare lo stesso file non crea doppioni. Fonte: tabelle fisco_fatture / fisco_fatture_righe.</div>
 
+    <div style="display:flex;gap:8px;margin:10px 0 4px">
+      <button id="fisco-tab-doc" class="pf-flt on" onclick="fiscoVista('doc')">📄 Documenti</button>
+      <button id="fisco-tab-banca" class="pf-flt" onclick="fiscoVista('banca')">🏦 Banca &amp; riconciliazione</button>
+    </div>
+
+    <div id="fisco-view-doc">
+
     <div style="background:var(--navy2);border:1px solid var(--brd);border-radius:10px;padding:14px;margin:12px 0">
       <div style="font-weight:700;font-size:13px;margin-bottom:10px">⬆️ Importa da Genya</div>
       <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
@@ -1103,6 +1110,32 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <button onclick="fiscoRicarica()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text2);cursor:pointer;font-size:13px;padding:8px 12px">🔄</button>
     </div>
     <div id="fisco-list"></div>
+    </div><!-- /fisco-view-doc -->
+
+    <div id="fisco-view-banca" style="display:none">
+      <div style="background:var(--navy2);border:1px solid var(--brd);border-radius:10px;padding:14px;margin:12px 0">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">🏦 Importa estratto conto Intesa Sanpaolo</div>
+        <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px">Carica il file "Lista Operazioni" (.xlsx) esportato da Intesa. I movimenti si abbinano automaticamente alle fatture (incassi → emesse, pagamenti → ricevute). Reimportare lo stesso periodo non crea doppioni.</div>
+        <label style="display:inline-flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text2)">📄 Estratto conto Intesa (.xlsx)
+          <input type="file" accept=".xlsx,.xls" onchange="bancaImportFile(this)"></label>
+        <div id="banca-imp-stato" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+        <div style="margin-top:12px;border-top:1px solid var(--brd);padding-top:10px">
+          <button onclick="bancaSvuota()" style="background:transparent;border:1px solid var(--red);border-radius:8px;color:var(--red);cursor:pointer;font-size:12px;padding:7px 12px">🗑️ Svuota movimenti banca</button>
+        </div>
+      </div>
+
+      <div class="sg" id="banca-kpi"></div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0">
+        <input id="banca-q" oninput="bancaRender()" placeholder="🔎 Cerca controparte, causale, n. fattura…" style="flex:1;min-width:220px;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:9px 12px">
+        <button class="pf-flt banca-flt on" data-flt="ricon" onclick="bancaFiltra('ricon')">🔗 Riconciliazione fatture</button>
+        <button class="pf-flt banca-flt" data-flt="incassi" onclick="bancaFiltra('incassi')">🟢 Incassi</button>
+        <button class="pf-flt banca-flt" data-flt="uscite" onclick="bancaFiltra('uscite')">🔴 Uscite</button>
+        <button class="pf-flt banca-flt" data-flt="nonabb" onclick="bancaFiltra('nonabb')">❓ Non abbinati</button>
+        <button onclick="bancaRicarica()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text2);cursor:pointer;font-size:13px;padding:8px 12px">🔄</button>
+      </div>
+      <div id="banca-list"></div>
+    </div>
   </div>
 
   <!-- dettaglio righe fattura (quadro fiscale) -->
@@ -15281,7 +15314,183 @@ async function fiscoDettaglio(id){
     (righe.length?righe.map(r=>'<tr style="border-top:1px solid var(--brd)"><td style="padding:5px">'+(r.numero_riga||'')+'</td><td>'+_fEsc(r.descrizione||'')+'</td><td style="text-align:right">'+(r.quantita!=null?r.quantita:'')+'</td><td style="text-align:right">'+(r.prezzo_unitario!=null?_fEur(r.prezzo_unitario):'')+'</td><td style="text-align:right">'+(r.iva_perc!=null?r.iva_perc+'%':'')+'</td><td style="text-align:right">'+(r.prezzo_totale!=null?_fEur(r.prezzo_totale):'')+'</td></tr>').join(''):'<tr><td colspan="6" style="padding:8px;color:var(--text2)">Nessuna riga registrata.</td></tr>')+
     '</tbody></table><div style="margin-top:10px;text-align:right;font-size:12px;color:var(--text2)">Imponibile '+_fEur(f.imponibile)+' · IVA '+_fEur(f.iva)+' · <b style="color:var(--text)">Totale '+_fEur(f.totale)+'</b></div>';
 }
+/* ═══════════════ BANCA & RICONCILIAZIONE (estratto conto Intesa) ═══════════════ */
+const BANCA={rows:[], flt:'ricon', loaded:false};
+function _bHash(s){ let h=0; s=String(s||''); for(let i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))|0; } return (h>>>0).toString(36); }
+function _bControparte(op,det,segno){ op=op||''; det=det||'';
+  let m=det.match(/MITT\.\s*(.+?)\s*BENEF\./i); if(m) return m[1].trim();
+  if(segno==='entrata'){ m=op.match(/disposto\s+da\s+(.+)$/i); if(m) return m[1].trim(); }
+  else { m=op.match(/a\s+favore\s+di\s+(.+)$/i); if(m) return m[1].trim(); }
+  return '';
+}
+function _bFatture(op,det){ const txt=((op||'')+' '+(det||'')); const out=new Set();
+  const re=/\b(?:fatture|fattura|fatt|ft)\b\.?\s*n?\.?\s*([0-9][0-9\s\/eE.,]{0,30})/gi; let m;
+  while((m=re.exec(txt))){ const nums=m[1].split(/[^0-9]+/).filter(Boolean);
+    for(const n of nums){ const v=parseInt(n,10); if(v>0 && v<=9999 && !(v>=2020&&v<=2035)) out.add(String(v)); if(out.size>=6) break; } }
+  return [...out];
+}
+function _bNorm(s){ return String(s||'').toUpperCase().replace(/[^A-Z0-9 ]/g,' ').replace(/\b(S\s*R\s*L|S\s*P\s*A|S\s*N\s*C|S\s*A\s*S|SRLS|SSD|ARL|SOCIETA|RESPONSABILITA|LIMITATA|SEMPLIFICATA|UNIPERSONALE|DI|DEL|DELLA|E|THE|SPA|SRL)\b/g,' ').replace(/\s+/g,' ').trim(); }
+function _bNomeMatch(a,b){ a=_bNorm(a); b=_bNorm(b); if(!a||!b) return false; if(a.includes(b)||b.includes(a)) return true;
+  const as=a.replace(/ /g,''), bs=b.replace(/ /g,''); if(as.length>=5 && (as.includes(bs)||bs.includes(as))) return true;
+  const ta=a.split(' ').filter(w=>w.length>=4), tb=new Set(b.split(' ').filter(w=>w.length>=4)); let c=0; ta.forEach(w=>{ if(tb.has(w)) c++; }); return c>=1; }
+function bancaParseEC(aoa){
+  let h=-1; for(let i=0;i<Math.min(aoa.length,40);i++){ const v=(aoa[i]||[]).map(c=>String(c==null?'':c).trim().toLowerCase()); if(v.includes('data')&&v.some(x=>x.includes('importo'))){ h=i; break; } }
+  if(h<0) throw new Error('intestazione estratto conto non trovata (atteso "Data" e "Importo")');
+  const H=aoa[h].map(c=>String(c==null?'':c).trim().toLowerCase());
+  const ix=(...names)=>{ for(const n of names){ const i=H.indexOf(n); if(i>=0) return i; } for(let i=0;i<H.length;i++){ if(names.some(n=>H[i].includes(n))) return i; } return -1; };
+  const C={data:ix('data'),op:ix('operazione'),det:ix('dettagli'),conto:ix('conto o carta','conto'),cont:ix('contabilizzazione'),cat:ix('categoria'),imp:ix('importo')};
+  const out=[]; const keyCount={};
+  for(let r=h+1;r<aoa.length;r++){ const row=aoa[r]; if(!row) continue;
+    const d=_fD(row[C.data]); const imp=_fNum(row[C.imp]);
+    if(d==null || imp==null || (imp===0 && (row[C.imp]==null||row[C.imp]===''))) continue;
+    if(d==null) continue;
+    const op=row[C.op]!=null?String(row[C.op]).trim():''; const det=row[C.det]!=null?String(row[C.det]).trim():'';
+    const segno=imp>=0?'entrata':'uscita'; const aImp=Math.round(Math.abs(imp)*100)/100;
+    const rec={ data:d, segno, importo:aImp, operazione:op, dettagli:det,
+      conto:C.conto>=0?(row[C.conto]!=null?String(row[C.conto]).trim():null):null,
+      categoria:C.cat>=0?(row[C.cat]!=null?String(row[C.cat]).trim():null):null,
+      contabilizzato:C.cont>=0?(String(row[C.cont]||'').trim().toUpperCase()==='SI'):null,
+      controparte_estratta:_bControparte(op,det,segno)||null, fatture_rif:_bFatture(op,det).join(',')||null, stato_ricon:'nessuno' };
+    const base=d+'|'+aImp.toFixed(2)+'|'+segno+'|'+_bHash(op+'~'+det); keyCount[base]=(keyCount[base]||0)+1; rec.chiave=base+'#'+keyCount[base];
+    out.push(rec);
+  }
+  return out;
+}
+async function bancaUpsert(movs){
+  const url=SUPABASE_URL+'/rest/v1/fisco_banca_movimenti'; const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o;};
+  let n=0;
+  for(const part of chunk(movs,300)){
+    const r=await fetch(url+'?on_conflict=chiave',{method:'POST',headers:Object.assign({},FH(),{Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(part)});
+    if(!r.ok) throw new Error('movimenti HTTP '+r.status+': '+(await r.text()).slice(0,180)); n+=part.length;
+  }
+  return n;
+}
+async function bancaImportFile(input){
+  const file=input.files&&input.files[0]; if(!file) return; const stato=document.getElementById('banca-imp-stato');
+  stato.textContent='⏳ Leggo '+file.name+'…';
+  try{
+    const wb=XLSX.read(await file.arrayBuffer(),{cellDates:true}); const aoa=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null});
+    const movs=bancaParseEC(aoa); if(!movs.length){ stato.textContent='⚠ Nessun movimento riconosciuto.'; input.value=''; return; }
+    const ent=movs.filter(m=>m.segno==='entrata').length, usc=movs.length-ent;
+    stato.textContent='⏳ Salvo '+movs.length+' movimenti ('+ent+' incassi, '+usc+' uscite)…';
+    const n=await bancaUpsert(movs); BANCA.loaded=false; await bancaCarica();
+    stato.textContent='✅ Importati '+n+' movimenti ('+ent+' incassi, '+usc+' uscite). Reimportare lo stesso periodo non crea doppioni.'; input.value='';
+    bancaRender();
+  }catch(e){ stato.textContent='❌ Errore: '+(e.message||e); input.value=''; }
+}
+async function bancaCarica(){
+  const list=document.getElementById('banca-list'); if(list && !BANCA.loaded) list.innerHTML='<div style="padding:16px;color:var(--text2)">Carico…</div>';
+  try{ const r=await fetch(SUPABASE_URL+'/rest/v1/fisco_banca_movimenti?select=*&order=data.desc&limit=20000',{headers:FH(),cache:'no-cache'}); BANCA.rows=r.ok?await r.json():[]; if(!Array.isArray(BANCA.rows))BANCA.rows=[]; }catch(e){ BANCA.rows=[]; }
+  BANCA.loaded=true;
+}
+async function bancaRicarica(){ BANCA.loaded=false; await bancaCarica(); bancaRender(); }
+function bancaFiltra(f){ BANCA.flt=f; document.querySelectorAll('.banca-flt').forEach(b=>b.classList.toggle('on',b.dataset.flt===f)); bancaRender(); }
+async function fiscoVista(v){
+  document.getElementById('fisco-view-doc').style.display=(v==='doc')?'':'none';
+  document.getElementById('fisco-view-banca').style.display=(v==='banca')?'':'none';
+  document.getElementById('fisco-tab-doc').classList.toggle('on',v==='doc');
+  document.getElementById('fisco-tab-banca').classList.toggle('on',v==='banca');
+  if(v==='banca'){ if(!FISCO.loaded) await fiscoCarica(); if(!BANCA.loaded) await bancaCarica(); bancaRender(); }
+}
+// Riconciliazione: assegna ogni movimento ad al più una fattura (per numero, poi per nome+importo)
+function bancaRiconcilia(){
+  const emesse=FISCO.rows.filter(f=>f.tipo==='emessa'), ricevute=FISCO.rows.filter(f=>f.tipo==='ricevuta');
+  const byNum={emessa:{},ricevuta:{}}; emesse.forEach(f=>{(byNum.emessa[String(f.numero)]=byNum.emessa[String(f.numero)]||[]).push(f);}); ricevute.forEach(f=>{(byNum.ricevuta[String(f.numero)]=byNum.ricevuta[String(f.numero)]||[]).push(f);});
+  const attr={}; // fattura.id -> importo attribuito
+  const movInfo={}; // mov.chiave -> {fatt:[{f,imp}], tipo:'num'|'nome'|null}
+  const add=(f,imp)=>{ attr[f.id]=(attr[f.id]||0)+imp; };
+  // PASSO 1: per numero fattura
+  BANCA.rows.forEach(m=>{
+    const pool=m.segno==='entrata'?'emessa':'ricevuta'; const rif=(m.fatture_rif||'').split(',').filter(Boolean);
+    if(!rif.length) return;
+    const targets=[]; const seen=new Set();
+    rif.forEach(n=>{ let cands=byNum[pool][n]||[]; if(!cands.length) return;
+      let pick=cands.find(f=>_bNomeMatch(f.controparte_nome,m.controparte_estratta)) || cands.slice().sort((a,b)=>Math.abs((a.totale||0)-m.importo)-Math.abs((b.totale||0)-m.importo))[0];
+      if(pick && !seen.has(pick.id)){ seen.add(pick.id); targets.push(pick); } });
+    if(!targets.length) return;
+    let rem=m.importo; const assigned=[];
+    if(targets.length===1){ const f=targets[0], tot=Number(f.totale)||0;
+      // se il pagamento supera di molto il totale fattura, accredita solo fino al totale (il resto resta non attribuito)
+      const give=(m.importo>tot*1.02 && tot>0)?tot:m.importo; add(f,give); assigned.push({f,imp:give}); }
+    else { targets.forEach(f=>{ const cap=Math.max(0,(f.totale||0)-(attr[f.id]||0)); const give=Math.min(rem,cap||rem); if(give>0){ add(f,give); rem-=give; assigned.push({f,imp:give}); } }); if(rem>0.01 && assigned.length){ assigned[0].imp+=rem; add(assigned[0].f,rem); } }
+    movInfo[m.chiave]={fatt:assigned,tipo:'num'};
+  });
+  // PASSO 2: per nome + importo (solo movimenti non ancora abbinati e "significativi")
+  BANCA.rows.forEach(m=>{
+    if(movInfo[m.chiave]) return; const pool=(m.segno==='entrata'?emesse:ricevute);
+    if(!m.controparte_estratta) return;
+    const cands=pool.filter(f=>_bNomeMatch(f.controparte_nome,m.controparte_estratta));
+    if(!cands.length) return;
+    // preferisci fattura col residuo più vicino all'importo del movimento
+    let best=null,bd=1e15; cands.forEach(f=>{ const res=(f.totale||0)-(attr[f.id]||0); const d=Math.abs(res-m.importo); if(d<bd){ bd=d; best=f; } });
+    if(best && bd<=Math.max(5,(best.totale||0)*0.02)){ add(best,m.importo); movInfo[m.chiave]={fatt:[{f:best,imp:m.importo}],tipo:'nome'}; }
+  });
+  return {attr,movInfo,emesse,ricevute};
+}
+function bancaRender(){
+  const box=document.getElementById('banca-list'), kpi=document.getElementById('banca-kpi'); if(!box) return;
+  const q=(document.getElementById('banca-q')?document.getElementById('banca-q').value:'').toLowerCase();
+  if(!BANCA.rows.length){ if(kpi)kpi.innerHTML=''; box.innerHTML='<div style="padding:18px;color:var(--text2);text-align:center">Nessun movimento. Importa l\'estratto conto Intesa qui sopra.</div>'; return; }
+  const ent=BANCA.rows.filter(m=>m.segno==='entrata'), usc=BANCA.rows.filter(m=>m.segno==='uscita');
+  const sE=ent.reduce((s,m)=>s+(Number(m.importo)||0),0), sU=usc.reduce((s,m)=>s+(Number(m.importo)||0),0);
+  const R=bancaRiconcilia();
+  const statoF=f=>{ const inc=R.attr[f.id]||0, tot=Number(f.totale)||0; if(inc<=0.01) return {k:'aperta',t:tot}; if(Math.abs(inc-tot)<=Math.max(0.5,tot*0.01)) return {k:'saldata',t:tot,inc}; if(inc<tot) return {k:'parziale',t:tot,inc}; return {k:'sovra',t:tot,inc}; };
+  const emSald=R.emesse.filter(f=>statoF(f).k==='saldata').length, emAp=R.emesse.filter(f=>statoF(f).k==='aperta').length, emPar=R.emesse.filter(f=>statoF(f).k==='parziale').length;
+  const nAbb=BANCA.rows.filter(m=>R.movInfo[m.chiave]).length;
+  if(kpi) kpi.innerHTML='<div class="sc"><div class="scv">'+_fEur(sE)+'</div><div class="scl">Incassato (periodo)</div></div>'+
+    '<div class="sc"><div class="scv">'+_fEur(sU)+'</div><div class="scl">Uscite (periodo)</div></div>'+
+    '<div class="sc"><div class="scv">'+_fEur(sE-sU)+'</div><div class="scl">Saldo movimenti</div></div>'+
+    '<div class="sc"><div class="scv">'+nAbb+' / '+BANCA.rows.length+'</div><div class="scl">Movimenti abbinati</div></div>'+
+    '<div class="sc"><div class="scv">'+emSald+'</div><div class="scl">Emesse saldate</div></div>'+
+    '<div class="sc"><div class="scv">'+(emPar+emAp)+'</div><div class="scl">Emesse da incassare</div></div>';
+  const badgeSt={saldata:'<span style="color:#34d399">✓ Saldata</span>',parziale:'<span style="color:#fbbf24">◐ Parziale</span>',aperta:'<span style="color:#f87171">● Aperta</span>',sovra:'<span style="color:#fbbf24">▲ Sovra-incasso</span>'};
+  if(BANCA.flt==='ricon'){
+    // vista per fattura (emesse poi ricevute), con movimenti abbinati
+    const movByFatt={}; BANCA.rows.forEach(m=>{ const info=R.movInfo[m.chiave]; if(info) info.fatt.forEach(a=>{ (movByFatt[a.f.id]=movByFatt[a.f.id]||[]).push({m,imp:a.imp,tipo:info.tipo}); }); });
+    let list=R.emesse.concat(R.ricevute);
+    if(q) list=list.filter(f=>((f.numero||'')+' '+(f.controparte_nome||'')).toLowerCase().includes(q));
+    list.sort((a,b)=>String(b.data_fattura||'').localeCompare(String(a.data_fattura||'')));
+    const card=f=>{ const st=statoF(f); const inc=R.attr[f.id]||0; const movs=movByFatt[f.id]||[];
+      return '<div style="border:1px solid var(--brd);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--navy)">'+
+        '<div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap">'+
+          '<div style="font-size:13px">'+(f.tipo==='emessa'?'🟢':'🔵')+' <b>'+_fEsc(f.numero||'')+(f.anno?'/'+f.anno:'')+'</b> · '+_fEsc((f.controparte_nome||'').slice(0,42))+'</div>'+
+          '<div style="font-size:12.5px">'+badgeSt[st.k]+' &nbsp;<b>'+_fEur(inc)+'</b> / '+_fEur(f.totale)+(st.k==='parziale'?' <span style="color:var(--text2)">(residuo '+_fEur((f.totale||0)-inc)+')</span>':'')+'</div>'+
+        '</div>'+
+        (movs.length?('<div style="margin-top:6px">'+movs.map(o=>'<div style="font-size:11.5px;color:var(--text2)">'+(o.tipo==='nome'?'≈ ':'🔗 ')+(o.m.data?o.m.data.split('-').reverse().join('/'):'')+' · '+_fEur(o.imp)+' · '+_fEsc((o.m.controparte_estratta||o.m.operazione||'').slice(0,46))+'</div>').join('')+'</div>'):'')+
+      '</div>'; };
+    box.innerHTML='<div style="font-size:11px;color:var(--text2);margin:0 2px 8px">🔗 abbinato per numero fattura · ≈ abbinato per nome+importo. Incassi→emesse, pagamenti→ricevute.</div>'+list.slice(0,800).map(card).join('')+(list.length>800?'<div style="padding:8px;color:var(--text2);font-size:11px">Mostrate 800 di '+list.length+' — cerca per restringere.</div>':'');
+    return;
+  }
+  // viste movimenti grezzi
+  let rows=BANCA.rows.slice();
+  if(BANCA.flt==='incassi') rows=rows.filter(m=>m.segno==='entrata');
+  else if(BANCA.flt==='uscite') rows=rows.filter(m=>m.segno==='uscita');
+  else if(BANCA.flt==='nonabb') rows=rows.filter(m=>!R.movInfo[m.chiave]);
+  if(q) rows=rows.filter(m=>((m.controparte_estratta||'')+' '+(m.operazione||'')+' '+(m.dettagli||'')+' '+(m.fatture_rif||'')).toLowerCase().includes(q));
+  if(!rows.length){ box.innerHTML='<div style="padding:18px;color:var(--text2);text-align:center">Nessun movimento in questa vista.</div>'; return; }
+  box.innerHTML='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'+
+    '<thead><tr style="text-align:left;color:var(--text2)"><th style="padding:7px 8px">Data</th><th>Controparte</th><th>Causale</th><th>Rif. fatt.</th><th>Abb.</th><th style="text-align:right">Importo</th></tr></thead><tbody>'+
+    rows.slice(0,1500).map(m=>{ const info=R.movInfo[m.chiave]; const abb=info?(info.tipo==='num'?'🔗':'≈'):'—';
+      return '<tr style="border-top:1px solid var(--brd)">'+
+      '<td style="padding:7px 8px;white-space:nowrap">'+(m.data?m.data.split('-').reverse().join('/'):'')+'</td>'+
+      '<td>'+_fEsc((m.controparte_estratta||'').slice(0,30))+'</td>'+
+      '<td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_fEsc((m.operazione||'').slice(0,60))+'</td>'+
+      '<td style="white-space:nowrap">'+_fEsc(m.fatture_rif||'')+'</td>'+
+      '<td style="text-align:center">'+abb+'</td>'+
+      '<td style="text-align:right;white-space:nowrap;font-weight:700;color:'+(m.segno==='entrata'?'#34d399':'#f87171')+'">'+(m.segno==='entrata'?'+':'−')+_fEur(m.importo)+'</td></tr>'; }).join('')+
+    '</tbody></table></div>'+(rows.length>1500?'<div style="padding:8px;color:var(--text2);font-size:11px">Mostrati 1500 di '+rows.length+'.</div>':'');
+}
+async function bancaSvuota(){
+  const stato=document.getElementById('banca-imp-stato');
+  if(!confirm('Cancellare TUTTI i movimenti bancari importati?\n\nLe fatture NON vengono toccate. Dovrai reimportare l\'estratto conto.\n\nProcedere?')) return;
+  try{ if(stato) stato.textContent='⏳ Svuoto i movimenti…';
+    const r=await fetch(SUPABASE_URL+'/rest/v1/fisco_banca_movimenti?id=not.is.null',{method:'DELETE',headers:Object.assign({},FH(),{Prefer:'return=minimal'})});
+    if(!r.ok && r.status!==404) throw new Error('HTTP '+r.status+': '+(await r.text()).slice(0,180));
+    BANCA.rows=[]; BANCA.loaded=false; if(stato) stato.textContent='✅ Movimenti bancari svuotati.'; bancaRender();
+  }catch(e){ if(stato) stato.textContent='❌ Errore: '+(e.message||e); }
+}
 // esponi le funzioni usate dagli onclick/nav
+window.fiscoVista=fiscoVista; window.bancaImportFile=bancaImportFile; window.bancaRender=bancaRender; window.bancaFiltra=bancaFiltra; window.bancaRicarica=bancaRicarica; window.bancaSvuota=bancaSvuota;
 window.fiscoImportFile=fiscoImportFile; window.rFisco=rFisco; window.fiscoRender=fiscoRender;
 window.fiscoFiltra=fiscoFiltra; window.fiscoRicarica=fiscoRicarica; window.fiscoDettaglio=fiscoDettaglio;
 window.fiscoSvuotaTutto=fiscoSvuotaTutto;
