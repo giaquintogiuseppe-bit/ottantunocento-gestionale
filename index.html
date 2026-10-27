@@ -577,6 +577,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="ni" onclick="nav('posizione-clienti')">📊 Posizione clienti</div>
   <div class="ni" onclick="nav('posizione-fornitori')">📊 Posizione fornitori</div>
   <div class="ni" onclick="nav('fatture-fornitori')">🧾 Fatture Fornitori</div>
+  <div class="ni" onclick="nav('fisco')">📑 Quadro fiscale</div>
   <div class="ni" onclick="nav('coerenza')">🔍 Coerenza cantieri</div>
   <div class="ni" onclick="nav('saldi')">💶 Saldi Dipendenti</div>
   <div class="ni" onclick="nav('riepilogo')">📋 Riepilogo dipendenti</div>
@@ -1027,6 +1028,49 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <button onclick="fffExport()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text2);cursor:pointer;font-size:13px;padding:8px 12px">⬇ Esporta</button>
     </div>
     <div id="fff-list"></div>
+  </div>
+
+  <!-- QUADRO FISCALE (import Genya: emesse / ricevute / note di credito) -->
+  <div id="pg-fisco" class="pg">
+    <div class="pt">📑 Quadro fiscale</div>
+    <div class="ps">Import degli export Excel di Genya (fatture emesse, ricevute e note di credito) con oggetto e righe. I file si leggono in locale, nessun dato esce dal dispositivo. Reimportare lo stesso file non crea doppioni. Fonte: tabelle fisco_fatture / fisco_fatture_righe.</div>
+
+    <div style="background:var(--navy2);border:1px solid var(--brd);border-radius:10px;padding:14px;margin:12px 0">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px">⬆️ Importa da Genya</div>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+        <label style="display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text2)">📤 Fatture EMESSE (clienti)
+          <input type="file" accept=".xlsx,.xls" onchange="fiscoImportFile(this,'emesse')"></label>
+        <label style="display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text2)">📥 Fatture RICEVUTE (fornitori)
+          <input type="file" accept=".xlsx,.xls" onchange="fiscoImportFile(this,'ricevute')"></label>
+        <label style="display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text2)">↩️ NOTE DI CREDITO
+          <input type="file" accept=".xlsx,.xls" onchange="fiscoImportFile(this,'ricevute')" title="Carica l'export Note di Credito (fornitori o clienti): il tipo lo riconosco dal documento"></input></label>
+      </div>
+      <div id="fisco-imp-stato" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+    </div>
+
+    <div class="sg" id="fisco-kpi"></div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0">
+      <input id="fisco-q" oninput="fiscoRender()" placeholder="Cerca numero, controparte, oggetto…" style="flex:1;min-width:200px;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:9px 12px">
+      <select id="fisco-anno" onchange="fiscoRender()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:9px 10px"></select>
+      <button class="pf-flt fisco-flt on" data-flt="tutte" onclick="fiscoFiltra('tutte')">Tutte</button>
+      <button class="pf-flt fisco-flt" data-flt="emessa" onclick="fiscoFiltra('emessa')">Emesse</button>
+      <button class="pf-flt fisco-flt" data-flt="ricevuta" onclick="fiscoFiltra('ricevuta')">Ricevute</button>
+      <button class="pf-flt fisco-flt" data-flt="nc" onclick="fiscoFiltra('nc')">Note credito</button>
+      <button onclick="fiscoRicarica()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text2);cursor:pointer;font-size:13px;padding:8px 12px">🔄</button>
+    </div>
+    <div id="fisco-list"></div>
+  </div>
+
+  <!-- dettaglio righe fattura (quadro fiscale) -->
+  <div id="fisco-righe-ov" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:var(--navy2);border:1px solid var(--brd);border-radius:12px;max-width:620px;width:100%;max-height:82vh;overflow:auto;padding:18px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div id="fisco-righe-tit" style="font-weight:700;font-size:14px"></div>
+        <button onclick="document.getElementById('fisco-righe-ov').style.display='none'" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer">✕</button>
+      </div>
+      <div id="fisco-righe-body"></div>
+    </div>
   </div>
 
   <!-- POSIZIONE FORNITORI -->
@@ -3287,7 +3331,7 @@ function nav(pg){
 function render(p){
   if(p==='cantieri'||p==='clienti-gest'){ caricaRifornimentiCloud().then(()=>{ if(p==='cantieri') rCant(); }); }
   if(p==='clienti-gest'){ refLoad(); }
-  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:rAttrezzeria,saldi:rSaldi,riepilogo:rRiepilogo,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,'fatture-fornitori':rFattureFornitori,coerenza:rCoerenza}[p]||(() =>{}))();
+  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:rAttrezzeria,saldi:rSaldi,riepilogo:rRiepilogo,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,'fatture-fornitori':rFattureFornitori,coerenza:rCoerenza,fisco:window.rFisco}[p]||(() =>{}))();
 }
 
 // ============================================================
@@ -14817,5 +14861,163 @@ setTimeout(()=>{
 })();
 </script>
 <!-- ═══════════ fine SELETTORE COMMESSA v1.1 ═══════════ -->
+<!-- ═══════════ QUADRO FISCALE (import Genya + quadro) ═══════════ -->
+<script>
+(function(){
+const FH=()=>({apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'});
+function _fEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function _fEur(n){n=Number(n)||0;return '€ '+n.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function _fNum(v){ if(v==null||v==='') return 0; if(typeof v==='number') return v; const n=parseFloat(String(v).replace(/\s/g,'').replace(/\.(?=\d{3}(\D|$))/g,'').replace(',','.')); return isNaN(n)?0:n; }
+function _fPct(v){ if(v==null) return null; const m=String(v).match(/([\d.,]+)/); return m?parseFloat(m[1].replace(',','.')):null; }
+function _fD(v){ if(!v) return null; if(v instanceof Date){ const z=n=>String(n).padStart(2,'0'); return v.getFullYear()+'-'+z(v.getMonth()+1)+'-'+z(v.getDate()); } const m=String(v).match(/(\d{4})-(\d{2})-(\d{2})/); if(m) return m[0]; const g=String(v).match(/(\d{2})\/(\d{2})\/(\d{4})/); return g?g[3]+'-'+g[2]+'-'+g[1]:null; }
+function _fTipoDoc(td,ctx){ const t=(td||'').toLowerCase(); const nc=t.includes('nota di credito');
+  if(ctx==='ricevute') return nc?'nc_ricevuta':'ricevuta';
+  if(ctx==='emesse') return nc?'nc_emessa':'emessa';
+  if(nc) return t.includes('fornitore')?'nc_ricevuta':'nc_emessa';
+  if(t.includes('acquisto')||t.includes('parcella')) return 'ricevuta';
+  return 'emessa';
+}
+function fiscoParseGenya(aoa,ctx){
+  let h=-1; for(let i=0;i<Math.min(aoa.length,15);i++){ if((aoa[i]||[]).some(c=>String(c).trim()==='Tipo Documento')){ h=i; break; } }
+  if(h<0) throw new Error('intestazione Genya non trovata (atteso "Tipo Documento")');
+  const H=aoa[h].map(c=>String(c==null?'':c).trim()); const ix=n=>H.indexOf(n);
+  const C={ td:ix('Tipo Documento'),anno:ix('Anno'),num:ix('Numero'),suf:ix('Suffisso'),data:ix('Data'),
+    rifN:ix('Numero Rif. fornitore'),rifD:ix('Data Rif. fornitore'),cli:ix('Cliente'),forn:ix('Fornitore'),
+    cf:ix('Codice Fiscale'),piva:ix('Partita IVA'),scad:ix('Scadenza'),pag:ix('Pagamento'),
+    nriga:ix('Numero riga'),desc:ix('Descrizione'),qta:ix('Quantità'),um:ix('Unità misura'),
+    pu:ix('Prezzo Un.'),ptot:ix('Prezzo Tot.'),civa:ix('Codice IVA'),iva:ix('IVA'),triga:ix('Tipo riga'),
+    tot:ix('Totale (val)'),imp:ix('Imponibile (val)'),imposta:ix('Imposta (val)'),
+    stato:ix('Stato'),fepa:ix('Fepa o B2b'),split:ix('Split') };
+  const docs=new Map();
+  for(let r=h+1;r<aoa.length;r++){
+    const row=aoa[r]; if(!row||row[C.num]==null||String(row[C.num]).trim()==='') continue;
+    const tipo=_fTipoDoc(row[C.td],ctx); const ricev=(tipo==='ricevuta'||tipo==='nc_ricevuta');
+    const rifNum=C.rifN>=0?row[C.rifN]:null;
+    const numeroDoc=ricev?(String(rifNum||'').trim()||String(row[C.num]).trim()):String(row[C.num]).trim();
+    const piva=C.piva>=0?(row[C.piva]||''):'';
+    const key=(ricev?'R':'E')+'|'+row[C.anno]+'|'+numeroDoc+'|'+(ricev?piva:(C.suf>=0?(row[C.suf]||''):''));
+    let d=docs.get(key);
+    if(!d){
+      const seg=tipo.indexOf('nc_')===0?-1:1;
+      d={testata:{ tipo, anno:parseInt(row[C.anno])||null, numero:numeroDoc,
+        numero_protocollo:ricev?String(row[C.num]).trim():null, suffisso:C.suf>=0?(row[C.suf]||null):null,
+        data_fattura:_fD(row[C.data]), rif_fornitore_data:C.rifD>=0?_fD(row[C.rifD]):null,
+        controparte_nome:ricev?(C.forn>=0?row[C.forn]:null):(C.cli>=0?row[C.cli]:null),
+        controparte_piva:piva||null, controparte_cf:C.cf>=0?(row[C.cf]||null):null,
+        tipo_documento:row[C.td]||null,
+        imponibile:Math.abs(_fNum(row[C.imp]))*seg, iva:Math.abs(_fNum(row[C.imposta]))*seg, totale:Math.abs(_fNum(row[C.tot]))*seg,
+        scadenza_txt:C.scad>=0?(row[C.scad]||null):null, pagamento_txt:C.pag>=0?(row[C.pag]||null):null,
+        stato_genya:C.stato>=0?(row[C.stato]||null):null, fepa_b2b:C.fepa>=0?String(row[C.fepa]):null,
+        split:C.split>=0?String(row[C.split]):null }, righe:[], _ogg:[] };
+      docs.set(key,d);
+    }
+    const descr=C.desc>=0?(row[C.desc]||''):''; if(descr) d._ogg.push(String(descr).trim());
+    d.righe.push({ numero_riga:parseInt(row[C.nriga])||null, descrizione:descr||null,
+      quantita:_fNum(row[C.qta])||null, unita:C.um>=0?(row[C.um]||null):null,
+      prezzo_unitario:_fNum(row[C.pu])||null, prezzo_totale:_fNum(row[C.ptot])||null,
+      codice_iva:C.civa>=0?(String(row[C.civa]||'').trim()||null):null, iva_perc:_fPct(row[C.iva]),
+      tipo_riga:C.triga>=0?(row[C.triga]||null):null, imponibile_riga:_fNum(row[C.ptot])||null });
+  }
+  const out=[...docs.values()];
+  out.forEach(d=>{ d.testata.oggetto=[...new Set(d._ogg)].join(' · ').slice(0,300)||null; delete d._ogg; });
+  return out;
+}
+function fiscoChiave(t){ let k=(t.tipo||'').toLowerCase()+'|'+(t.anno!=null?t.anno:'')+'|'+(t.numero||'')+'|'+(t.suffisso||''); if((t.tipo||'').toLowerCase()==='ricevuta') k+='|'+(t.controparte_piva||''); return k; }
+async function fiscoUpsert(docs){
+  const url=SUPABASE_URL+'/rest/v1/fisco_fatture', rurl=SUPABASE_URL+'/rest/v1/fisco_fatture_righe';
+  const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o;};
+  const k2id={};
+  for(const part of chunk(docs,150)){
+    const r=await fetch(url+'?on_conflict=chiave',{method:'POST',headers:Object.assign({},FH(),{Prefer:'resolution=merge-duplicates,return=representation'}),body:JSON.stringify(part.map(d=>d.testata))});
+    if(!r.ok) throw new Error('testate HTTP '+r.status+': '+(await r.text()).slice(0,180));
+    (await r.json()).forEach(row=>{ k2id[row.chiave]=row.id; });
+  }
+  docs.forEach(d=>{ d._id=k2id[fiscoChiave(d.testata)]; });
+  const ids=docs.map(d=>d._id).filter(Boolean);
+  for(const part of chunk(ids,80)){ await fetch(rurl+'?fattura_id=in.('+part.join(',')+')',{method:'DELETE',headers:FH()}); }
+  const righe=[]; docs.forEach(d=>{ if(d._id) d.righe.forEach(x=>righe.push(Object.assign({fattura_id:d._id},x))); });
+  for(const part of chunk(righe,400)){
+    const r=await fetch(rurl,{method:'POST',headers:Object.assign({},FH(),{Prefer:'return=minimal'}),body:JSON.stringify(part)});
+    if(!r.ok) throw new Error('righe HTTP '+r.status+': '+(await r.text()).slice(0,180));
+  }
+  return {docs:docs.length, righe:righe.length};
+}
+async function fiscoImportFile(input,ctx){
+  const file=input.files&&input.files[0]; if(!file) return;
+  const stato=document.getElementById('fisco-imp-stato');
+  stato.textContent='⏳ Leggo '+file.name+'…';
+  try{
+    const wb=XLSX.read(await file.arrayBuffer(),{cellDates:true});
+    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null});
+    const docs=fiscoParseGenya(aoa,ctx);
+    if(!docs.length){ stato.textContent='⚠ Nessun documento riconosciuto.'; input.value=''; return; }
+    const tipi={}; docs.forEach(d=>tipi[d.testata.tipo]=(tipi[d.testata.tipo]||0)+1);
+    const tot=docs.reduce((s,d)=>s+(Number(d.testata.totale)||0),0);
+    const descrTipi=Object.entries(tipi).map(([k,v])=>v+' '+k).join(', ');
+    if(!confirm('File: '+file.name+'\n\nDocumenti: '+docs.length+' ('+descrTipi+')\nTotale: '+_fEur(tot)+'\n\nImportare? I doppioni verranno aggiornati, non duplicati.')){ input.value=''; stato.textContent=''; return; }
+    stato.textContent='⏳ Salvo '+docs.length+' documenti…';
+    const res=await fiscoUpsert(docs);
+    stato.textContent='✓ Importati '+res.docs+' documenti ('+res.righe+' righe) — doppioni aggiornati, non duplicati.';
+    input.value=''; FISCO.loaded=false; await rFisco();
+  }catch(e){ stato.textContent='⚠ Errore import: '+String(e.message||e).slice(0,180); console.error('fisco import',e); input.value=''; }
+}
+const FISCO={rows:[], flt:'tutte', loaded:false};
+async function fiscoCarica(){
+  const list=document.getElementById('fisco-list'); if(list) list.innerHTML='<div style="padding:16px;color:var(--text2)">Carico…</div>';
+  try{ const r=await fetch(SUPABASE_URL+'/rest/v1/fisco_fatture?select=*&order=data_fattura.desc&limit=8000',{headers:FH(),cache:'no-cache'}); FISCO.rows=r.ok?await r.json():[]; if(!Array.isArray(FISCO.rows))FISCO.rows=[]; }catch(e){ FISCO.rows=[]; }
+  FISCO.loaded=true;
+  const sel=document.getElementById('fisco-anno');
+  if(sel){ const anni=[...new Set(FISCO.rows.map(x=>x.anno).filter(Boolean))].sort((a,b)=>b-a); const cur=sel.value; sel.innerHTML='<option value="">Tutti gli anni</option>'+anni.map(a=>'<option>'+a+'</option>').join(''); sel.value=cur; }
+}
+async function rFisco(){ if(!FISCO.loaded) await fiscoCarica(); fiscoRender(); }
+async function fiscoRicarica(){ FISCO.loaded=false; await rFisco(); }
+function fiscoFiltra(f){ FISCO.flt=f; document.querySelectorAll('.fisco-flt').forEach(b=>b.classList.toggle('on',b.dataset.flt===f)); fiscoRender(); }
+function fiscoRender(){
+  const box=document.getElementById('fisco-list'), kpi=document.getElementById('fisco-kpi'); if(!box) return;
+  const q=(document.getElementById('fisco-q').value||'').toLowerCase();
+  const anno=document.getElementById('fisco-anno').value;
+  const base=anno?FISCO.rows.filter(x=>String(x.anno)===anno):FISCO.rows;
+  const sum=pred=>base.filter(pred).reduce((s,x)=>s+(Number(x.totale)||0),0);
+  const em=sum(x=>x.tipo==='emessa'||x.tipo==='nc_emessa'), ri=sum(x=>x.tipo==='ricevuta'||x.tipo==='nc_ricevuta');
+  if(kpi) kpi.innerHTML='<div class="sc"><div class="scv">'+_fEur(em)+'</div><div class="scl">Emesse (nette)</div></div>'+
+    '<div class="sc"><div class="scv">'+_fEur(ri)+'</div><div class="scl">Ricevute (nette)</div></div>'+
+    '<div class="sc"><div class="scv">'+_fEur(em-ri)+'</div><div class="scl">Saldo (em − ric)</div></div>'+
+    '<div class="sc"><div class="scv">'+base.length+'</div><div class="scl">Documenti</div></div>';
+  let rows=base.slice();
+  if(FISCO.flt==='emessa') rows=rows.filter(x=>x.tipo==='emessa'||x.tipo==='nc_emessa');
+  else if(FISCO.flt==='ricevuta') rows=rows.filter(x=>x.tipo==='ricevuta'||x.tipo==='nc_ricevuta');
+  else if(FISCO.flt==='nc') rows=rows.filter(x=>x.tipo==='nc_emessa'||x.tipo==='nc_ricevuta');
+  if(q) rows=rows.filter(x=>((x.numero||'')+' '+(x.controparte_nome||'')+' '+(x.oggetto||'')).toLowerCase().includes(q));
+  if(!rows.length){ box.innerHTML='<div style="padding:18px;color:var(--text2);text-align:center">Nessun documento. Importa gli Excel di Genya qui sopra.</div>'; return; }
+  const badge=t=>({emessa:'🟢 Emessa',ricevuta:'🔵 Ricevuta',nc_emessa:'↩️ NC em.',nc_ricevuta:'↩️ NC ric.'}[t]||t);
+  rows.sort((a,b)=>String(b.data_fattura||'').localeCompare(String(a.data_fattura||'')));
+  box.innerHTML='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'+
+    '<thead><tr style="text-align:left;color:var(--text2)"><th style="padding:7px 8px">Tipo</th><th>Numero</th><th>Data</th><th>Controparte</th><th>Oggetto</th><th style="text-align:right">Imponibile</th><th style="text-align:right">IVA</th><th style="text-align:right">Totale</th></tr></thead><tbody>'+
+    rows.slice(0,1500).map(x=>'<tr style="border-top:1px solid var(--brd);cursor:pointer" onclick="fiscoDettaglio(\''+x.id+'\')">'+
+      '<td style="padding:7px 8px;white-space:nowrap">'+badge(x.tipo)+'</td>'+
+      '<td style="white-space:nowrap">'+_fEsc(x.numero||'')+(x.anno?'/'+x.anno:'')+'</td>'+
+      '<td style="white-space:nowrap">'+(x.data_fattura?x.data_fattura.split('-').reverse().join('/'):'')+'</td>'+
+      '<td>'+_fEsc((x.controparte_nome||'').slice(0,34))+'</td>'+
+      '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_fEsc((x.oggetto||'').slice(0,80))+'</td>'+
+      '<td style="text-align:right;white-space:nowrap">'+_fEur(x.imponibile)+'</td>'+
+      '<td style="text-align:right;white-space:nowrap">'+_fEur(x.iva)+'</td>'+
+      '<td style="text-align:right;white-space:nowrap;font-weight:700">'+_fEur(x.totale)+'</td></tr>').join('')+
+    '</tbody></table></div>'+(rows.length>1500?'<div style="padding:8px;color:var(--text2);font-size:11px">Mostrati 1500 di '+rows.length+' — usa i filtri.</div>':'');
+}
+async function fiscoDettaglio(id){
+  const f=FISCO.rows.find(x=>String(x.id)===String(id)); if(!f) return;
+  const ov=document.getElementById('fisco-righe-ov'), tit=document.getElementById('fisco-righe-tit'), body=document.getElementById('fisco-righe-body');
+  tit.textContent=(f.numero||'')+(f.anno?'/'+f.anno:'')+' — '+(f.controparte_nome||'');
+  body.innerHTML='<div style="color:var(--text2)">Carico righe…</div>'; ov.style.display='flex';
+  let righe=[]; try{ const r=await fetch(SUPABASE_URL+'/rest/v1/fisco_fatture_righe?fattura_id=eq.'+id+'&order=numero_riga.asc',{headers:FH(),cache:'no-cache'}); righe=r.ok?await r.json():[]; }catch(e){}
+  body.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="text-align:left;color:var(--text2)"><th style="padding:5px">#</th><th>Descrizione</th><th style="text-align:right">Q.tà</th><th style="text-align:right">Prezzo</th><th style="text-align:right">IVA</th><th style="text-align:right">Importo</th></tr></thead><tbody>'+
+    (righe.length?righe.map(r=>'<tr style="border-top:1px solid var(--brd)"><td style="padding:5px">'+(r.numero_riga||'')+'</td><td>'+_fEsc(r.descrizione||'')+'</td><td style="text-align:right">'+(r.quantita!=null?r.quantita:'')+'</td><td style="text-align:right">'+(r.prezzo_unitario!=null?_fEur(r.prezzo_unitario):'')+'</td><td style="text-align:right">'+(r.iva_perc!=null?r.iva_perc+'%':'')+'</td><td style="text-align:right">'+(r.prezzo_totale!=null?_fEur(r.prezzo_totale):'')+'</td></tr>').join(''):'<tr><td colspan="6" style="padding:8px;color:var(--text2)">Nessuna riga registrata.</td></tr>')+
+    '</tbody></table><div style="margin-top:10px;text-align:right;font-size:12px;color:var(--text2)">Imponibile '+_fEur(f.imponibile)+' · IVA '+_fEur(f.iva)+' · <b style="color:var(--text)">Totale '+_fEur(f.totale)+'</b></div>';
+}
+// esponi le funzioni usate dagli onclick/nav
+window.fiscoImportFile=fiscoImportFile; window.rFisco=rFisco; window.fiscoRender=fiscoRender;
+window.fiscoFiltra=fiscoFiltra; window.fiscoRicarica=fiscoRicarica; window.fiscoDettaglio=fiscoDettaglio;
+})();
+</script>
 </body>
 </html>
