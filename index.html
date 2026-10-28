@@ -1074,6 +1074,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div style="display:flex;gap:8px;margin:10px 0 4px">
       <button id="fisco-tab-doc" class="pf-flt on" onclick="fiscoVista('doc')">📄 Documenti</button>
       <button id="fisco-tab-banca" class="pf-flt" onclick="fiscoVista('banca')">🏦 Banca &amp; riconciliazione</button>
+      <button id="fisco-tab-confronto" class="pf-flt" onclick="fiscoVista('confronto')">⚖️ Confronto clienti/fornitori</button>
     </div>
 
     <div id="fisco-view-doc">
@@ -1143,6 +1144,25 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <button onclick="bancaRicarica()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text2);cursor:pointer;font-size:13px;padding:8px 12px">🔄</button>
       </div>
       <div id="banca-list"></div>
+    </div>
+
+    <div id="fisco-view-confronto" style="display:none">
+      <div class="ps" style="margin:4px 0 10px">Confronta la realtà fiscale (Genya) con le posizioni del gestionale e con incassi/pagamenti dalla banca. Evidenzia i disallineamenti per controparte — quadratura tra i tre mondi.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 10px;align-items:center">
+        <button id="conf-tab-cli" class="pf-flt on" onclick="confrontoVista('cli')">👤 Clienti</button>
+        <button id="conf-tab-forn" class="pf-flt" onclick="confrontoVista('forn')">🏭 Fornitori</button>
+        <input id="conf-q" oninput="confrontoRender()" placeholder="🔎 Cerca controparte…" style="flex:1;min-width:200px;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:9px 12px">
+        <button onclick="confrontoRicarica()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text2);cursor:pointer;font-size:13px;padding:8px 12px">🔄</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px">
+        <span style="font-size:11px;color:var(--text2)">Mostra:</span>
+        <button class="pf-flt conf-flt on" data-cflt="tutti" onclick="confrontoFiltra('tutti')">Tutti</button>
+        <button class="pf-flt conf-flt" data-cflt="diff" onclick="confrontoFiltra('diff')">⚠ Solo disallineati</button>
+        <button class="pf-flt conf-flt" data-cflt="soloGenya" onclick="confrontoFiltra('soloGenya')">Solo su Genya</button>
+        <button class="pf-flt conf-flt" data-cflt="soloGest" onclick="confrontoFiltra('soloGest')">Solo nel gestionale</button>
+      </div>
+      <div class="sg" id="conf-kpi"></div>
+      <div id="conf-list"></div>
     </div>
   </div>
 
@@ -15476,9 +15496,92 @@ function bancaFiltra(f){ BANCA.flt=f; document.querySelectorAll('.banca-flt').fo
 async function fiscoVista(v){
   document.getElementById('fisco-view-doc').style.display=(v==='doc')?'':'none';
   document.getElementById('fisco-view-banca').style.display=(v==='banca')?'':'none';
+  const cv=document.getElementById('fisco-view-confronto'); if(cv) cv.style.display=(v==='confronto')?'':'none';
   document.getElementById('fisco-tab-doc').classList.toggle('on',v==='doc');
   document.getElementById('fisco-tab-banca').classList.toggle('on',v==='banca');
+  const ct=document.getElementById('fisco-tab-confronto'); if(ct) ct.classList.toggle('on',v==='confronto');
   if(v==='banca'){ if(!FISCO.loaded) await fiscoCarica(); if(!BANCA.loaded) await bancaCarica(); bancaRender(); }
+  if(v==='confronto'){ await confrontoCarica(); confrontoRender(); }
+}
+// ═══════════ CONFRONTO: Genya (fiscale) ↔ gestionale (posizioni) ↔ banca ═══════════
+const CONF={sub:'cli', flt:'tutti'};
+async function confrontoCarica(){
+  const box=document.getElementById('conf-list'); if(box) box.innerHTML='<div style="padding:16px;color:var(--text2)">Carico e confronto i dati…</div>';
+  if(!FISCO.loaded) await fiscoCarica();
+  if(!BANCA.loaded) await bancaCarica();
+  try{ if(typeof _fattureCarica==='function') await _fattureCarica(); }catch(e){}
+  try{ if(typeof _pcCaricaPeriodi==='function') await _pcCaricaPeriodi(); }catch(e){}
+  try{ if((typeof REF==='undefined'||!REF||!REF.length) && typeof refLoad==='function') await refLoad(); }catch(e){}
+  try{ if(typeof _faRows==='undefined' || !_faRows){ _faRows=await _fFetchAll('fatture_acquisto?select=*'); } }catch(e){ try{ if(typeof _faRows==='undefined'||!_faRows) _faRows=[]; }catch(_){} }
+}
+async function confrontoRicarica(){ FISCO.loaded=false; BANCA.loaded=false; try{ _faRows=null; }catch(e){} bancaInvalida(); await confrontoCarica(); confrontoRender(); }
+function confrontoVista(s){ CONF.sub=s; document.getElementById('conf-tab-cli').classList.toggle('on',s==='cli'); document.getElementById('conf-tab-forn').classList.toggle('on',s==='forn'); confrontoRender(); }
+function confrontoFiltra(f){ CONF.flt=f; document.querySelectorAll('.conf-flt').forEach(b=>b.classList.toggle('on',b.dataset.cflt===f)); confrontoRender(); }
+function _cNorm(s){ return (typeof _pcNorm==='function')?_pcNorm(s):String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(); }
+function confrontoRender(){
+  const box=document.getElementById('conf-list'), kpi=document.getElementById('conf-kpi'); if(!box) return;
+  const q=(document.getElementById('conf-q')?document.getElementById('conf-q').value:'').toLowerCase();
+  const R=bancaRiconcilia();
+  // incassato/pagato reale dalla banca, per fattura → aggrego per controparte normalizzata
+  if(CONF.sub==='cli') _confrontoClienti(box,kpi,q,R); else _confrontoFornitori(box,kpi,q,R);
+}
+function _confRiga(nome,genya,gest,banca,soloG,soloGe){
+  const delta=genya-gest; const diff=Math.abs(delta)>Math.max(1,genya*0.01,gest*0.01);
+  let tag=''; if(soloG) tag='<span style="color:#fbbf24">⚠ solo su Genya</span>'; else if(soloGe) tag='<span style="color:#fbbf24">⚠ solo nel gestionale</span>'; else if(diff) tag='<span style="color:#fbbf24">⚠ importi diversi (Δ '+_fEur(delta)+')</span>'; else tag='<span style="color:#34d399">✓ allineato</span>';
+  return {diff:diff||soloG||soloGe, html:'<tr style="border-top:1px solid var(--brd)">'+
+    '<td style="padding:7px 8px">'+_fEsc(nome)+'</td>'+
+    '<td style="text-align:right;white-space:nowrap">'+_fEur(genya)+'</td>'+
+    '<td style="text-align:right;white-space:nowrap">'+_fEur(gest)+'</td>'+
+    '<td style="text-align:right;white-space:nowrap;color:'+(diff?'#fbbf24':'var(--text2)')+'">'+(delta?((delta>0?'+':'')+_fEur(delta)):'—')+'</td>'+
+    '<td style="text-align:right;white-space:nowrap">'+_fEur(banca)+'</td>'+
+    '<td style="font-size:11px">'+tag+'</td></tr>'};
+}
+function _confrontoClienti(box,kpi,q,R){
+  const pc=(typeof _pcCompute==='function')?_pcCompute():{};
+  const idx={}; Object.values(pc).forEach(e=>{ if(e.nome){ const k=_cNorm(e.nome); if(k)idx[k]=e; } Object.keys(e.membri||{}).forEach(raw=>{ const k=_cNorm(raw); if(k)idx[k]=e; }); });
+  const gen={};
+  FISCO.rows.forEach(f=>{ if(f.tipo!=='emessa'&&f.tipo!=='nc_emessa') return; const k=_cNorm(f.controparte_nome); if(!k) return;
+    const g=gen[k]=gen[k]||{nome:f.controparte_nome||k,fatt:0,nc:0,banca:0};
+    if(f.tipo==='emessa'){ g.fatt+=Number(f.totale)||0; g.banca+=(R.attr[f.id]||0); } else g.nc+=Math.abs(Number(f.totale)||0); });
+  const usedPc=new Set(); const rows=[];
+  Object.keys(gen).forEach(k=>{ const g=gen[k]; const e=idx[k]; if(e) usedPc.add(e.key!=null?e.key:e.nome);
+    const genNet=g.fatt-g.nc, gestFatt=e?(Number(e.fatturato)||0):0;
+    rows.push(Object.assign({nome:(e&&e.nome)||g.nome, banca:g.banca},_confRiga((e&&e.nome)||g.nome, genNet, gestFatt, g.banca, !e, false))); });
+  // posizioni nel gestionale senza corrispondenza su Genya
+  Object.values(pc).forEach(e=>{ const id=e.key!=null?e.key:e.nome; if(usedPc.has(id)) return; const gestFatt=Number(e.fatturato)||0; if(gestFatt<=0 && !(e.residuo>0)) return;
+    rows.push(Object.assign({nome:e.nome, banca:Number(e.incassato)||0},_confRiga(e.nome,0,gestFatt,Number(e.incassato)||0,false,true))); });
+  _confrontoShow(box,kpi,q,rows,'Fatturato Genya (netto)','Fatturato gestionale','Incassato banca');
+}
+function _confrontoFornitori(box,kpi,q,R){
+  let pf={list:[]}; try{ if(typeof _pfCompute==='function') pf=_pfCompute(); }catch(e){}
+  const idx={}; (pf.list||[]).forEach(e=>{ const k=_cNorm(e.nome); if(k)idx[k]=e; });
+  const gen={};
+  FISCO.rows.forEach(f=>{ if(f.tipo!=='ricevuta'&&f.tipo!=='nc_ricevuta') return; const k=_cNorm(f.controparte_nome); if(!k) return;
+    const g=gen[k]=gen[k]||{nome:f.controparte_nome||k,ric:0,nc:0,banca:0};
+    if(f.tipo==='ricevuta'){ g.ric+=Number(f.totale)||0; g.banca+=(R.attr[f.id]||0); } else g.nc+=Math.abs(Number(f.totale)||0); });
+  const usedPf=new Set(); const rows=[];
+  Object.keys(gen).forEach(k=>{ const g=gen[k]; const e=idx[k]; if(e) usedPf.add(e.nome);
+    const genNet=g.ric-g.nc, gestImp=e?(Number(e.importo)||0):0;
+    rows.push(Object.assign({nome:(e&&e.nome)||g.nome, banca:g.banca},_confRiga((e&&e.nome)||g.nome, genNet, gestImp, g.banca, !e, false))); });
+  (pf.list||[]).forEach(e=>{ if(usedPf.has(e.nome)) return; const imp=Number(e.importo)||0; if(imp<=0) return;
+    rows.push(Object.assign({nome:e.nome, banca:0},_confRiga(e.nome,0,imp,0,false,true))); });
+  _confrontoShow(box,kpi,q,rows,'Ricevute Genya (netto)','Importo gestionale','Pagato banca');
+}
+function _confrontoShow(box,kpi,q,rows,colG,colGe,colB){
+  let r=rows.slice();
+  if(CONF.flt==='diff') r=r.filter(x=>x.diff);
+  else if(CONF.flt==='soloGenya') r=r.filter(x=>/solo su Genya/.test(x.html));
+  else if(CONF.flt==='soloGest') r=r.filter(x=>/solo nel gestionale/.test(x.html));
+  if(q) r=r.filter(x=>(x.nome||'').toLowerCase().includes(q));
+  r.sort((a,b)=>(b.banca||0)-(a.banca||0));
+  const nDiff=rows.filter(x=>x.diff).length;
+  if(kpi) kpi.innerHTML='<div class="sc"><div class="scv">'+rows.length+'</div><div class="scl">Controparti</div></div>'+
+    '<div class="sc"><div class="scv" style="color:'+(nDiff?'#fbbf24':'#34d399')+'">'+nDiff+'</div><div class="scl">Da verificare</div></div>'+
+    '<div class="sc"><div class="scv">'+(rows.length-nDiff)+'</div><div class="scl">Allineati</div></div>';
+  if(!r.length){ box.innerHTML='<div style="padding:18px;color:var(--text2);text-align:center">Nessuna controparte in questa vista.</div>'; return; }
+  box.innerHTML='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'+
+    '<thead><tr style="text-align:left;color:var(--text2)"><th style="padding:7px 8px">Controparte</th><th style="text-align:right">'+colG+'</th><th style="text-align:right">'+colGe+'</th><th style="text-align:right">Δ</th><th style="text-align:right">'+colB+'</th><th>Stato</th></tr></thead><tbody>'+
+    r.slice(0,1000).map(x=>x.html).join('')+'</tbody></table></div>'+(r.length>1000?'<div style="padding:8px;color:var(--text2);font-size:11px">Mostrate 1000 di '+r.length+'.</div>':'');
 }
 // una fattura può essere pagata solo se emessa non oltre ~7 giorni dopo il movimento
 function _bDateOk(f,m){ if(!f.data_fattura||!m.data) return true; const g=new Date(m.data+'T00:00:00'); if(isNaN(g)) return true; g.setDate(g.getDate()+7); const gs=g.toISOString().slice(0,10); return String(f.data_fattura)<=gs; }
@@ -15625,6 +15728,7 @@ async function bancaScollega(id){
 // esponi le funzioni usate dagli onclick/nav
 window.fiscoVista=fiscoVista; window.bancaImportFile=bancaImportFile; window.bancaRender=bancaRender; window.bancaFiltra=bancaFiltra; window.bancaRicarica=bancaRicarica; window.bancaSvuota=bancaSvuota;
 window.bancaApriLink=bancaApriLink; window.bancaRenderLink=bancaRenderLink; window.bancaCollega=bancaCollega; window.bancaScollega=bancaScollega;
+window.confrontoVista=confrontoVista; window.confrontoFiltra=confrontoFiltra; window.confrontoRender=confrontoRender; window.confrontoRicarica=confrontoRicarica;
 window.fiscoImportFile=fiscoImportFile; window.rFisco=rFisco; window.fiscoRender=fiscoRender;
 window.fiscoFiltra=fiscoFiltra; window.fiscoRicarica=fiscoRicarica; window.fiscoDettaglio=fiscoDettaglio;
 window.fiscoSvuotaTutto=fiscoSvuotaTutto; window.fiscoSFiltra=fiscoSFiltra;
