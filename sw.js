@@ -1,5 +1,5 @@
-const CACHE_NAME = 'otto8100-gestionale-v61';
-self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(['./','./index.html','./fisco.js?v=20261030']).catch(()=>{}))); self.skipWaiting(); });
+const CACHE_NAME = 'otto8100-gestionale-v62';
+self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(['./','./index.html','./fisco.js?v=20261030','./selettore-commessa.js?v=20261030']).catch(()=>{}))); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k))))); self.clients.claim(); });
 self.addEventListener('fetch', e => {
   if(e.request.method!=='GET') return;
