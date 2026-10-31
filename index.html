@@ -2806,7 +2806,7 @@ let _docRicavoCaricati=false;
 async function caricaDocumentiRicavo(){
   const H={apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY};
   try{
-    const r=await fetch(SUPABASE_URL+'/rest/v1/consuntivi?select=numero,cantiere_id,preventivo_numero,imponibile,stato,data,creato_il&limit=5000',{headers:H,cache:'no-cache'});
+    const r=await fetch(SUPABASE_URL+'/rest/v1/consuntivi?select=id,numero,cantiere_id,preventivo_numero,imponibile,stato,data,creato_il&limit=5000',{headers:H,cache:'no-cache'});
     if(r.ok){ const j=await r.json(); if(Array.isArray(j)) CONSUNTIVI=j; }
   }catch(e){}
   try{
@@ -2902,7 +2902,7 @@ async function allocSalva(nome, fnum){
     toast('✓ Allocazione salvata');
     await caricaDocumentiRicavo();
     await _autoFatturato(cid);
-    rDettAlloc(cant, nome); rDettFatture(cant, nome);
+    if(typeof rDettCant==='function') rDettCant(); else { rDettAlloc(cant, nome); rDettFatture(cant, nome); }
   }catch(e){ toast('⚠ Allocazione non salvata: '+String(e.message||e).slice(0,80)); }
 }
 async function allocRimuovi(id, nome){
@@ -2913,7 +2913,7 @@ async function allocRimuovi(id, nome){
     await caricaDocumentiRicavo();
     const cant=(DB.cantieri||[]).find(x=>x.nome===nome); const cid=cant?cant.id:null;
     await _autoFatturato(cid);
-    rDettAlloc(cant, nome); rDettFatture(cant, nome);
+    if(typeof rDettCant==='function') rDettCant(); else { rDettAlloc(cant, nome); rDettFatture(cant, nome); }
     toast('Allocazione rimossa');
   }catch(e){ toast('⚠ '+String(e.message||e).slice(0,80)); }
 }
