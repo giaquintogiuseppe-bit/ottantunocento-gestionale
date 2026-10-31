@@ -2789,6 +2789,7 @@ function _fatturatoCantiere(c){
 let CONSUNTIVI=[];   // consuntivi dal cloud (per il ricavo calcolato)
 let PREVENTIVI=[];   // preventivi dal cloud (per il ricavo calcolato)
 let ALLOCAZIONI=[];  // allocazioni fattura→consuntivo (quote nette)
+let PERIODI=[];      // periodi di fatturazione (continuativi): contano come consuntivi nel ricavo
 let _docRicavoCaricati=false;
 async function caricaDocumentiRicavo(){
   const H={apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY};
@@ -2803,6 +2804,10 @@ async function caricaDocumentiRicavo(){
   try{
     const r=await fetch(SUPABASE_URL+'/rest/v1/allocazioni_fatture?select=id,fattura_numero,consuntivo_numero,cantiere_id,importo,cancellato_il&cancellato_il=is.null&limit=10000',{headers:H,cache:'no-cache'});
     if(r.ok){ const j=await r.json(); if(Array.isArray(j)) ALLOCAZIONI=j; }
+  }catch(e){}
+  try{
+    const r=await fetch(SUPABASE_URL+'/rest/v1/periodi?select=numero,commessa_id,importo,stato,fatturato,cancellato_il&cancellato_il=is.null&limit=10000',{headers:H,cache:'no-cache'});
+    if(r.ok){ const j=await r.json(); if(Array.isArray(j)) PERIODI=j; }
   }catch(e){}
   _docRicavoCaricati=true;
 }
@@ -2928,11 +2933,13 @@ function calcolaRicavoCantiere(c){
   const consFin=cons.filter(x=>x.stato==='definitivo'||x.stato==='inviato'||x.stato==='fatturato'); // consuntivi "finali"
   const prevAcc=(PREVENTIVI||[]).filter(x=>x && (x.stato==='accettato'||x.stato==='convertito') &&
       ((x.cantiere_id&&x.cantiere_id===cid) || (x.cantiere_ref&&x.cantiere_ref===cid) || (prevRef&&x.numero===prevRef)));
+  // periodi di fatturazione del cantiere (continuativi): contano nel ricavo come documenti
+  const periodiCant=(PERIODI||[]).filter(p=>p && p.commessa_id===cid && !p.cancellato_il && (parseFloat(p.importo)||0)>0);
   // ── ABBINAMENTO consuntivo↔preventivo (modello di flusso scelto) ──
   // Per ogni preventivo accettato: se esiste un consuntivo finale che lo rendiconta
   // (consuntivo.preventivo_numero === preventivo.numero) usa il CONSUNTIVO, altrimenti il PREVENTIVO.
   // I consuntivi finali non abbinati ad alcun preventivo accettato (orfani, es. Gaeta lungo periodo) si aggiungono.
-  if(prevAcc.length || consFin.length){
+  if(prevAcc.length || consFin.length || periodiCant.length){
     const prevByNum={};
     prevAcc.forEach(p=>{ const k=p.numero||('§p'+Math.random()); if(!(k in prevByNum)) prevByNum[k]=parseFloat(p.imponibile)||0; });
     const accNums=new Set(Object.keys(prevByNum).filter(k=>k[0]!=='§'));
@@ -2951,8 +2958,11 @@ function calcolaRicavoCantiere(c){
     // consuntivi finali orfani (preventivo_numero assente o non fra i preventivi accettati di questo cantiere)
     const orfani=consFin.filter(x=> !(x.preventivo_numero && accNums.has(x.preventivo_numero)) && !(x.numero && consUsati.has(x.numero)));
     if(orfani.length){ valore+=orfani.reduce((s,x)=>s+(parseFloat(x.imponibile)||0),0); usatiCons+=orfani.length; orfani.forEach(x=>parti.push(x.numero||'consuntivo')); }
+    // periodi di fatturazione (continuativi): documenti anch'essi, si sommano
+    let usatiPer=0;
+    if(periodiCant.length){ valore+=periodiCant.reduce((s,p)=>s+(parseFloat(p.importo)||0),0); usatiPer=periodiCant.length; periodiCant.forEach(p=>parti.push(p.numero||'periodo')); }
     if(parti.length){
-      const tipo=(usatiCons&&usatiPrev)?'misto':(usatiCons?'consuntivo':'preventivo');
+      const tipo=((usatiCons||usatiPer)&&usatiPrev)?'misto':((usatiCons||usatiPer)?'consuntivo':'preventivo');
       const fonte=parti.length===1?('da '+parti[0]):('somma di '+parti.length+' documenti ('+parti.join(', ')+')');
       return {valore, tipo, dettaglio:parti.join(', '), fonte};
     }
