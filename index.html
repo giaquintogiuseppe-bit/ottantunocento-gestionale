@@ -2828,9 +2828,15 @@ function calcolaRicavoCantiere(c){
   const prev=(PREVENTIVI||[]).filter(x=>x && (x.stato==='accettato'||x.stato==='convertito') &&
       ((x.cantiere_id&&x.cantiere_id===cid) || (x.cantiere_ref&&x.cantiere_ref===cid) || (prevRef&&x.numero===prevRef)));
   if(prev.length){
-    prev.sort((a,b)=>((+b.rev||0)-(+a.rev||0)) || String(b.data||'').localeCompare(String(a.data||'')));
-    return {valore:parseFloat(prev[0].imponibile)||0, tipo:'preventivo', dettaglio:prev[0].numero||'',
-            fonte:'da '+(prev[0].numero||'preventivo')};
+    // più preventivi accettati sullo stesso cantiere si SOMMANO (un importo per numero:
+    // le revisioni sono già nell'imponibile di testa). Se fossero alternativi, la fonte lo mostra.
+    const perNum={};
+    prev.forEach(p=>{ const k=p.numero||('§'+Math.random()); if(!(k in perNum)) perNum[k]=parseFloat(p.imponibile)||0; });
+    const nums=Object.keys(perNum);
+    const somma=nums.reduce((s,k)=>s+perNum[k],0);
+    const etich=nums.filter(k=>k[0]!=='§');
+    return {valore:somma, tipo:'preventivo', dettaglio:etich.join(', '),
+            fonte: etich.length<=1 ? ('da '+(etich[0]||'preventivo')) : ('somma di '+etich.length+' preventivi ('+etich.join(', ')+')')};
   }
   // 3) STIMA manuale (budgetCantieri)
   let stima=NaN;
