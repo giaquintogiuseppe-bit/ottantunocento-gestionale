@@ -841,18 +841,30 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div class="pt" id="dett-title" style="margin-bottom:0;font-size:20px"></div>
     </div>
 
-    <!-- Budget / Ricavo previsto — modifica inline -->
+    <!-- Ricavo totale (documentale) + Fatturato + Da fatturare -->
     <div style="background:rgba(154,122,31,.06);border:1px solid rgba(154,122,31,.25);border-radius:12px;padding:14px;margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-        <div>
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--teal);margin-bottom:4px">💰 Ricavo previsto / Budget</div>
-          <div id="dett-budget-val" style="font-size:22px;font-weight:800;color:var(--teal)">—</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+        <div style="min-width:0">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--teal);margin-bottom:4px">💰 Ricavo totale</div>
+          <div id="dett-budget-val" style="font-size:24px;font-weight:800;color:var(--teal)">—</div>
+          <div id="dett-ricavo-fonte" style="font-size:11px;color:var(--text2);margin-top:2px"></div>
         </div>
         <div style="display:flex;gap:6px;align-items:center">
-          <input type="number" id="dett-budget-input" placeholder="Importo €" step="100"
-            style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:14px;padding:8px 10px;width:130px;outline:none;display:none">
-          <button id="dett-budget-btn" onclick="toggleBudgetEdit()" class="bs" style="font-size:12px;padding:7px 12px">✏️ Modifica</button>
+          <input type="number" id="dett-budget-input" placeholder="Stima €" step="100"
+            style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:14px;padding:8px 10px;width:120px;outline:none;display:none">
+          <button id="dett-budget-btn" onclick="toggleBudgetEdit()" class="bs" style="font-size:12px;padding:7px 12px" title="Modifica la stima manuale (usata solo se mancano documenti)">✏️ Stima</button>
           <button id="dett-budget-save" onclick="salvaBudgetDett()" class="bp" style="font-size:12px;padding:7px 12px;display:none">💾 Salva</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+        <div style="flex:1;min-width:140px;background:var(--card);border:1px solid var(--brd);border-radius:10px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">🧾 Fatturato</div>
+          <div id="dett-kpi-fatt" style="font-size:19px;font-weight:800;font-family:'IBM Plex Mono',monospace">—</div>
+        </div>
+        <div style="flex:1;min-width:140px;background:var(--card);border:1px solid var(--brd);border-radius:10px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">📋 Da fatturare</div>
+          <div id="dett-kpi-daf" style="font-size:19px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#c98fd0">—</div>
+          <div id="dett-kpi-daf-sub" style="font-size:10px;color:var(--text2)"></div>
         </div>
       </div>
     </div>
@@ -2989,6 +3001,13 @@ function calcolaRicavoCantiere(c){
 }
 // Maturato da fatture (solo informativo, per i continuativi) — NON si mescola col ricavo
 function _maturatoCantiere(c){ return _fatturatoCantiere(c); }
+// Da fatturare (netto) di un cantiere = residui dei consuntivi definitivo/inviato + periodi aperti.
+function _daFatturareCantiere(c){
+  if(!c) return 0;
+  const cons=(CONSUNTIVI||[]).filter(x=>x && x.cantiere_id===c.id && (x.stato==='definitivo'||x.stato==='inviato')).reduce((s,x)=>s+_consResiduo(x),0);
+  const per=(PERIODI||[]).filter(p=>p && p.commessa_id===c.id && !p.cancellato_il && !(p.fatturato===true||p.stato==='fatturato')).reduce((s,p)=>s+(parseFloat(p.importo)||0),0);
+  return cons+per;
+}
 // Target per la schermata INCASSI: quanto ci si aspetta di incassare = max(ricavo documentato, fatturato maturato).
 // Serve a non far regredire i continuativi (GAETA/Blu) a un rapporto fuorviante "incassato/ricavo".
 function _ricavoIncassabile(c){ return Math.max(_ricavoCommessa(c)||0, _maturatoCantiere(c)||0); }
@@ -6413,11 +6432,20 @@ function rDettCant(){
   document.getElementById('dett-title').textContent=nome;
   rDettForniture((DB.cantieri||[]).find(x=>x.nome===nome));
 
-  // Aggiorna display budget
+  // Aggiorna il box ricavo: totale documentale + fonte + Fatturato + Da fatturare
   const _c=(DB.cantieri||[]).find(x=>x.nome===nome);
-  const ricavoAtt=_c?getBudget(_c.id,nome):0;
+  const _R=_c?calcolaRicavoCantiere(_c):{valore:0,fonte:''};
   const budgetEl=document.getElementById('dett-budget-val');
-  if(budgetEl) budgetEl.textContent=ricavoAtt>0?fmt(ricavoAtt):'Non impostato';
+  if(budgetEl) budgetEl.textContent=(_R.valore>0)?fmt(_R.valore):'Non impostato';
+  const fonteEl=document.getElementById('dett-ricavo-fonte');
+  if(fonteEl) fonteEl.textContent=_R.valore>0?(_R.fonte||''):'';
+  const fattEl=document.getElementById('dett-kpi-fatt');
+  if(fattEl) fattEl.textContent=fmt(_c?_maturatoCantiere(_c):0);
+  const dafEl=document.getElementById('dett-kpi-daf');
+  const daf=_c?_daFatturareCantiere(_c):0;
+  if(dafEl) dafEl.textContent=fmt(daf);
+  const dafSub=document.getElementById('dett-kpi-daf-sub');
+  if(dafSub) dafSub.textContent=daf>0?'netto · da documenti aperti':'tutto coperto';
   // fatture del cantiere (vita gestionale)
   rDettFatture(_c, nome);
   rDettAlloc(_c, nome);
@@ -6651,7 +6679,7 @@ function toggleBudgetEdit(){
     inp.focus();
   } else {
     inp.style.display='none'; sav.style.display='none';
-    btn.textContent='✏️ Modifica'; val.style.display='block';
+    btn.textContent='✏️ Stima'; val.style.display='block';
   }
 }
 
