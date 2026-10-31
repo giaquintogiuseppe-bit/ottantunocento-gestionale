@@ -2789,7 +2789,7 @@ let _docRicavoCaricati=false;
 async function caricaDocumentiRicavo(){
   const H={apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY};
   try{
-    const r=await fetch(SUPABASE_URL+'/rest/v1/consuntivi?select=numero,cantiere_id,imponibile,stato,data,creato_il&limit=5000',{headers:H,cache:'no-cache'});
+    const r=await fetch(SUPABASE_URL+'/rest/v1/consuntivi?select=numero,cantiere_id,preventivo_numero,imponibile,stato,data,creato_il&limit=5000',{headers:H,cache:'no-cache'});
     if(r.ok){ const j=await r.json(); if(Array.isArray(j)) CONSUNTIVI=j; }
   }catch(e){}
   try{
@@ -2809,34 +2809,46 @@ function calcolaRicavoCantiere(c){
   if(!c) return {valore:0, fonte:'senza ricavo', tipo:'nessuno', dettaglio:''};
   const cid=c.id;
   const prevRef=c.preventivoId||c.preventivo_id||c.preventivoRef||null;
-  // 1) CONSUNTIVI non annullati
+  // documenti del cantiere
   const cons=(CONSUNTIVI||[]).filter(x=>x && x.cantiere_id===cid && x.stato!=='annullato' && x.stato!=='annullata');
-  const def=cons.filter(x=>x.stato==='definitivo'||x.stato==='inviato'||x.stato==='fatturato');
-  if(def.length){
-    const somma=def.reduce((s,x)=>s+(parseFloat(x.imponibile)||0),0);
-    const nums=def.map(x=>x.numero).filter(Boolean);
-    return {valore:somma, tipo:'consuntivo', dettaglio:nums.join(', '),
-            fonte:def.length===1?('da '+(nums[0]||'consuntivo')):('somma di '+def.length+' consuntivi ('+nums.join(', ')+')')};
+  const consFin=cons.filter(x=>x.stato==='definitivo'||x.stato==='inviato'||x.stato==='fatturato'); // consuntivi "finali"
+  const prevAcc=(PREVENTIVI||[]).filter(x=>x && (x.stato==='accettato'||x.stato==='convertito') &&
+      ((x.cantiere_id&&x.cantiere_id===cid) || (x.cantiere_ref&&x.cantiere_ref===cid) || (prevRef&&x.numero===prevRef)));
+  // ── ABBINAMENTO consuntivo↔preventivo (modello di flusso scelto) ──
+  // Per ogni preventivo accettato: se esiste un consuntivo finale che lo rendiconta
+  // (consuntivo.preventivo_numero === preventivo.numero) usa il CONSUNTIVO, altrimenti il PREVENTIVO.
+  // I consuntivi finali non abbinati ad alcun preventivo accettato (orfani, es. Gaeta lungo periodo) si aggiungono.
+  if(prevAcc.length || consFin.length){
+    const prevByNum={};
+    prevAcc.forEach(p=>{ const k=p.numero||('§p'+Math.random()); if(!(k in prevByNum)) prevByNum[k]=parseFloat(p.imponibile)||0; });
+    const accNums=new Set(Object.keys(prevByNum).filter(k=>k[0]!=='§'));
+    let valore=0; const parti=[]; let usatiCons=0, usatiPrev=0; const consUsati=new Set();
+    Object.keys(prevByNum).forEach(num=>{
+      const legati=accNums.has(num) ? consFin.filter(x=>x.preventivo_numero && x.preventivo_numero===num) : [];
+      if(legati.length){
+        valore+=legati.reduce((s,x)=>s+(parseFloat(x.imponibile)||0),0); usatiCons+=legati.length;
+        legati.forEach(x=>{ if(x.numero) consUsati.add(x.numero); });
+        parti.push(legati.map(x=>x.numero).filter(Boolean).join('+')||'consuntivo');
+      } else {
+        valore+=prevByNum[num]; usatiPrev++;
+        parti.push(num[0]==='§'?'preventivo':num);
+      }
+    });
+    // consuntivi finali orfani (preventivo_numero assente o non fra i preventivi accettati di questo cantiere)
+    const orfani=consFin.filter(x=> !(x.preventivo_numero && accNums.has(x.preventivo_numero)) && !(x.numero && consUsati.has(x.numero)));
+    if(orfani.length){ valore+=orfani.reduce((s,x)=>s+(parseFloat(x.imponibile)||0),0); usatiCons+=orfani.length; orfani.forEach(x=>parti.push(x.numero||'consuntivo')); }
+    if(parti.length){
+      const tipo=(usatiCons&&usatiPrev)?'misto':(usatiCons?'consuntivo':'preventivo');
+      const fonte=parti.length===1?('da '+parti[0]):('somma di '+parti.length+' documenti ('+parti.join(', ')+')');
+      return {valore, tipo, dettaglio:parti.join(', '), fonte};
+    }
   }
+  // consuntivi solo in bozza → bozza più recente (valore provvisorio)
   const boz=cons.filter(x=>x.stato==='bozza');
   if(boz.length){
     boz.sort(_docCmpDesc);
     return {valore:parseFloat(boz[0].imponibile)||0, tipo:'consuntivo_bozza', dettaglio:boz[0].numero||'',
             fonte:'bozza '+(boz[0].numero||'consuntivo')};
-  }
-  // 2) PREVENTIVO accettato/convertito collegato
-  const prev=(PREVENTIVI||[]).filter(x=>x && (x.stato==='accettato'||x.stato==='convertito') &&
-      ((x.cantiere_id&&x.cantiere_id===cid) || (x.cantiere_ref&&x.cantiere_ref===cid) || (prevRef&&x.numero===prevRef)));
-  if(prev.length){
-    // più preventivi accettati sullo stesso cantiere si SOMMANO (un importo per numero:
-    // le revisioni sono già nell'imponibile di testa). Se fossero alternativi, la fonte lo mostra.
-    const perNum={};
-    prev.forEach(p=>{ const k=p.numero||('§'+Math.random()); if(!(k in perNum)) perNum[k]=parseFloat(p.imponibile)||0; });
-    const nums=Object.keys(perNum);
-    const somma=nums.reduce((s,k)=>s+perNum[k],0);
-    const etich=nums.filter(k=>k[0]!=='§');
-    return {valore:somma, tipo:'preventivo', dettaglio:etich.join(', '),
-            fonte: etich.length<=1 ? ('da '+(etich[0]||'preventivo')) : ('somma di '+etich.length+' preventivi ('+etich.join(', ')+')')};
   }
   // 3) STIMA manuale (budgetCantieri)
   let stima=NaN;
