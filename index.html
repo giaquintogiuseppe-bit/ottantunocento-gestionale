@@ -29,6 +29,7 @@ html,body{height:100%;background:var(--navy);color:var(--text);font-family:'IBM 
 #hdr{background:var(--navy2);border-bottom:1px solid var(--brd);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:10}
 #hdr-logo{font-size:21px;font-weight:800;color:var(--teal)}
 #hdr-logo span{color:var(--text2);font-weight:400;font-size:12px;display:block;margin-top:1px}
+#hdr-ver{display:block;font-weight:400;font-style:normal;font-size:10px;opacity:.7;white-space:nowrap;margin-top:1px}
 #hdr-r{display:flex;align-items:center;gap:12px}
 #hdr-date{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text2);text-align:right}
 #hdr-date b{display:block;color:var(--teal);font-size:13px}
@@ -566,7 +567,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <div id="app">
 <!-- HEADER -->
 <div id="hdr">
-  <div id="hdr-logo" data-az="{marchio}">81|00<span data-az="{ragioneSociale}">Ottantunocento S.r.l.</span></div>
+  <div id="hdr-logo" data-az="{marchio}">81|00<span data-az="{ragioneSociale}">Ottantunocento S.r.l.<em id="hdr-ver" title="Versione dell'app"></em></span></div>
   <div id="hdr-r">
     <button class="btn-sb btn-gold" onclick="openExportModal()" style="padding:8px 14px;font-size:12px">📊 Esporta Excel</button>
     <div id="hdr-date"><b id="hdate"></b><span id="htime"></span></div>
@@ -3613,6 +3614,16 @@ async function _gestControllaVersione(){
 }
 document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') _gestControllaVersione(); });
 window.addEventListener('focus', _gestControllaVersione);
+
+// Versione in intestazione = data e ora di pubblicazione della pagina in uso
+// (header Last-Modified di GitHub Pages). Automatica, nessun numero da aggiornare a mano.
+(function _mostraVersione(){
+  const el=document.getElementById('hdr-ver'); if(!el) return;
+  const d=new Date(document.lastModified); if(isNaN(d)) return;
+  const dt=d.toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+  el.textContent='versione '+dt;
+  el.title='Versione dell\'app: pubblicata il '+dt;
+})();
 window.addEventListener('pageshow', ()=> _gestControllaVersione());
 
 // ============================================================

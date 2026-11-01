@@ -32,3 +32,4 @@ Riepilogo per ripartire in una nuova chat. Tutto il lavoro è su `main` (repo = 
 
 ## Dove si pubblica
 - Entrambe le app: GitHub Pages da `main`. Dopo un push ricordarsi di **bumpare il SW** e di **riavviare la PWA** sul telefono per prendere la nuova versione.
+- **Gestionale: il service worker NON è registrato** (nessun `serviceWorker.register` in index.html): il numero in `sw.js` non arriva ai dispositivi. L'aggiornamento reale è il controllo automatico `_gestControllaVersione` (al ritorno sull'app confronta Last-Modified e ricarica). In intestazione compare **"versione gg/mm/aa hh:mm"** = data di pubblicazione della pagina in uso.
