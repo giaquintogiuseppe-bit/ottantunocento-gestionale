@@ -20,7 +20,7 @@ const MENU_AREE = [
       { pg:'fatture-fornitori', nome:'Fatture fornitori' }, { pg:'posizione-fornitori', nome:'Posizione fornitori' },
       { pg:'scontrini', nome:'Scontrini e foto' } ] },
   { id:'personale', nome:'Personale', icona:'personale', schede:[
-      { pg:'presenze', nome:'Presenze' }, { pg:'nuova-giornata', nome:'Nuova giornata' }, { pg:'anagrafica', nome:'Anagrafica' },
+      { pg:'personale', nome:'Persone' }, { pg:'presenze', nome:'Presenze' }, { pg:'nuova-giornata', nome:'Nuova giornata' }, { pg:'anagrafica', nome:'Anagrafica' },
       { pg:'scheda-dip', nome:'Scheda dipendente' }, { pg:'saldi', nome:'Saldi' }, { pg:'anticipi', nome:'Pagamenti' },
       { pg:'pagamenti', nome:'Chiusura settimana' }, { pg:'riepilogo', nome:'Riepilogo' }, { pg:'danni', nome:'Danni' },
       { pg:'documenti', nome:'Documenti' } ] },
