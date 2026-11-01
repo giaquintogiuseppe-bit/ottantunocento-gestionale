@@ -177,6 +177,8 @@ function cli2Render(){
       <div><h2>Clienti</h2><p>Anagrafica, commesse, documenti e soldi di ogni cliente in un'unica scheda.</p></div>
       <div class="cli2-az">
         <button class="bs" onclick="openExportModal&&openExportModal()">📊 Esporta Excel</button>
+        <button class="bs" onclick="document.getElementById('gcli-import-file').click()">📥 Importa Excel</button>
+        <button class="bs" onclick="apriModalReferente()">+ Nuovo referente</button>
         <button class="bp" onclick="apriModalClienteGest()">+ Nuovo cliente</button>
       </div>
     </div>

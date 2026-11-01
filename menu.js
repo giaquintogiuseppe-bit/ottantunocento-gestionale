@@ -14,8 +14,8 @@ const MENU_AREE = [
   { id:'clienti', nome:'Clienti', icona:'clienti', schede:[
       { pg:'clienti', nome:'Clienti' }, { pg:'fatture', nome:'Fatture e scadenze', dopo:'renderFatture' },
       { pg:'incassi', nome:'Incassi' }, { pg:'posizione-clienti', nome:'Posizione' },
-      { pg:'referenti', nome:'Referenti' }, { pg:'clienti-gest', nome:'Anagrafica (vecchia)', dopo:'renderClientiGest' } ],
-    nascoste:['report-cliente'] },
+      { pg:'referenti', nome:'Referenti' } ],
+    nascoste:['report-cliente','clienti-gest'] },   // 'clienti-gest' = anagrafica vecchia: tolta dal menu il 01/11/2026, pagina ancora nel codice
   { id:'fornitori', nome:'Fornitori', icona:'fornitori', schede:[
       { pg:'fornitori', nome:'Fornitori' }, { pg:'fatture-fornitori', nome:'Fatture fornitori' }, { pg:'posizione-fornitori', nome:'Posizione fornitori' },
       { pg:'scontrini', nome:'Scontrini e foto' } ] },

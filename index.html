@@ -1040,7 +1040,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <!-- REPORT CLIENTE -->
   <div id="pg-report-cliente" class="pg">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-      <button onclick="nav('clienti-gest');renderClientiGest()" class="bs" style="font-size:12px;padding:6px 12px">← Clienti</button>
+      <button onclick="nav('clienti')" class="bs" style="font-size:12px;padding:6px 12px">← Clienti</button>
       <h2 id="rc-title" style="margin:0">Report Cliente</h2>
     </div>
     <!-- Filtro periodo -->
@@ -12384,7 +12384,7 @@ async function salvaReferente(id){
   try{
     if(id){ await fetch(A.url+'?id=eq.'+id,{method:'PATCH',headers:{...A.h,Prefer:'return=minimal'},body:JSON.stringify(body)}); }
     else{ await fetch(A.url,{method:'POST',headers:{...A.h,Prefer:'return=minimal'},body:JSON.stringify(body)}); }
-    document.getElementById('modal-ref')?.remove(); await refLoad(); rReferenti(); toast('✓ Referente salvato');
+    document.getElementById('modal-ref')?.remove(); await refLoad(); rReferenti(); if(typeof cli2DopoModifica==='function') cli2DopoModifica(); toast('✓ Referente salvato');
   }catch(e){ toast('⚠ Errore nel salvataggio'); }
 }
 async function eliminaReferente(id){
@@ -14268,6 +14268,7 @@ function importaClientiExcelGest(input){
       DB.clienti.push(...nuovi);
       save(); cloudSalva(true);
       renderClientiGest();
+      if(typeof cli2DopoModifica==='function') cli2DopoModifica();
       toast(`✓ ${nuovi.length} clienti importati`);
     }catch(err){ toast('⚠ Errore: '+err.message); }
     input.value='';
@@ -14692,12 +14693,12 @@ setTimeout(()=>{
 <!-- ═══════════ fine SELETTORE COMMESSA v1.1 ═══════════ -->
 <!-- ═══════════ QUADRO FISCALE (import Genya + quadro) ═══════════ -->
 <script src="attrezzeria.js?v=20261101"></script>
-<script src="clienti.js?v=20261101d"></script>
+<script src="clienti.js?v=20261101e"></script>
 <script src="commesse.js?v=20261101c"></script>
 <script src="personale.js?v=20261101b"></script>
 <script src="fornitori.js?v=20261101b"></script>
 <script src="cruscotto.js?v=20261101"></script>
-<script src="menu.js?v=20261101e"></script>
+<script src="menu.js?v=20261101f"></script>
 <script src="fisco.js?v=20261030"></script>
 </body>
 </html>
