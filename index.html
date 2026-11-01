@@ -595,6 +595,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <div id="main">
 <!-- SIDEBAR -->
 <div id="sb">
+  <!-- Menu a 8 aree: lo disegna menu.js. Le voci qui sotto restano solo come riserva se menu.js non si carica. -->
+  <div id="sb-aree" class="m8">
   <div class="ns">Overview</div>
   <div class="ni active" onclick="nav('dash')">⬛ Dashboard</div>
   <div class="ns">Operatività</div>
@@ -631,6 +633,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="ni" onclick="nav('scontrini')">🧾 Scontrini & Foto</div>
   <div class="ni" onclick="nav('sync')">☁️ Sync iCloud</div>
   <div class="ni" onclick="if(confirm('Aggiornare la app all\'ultima versione? Verrà svuotata la cache e ricaricata.'))location.href='aggiorna.html?v='+Date.now()" title="Svuota la cache e ricarica la versione aggiornata">🔄 Aggiorna app</div>
+  </div>
   <div id="sbf">
     <button class="btn-sb btn-gold" onclick="openExportModal()">📊 Esporta Excel</button>
     <button class="btn-sb btn-teal" onclick="openModal('modal-import-xl')">📂 Importa Excel</button>
@@ -643,6 +646,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <!-- CONTENT -->
 <div id="cnt">
+<div id="area-tabs" role="tablist" aria-label="Schede dell'area"></div>
 
   <!-- DASHBOARD -->
   <div id="pg-dash" class="pg active">
@@ -14797,6 +14801,7 @@ setTimeout(()=>{
 <!-- ═══════════ QUADRO FISCALE (import Genya + quadro) ═══════════ -->
 <script src="attrezzeria.js?v=20261101"></script>
 <script src="clienti.js?v=20261101b"></script>
+<script src="menu.js?v=20261101"></script>
 <script src="fisco.js?v=20261030"></script>
 </body>
 </html>

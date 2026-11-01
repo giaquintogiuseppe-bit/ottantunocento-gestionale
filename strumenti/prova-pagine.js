@@ -55,6 +55,15 @@ const server = http.createServer((req, res) => {
     if (!base.intestazione) errori.push('index.html: intestazione #hdr-logo mancante');
     if (!base.nav) { errori.push('index.html: funzione nav() assente, impossibile visitare le pagine'); return; }
     const pagine = await p.evaluate(() => [...new Set([...document.querySelectorAll('.pg')].map(e => e.id.replace(/^pg-/, '')))]);
+    // menu a 8 aree: ogni pagina deve stare in un'area, altrimenti non è raggiungibile dal menu
+    const menu = await p.evaluate(pg => typeof MENU_AREE==='undefined' ? null : { aree: MENU_AREE.length,
+        voci: document.querySelectorAll('#sb-aree .ni[data-area]').length,
+        orfane: pg.filter(x => !_menuAreaDi(x)) }, pagine);
+    if (!menu) errori.push('index.html: menu a aree (menu.js) non caricato');
+    else {
+      if (menu.voci !== menu.aree) errori.push(`index.html: la barra laterale mostra ${menu.voci} aree invece di ${menu.aree}`);
+      if (menu.orfane.length) errori.push('index.html: pagine senza area nel menu: ' + menu.orfane.join(', '));
+    }
     for (const pg of pagine) {
       const e = await p.evaluate(x => { try { nav(x); return null; } catch (err) { return err.message; } }, pg);
       if (e) errori.push(`index.html → pagina "${pg}": ${e}`);
