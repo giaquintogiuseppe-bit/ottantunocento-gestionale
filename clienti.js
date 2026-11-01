@@ -112,6 +112,7 @@ function cli2Calcola(){
   const fattByCant={};
   (_fatture||[]).forEach(f=>{ if(f.stato==='annullata'||(f.tipo!=='unica'&&f.tipo!=='acconto')) return; if(f.cantiere_id) fattByCant[f.cantiere_id]=(fattByCant[f.cantiere_id]||0)+(+f.importo||0); });
   const dati={};
+  const refById={}; (typeof REF!=='undefined' && Array.isArray(REF) ? REF : []).forEach(x=>{ if(x&&x.id) refById[x.id]=x.nome||''; });
   (DB.clienti||[]).forEach(c=>{
     if(!c || !c.id || c.unitoA) return;                       // i doppioni uniti non si mostrano
     const k=_pcNorm(c.ragioneSociale);
@@ -122,8 +123,13 @@ function cli2Calcola(){
     const cant=(DB.cantieri||[]).filter(x=>x && (x.clienteId===c.id || (!x.clienteId && k && _pcNorm(x.committente)===k)));
     const aperte=cant.filter(x=>x.stato!=='concluso' && x.stato!=='perso').length;
     const membri = hit && hit.e && (hit.e.gruppo) ? Object.keys(hit.e.membri||{}) : [];
-    dati[c.id]={c, ps, fatt, scaduto, cant, aperte, fattByCant, gruppo: membri.length>1 ? hit.e : null};
+    const refNome = c.referenteId ? (refById[c.referenteId]||'') : '';
+    dati[c.id]={c, ps, fatt, scaduto, cant, aperte, fattByCant, refNome, gruppo: membri.length>1 ? hit.e : null};
   });
+  // Referenti / gruppi: stesse posizioni aggregate di "Posizione clienti" (bucket ref:<id> o grp:<nome>)
+  CLI2.gruppi=(pos.list||[]).filter(e=>e.gruppo).map(e=>({key:e.key, nome:e.gruppo, membri:Object.keys(e.membri||{}),
+    fatturato:e.fatturato||0, incassato:e.incassato||0, residuo:e.residuo||0, daFatt:e.daFattTot||0, tipo:String(e.key).startsWith('ref:')?'Referente':'Gruppo'}))
+    .sort((a,b)=>(b.residuo+b.daFatt)-(a.residuo+a.daFatt) || a.nome.localeCompare(b.nome));
   const v=Object.values(dati), att=v.filter(d=>!d.c.archiviato);
   CLI2.dati=dati;
   CLI2.tot={
@@ -131,7 +137,7 @@ function cli2Calcola(){
     daFatturare: (pos.tot && pos.tot.daFatt) || 0,
     daIncassare: (pos.tot && pos.tot.residuo) || 0,
     scaduto: v.reduce((s,d)=>s+d.scaduto,0),
-    conto: { fatturare: att.filter(d=>d.ps.daFatturare>1).length, incassare: att.filter(d=>d.ps.daIncassare>1).length, scaduti: v.filter(d=>d.scaduto>1).length }
+    conto: { referenti: CLI2.gruppi.length, fatturare: att.filter(d=>d.ps.daFatturare>1).length, incassare: att.filter(d=>d.ps.daIncassare>1).length, scaduti: v.filter(d=>d.scaduto>1).length }
   };
 }
 
@@ -147,7 +153,7 @@ function _cli2Stato(d){
 function cli2Render(){
   const root=document.getElementById('cli2-root'); if(!root||!CLI2.dati) return;
   const T=CLI2.tot;
-  const FILTRI=[['attivi','Attivi',T.attivi],['fatturare','Da fatturare',T.conto.fatturare],['incassare','Da incassare',T.conto.incassare],['scaduti','Pagamenti scaduti',T.conto.scaduti],['archivio','Archivio',T.archiviati]];
+  const FILTRI=[['attivi','Attivi',T.attivi],['fatturare','Da fatturare',T.conto.fatturare],['incassare','Da incassare',T.conto.incassare],['scaduti','Pagamenti scaduti',T.conto.scaduti],['referenti','Per referente',T.conto.referenti],['archivio','Archivio',T.archiviati]];
   root.innerHTML=`
     <div class="cli2-testa">
       <div><h2>Clienti</h2><p>Anagrafica, commesse, documenti e soldi di ogni cliente in un'unica scheda.</p></div>
@@ -168,8 +174,9 @@ function cli2Render(){
           <input class="cli2-cerca" id="cli2-q" type="search" placeholder="Cerca per nome, P.IVA o città (anche in archivio)" value="${esc(CLI2.q)}" oninput="CLI2.q=this.value;cli2Elenco()">
           <div style="display:flex;gap:6px;flex-wrap:wrap">${FILTRI.map(([k,t,n])=>`<button class="cli2-chip ${CLI2.filtro===k?'on':''}" onclick="CLI2.filtro='${k}';cli2Render()">${t}<span class="n">${n}</span></button>`).join('')}</div>
         </div>
+        <div id="cli2-ref"></div>
         <div class="cli2-tabw"><table class="cli2-t">
-          <thead><tr><th>Cliente</th><th class="r cli2-opz" title="Commesse aperte">Commesse</th><th class="r">Da fatturare</th><th class="r">Da incassare</th><th>Stato</th></tr></thead>
+          <thead id="cli2-thead"><tr><th>Cliente</th><th class="r cli2-opz" title="Commesse aperte">Commesse</th><th class="r">Da fatturare</th><th class="r">Da incassare</th><th>Stato</th></tr></thead>
           <tbody id="cli2-righe"></tbody>
         </table></div>
       </section>
@@ -181,8 +188,12 @@ function cli2Render(){
 function cli2Elenco(){
   const tb=document.getElementById('cli2-righe'); if(!tb) return;
   const q=(CLI2.q||'').trim().toLowerCase();
+  const boxRef=document.getElementById('cli2-ref');
+  if(boxRef) boxRef.innerHTML = q ? _cli2RefCard(q) : '';
+  if(!q && CLI2.filtro==='referenti'){ _cli2Referenti(tb); return; }
+  const th=document.getElementById('cli2-thead'); if(th) th.innerHTML='<tr><th>Cliente</th><th class="r cli2-opz" title="Commesse aperte">Commesse</th><th class="r">Da fatturare</th><th class="r">Da incassare</th><th>Stato</th></tr>';
   let v=Object.values(CLI2.dati);
-  if(q){ v=v.filter(d=>(d.c.ragioneSociale+' '+(d.c.piva||'')+' '+(d.c.cf||'')+' '+(d.c.indirizzo||'')+' '+(d.c.referente||'')).toLowerCase().includes(q)); }
+  if(q){ v=v.filter(d=>(d.c.ragioneSociale+' '+(d.c.piva||'')+' '+(d.c.cf||'')+' '+(d.c.indirizzo||'')+' '+(d.c.referente||'')+' '+(d.refNome||'')+' '+(d.c.gruppo||'')).toLowerCase().includes(q)); }
   else {
     const f=CLI2.filtro;
     v=v.filter(d=> f==='archivio' ? !!d.c.archiviato : !d.c.archiviato);
@@ -195,7 +206,7 @@ function cli2Elenco(){
   const citta = s => { const p=String(s||'').split(',').map(x=>x.trim()).filter(Boolean); return p.length>=3 ? p[p.length-3] : (p[1]||''); };
   tb.innerHTML = v.length ? v.map(d=>`
     <tr class="${d.c.id===CLI2.scelto?'sel':''}" onclick="cli2Apri('${esc(d.c.id)}')">
-      <td><div class="cli2-nome">${esc(d.c.ragioneSociale)}</div><div class="cli2-sub">${esc(citta(d.c.indirizzo))}${d.c.piva?` · P.IVA <span class="num">${esc(d.c.piva)}</span>`:''}</div></td>
+      <td><div class="cli2-nome">${esc(d.c.ragioneSociale)}</div><div class="cli2-sub">${esc(citta(d.c.indirizzo))}${d.c.piva?` · P.IVA <span class="num">${esc(d.c.piva)}</span>`:''}${d.refNome?` · 🔗 ${esc(d.refNome)}`:(d.c.gruppo?` · 🔗 ${esc(d.c.gruppo)}`:'')}</div></td>
       <td class="r num cli2-opz">${d.aperte||'<span class="cli2-zero">0</span>'}</td>
       <td class="r num">${d.ps.daFatturare>1?_c2fm(d.ps.daFatturare):'<span class="cli2-zero">—</span>'}</td>
       <td class="r num">${d.ps.daIncassare>1?_c2fm(d.ps.daIncassare):'<span class="cli2-zero">—</span>'}</td>
@@ -240,7 +251,7 @@ async function cli2Scheda(){
   el.innerHTML=`
     <div class="cli2-sch-testa">
       <h3>${esc(c.ragioneSociale)}</h3>
-      <div class="cli2-meta">${c.archiviato?'<span class="cli2-b neu">In archivio</span>':''}${c.piva?`<span>P.IVA <span class="num">${esc(c.piva)}</span></span>`:''}${pag?`<span>${pag}</span>`:''}${c.referente?`<span>Contatto: ${esc(c.referente)}</span>`:''}</div>
+      <div class="cli2-meta">${c.archiviato?'<span class="cli2-b neu">In archivio</span>':''}${c.piva?`<span>P.IVA <span class="num">${esc(c.piva)}</span></span>`:''}${pag?`<span>${pag}</span>`:''}${c.referente?`<span>Contatto: ${esc(c.referente)}</span>`:''}${(d.refNome||c.gruppo)?`<span>Fa capo a: <a href="#" style="color:var(--teal);font-weight:600" onclick="event.preventDefault();cli2CercaReferente(this.dataset.n)" data-n="${esc(d.refNome||c.gruppo)}">🔗 ${esc(d.refNome||c.gruppo)}</a></span>`:''}</div>
     </div>
     <div class="cli2-tabs" role="tablist">${TABS.map(([k,t,n])=>`<button role="tab" class="${CLI2.tab===k?'on':''}" onclick="cli2Tab('${k}')">${t}${n!==''?`<span class="n">${n}</span>`:''}</button>`).join('')}</div>
     <div class="cli2-corpo-sch" id="cli2-pann"></div>`;
@@ -323,3 +334,29 @@ function cli2Archivia(id, si){
 
 // Dopo una modifica dal modulo cliente, se l'area Clienti è aperta si aggiorna.
 function cli2DopoModifica(){ if(typeof curPg!=='undefined' && curPg==='clienti' && CLI2.dati){ cli2Calcola(); cli2Render(); } }
+
+// ── Referenti / gruppi (come in Posizione clienti) ──────────────────────
+function _cli2RefCard(q){
+  const gg=(CLI2.gruppi||[]).filter(g=>g.nome.toLowerCase().includes(q));
+  if(!gg.length) return '';
+  return '<div style="display:flex;flex-direction:column;gap:8px;padding:12px;border-bottom:1px solid var(--brd)">'+gg.slice(0,3).map(g=>`
+    <div class="cli2-gruppo"><b>🔗 ${esc(g.nome)}</b> <span class="cli2-sub">${g.tipo} · ${g.membri.length} società</span>
+      <div class="cli2-sub" style="margin-top:2px">${g.membri.map(esc).join(' · ')}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:6px;font-size:13px">
+        <span>Fatturato <b class="num">${_c2fm(g.fatturato)}</b></span><span>Incassato <b class="num">${_c2fm(g.incassato)}</b></span>
+        <span>Da incassare <b class="num">${_c2fm(g.residuo)}</b></span><span>Da fatturare <b class="num">${_c2fm(g.daFatt)}</b></span></div></div>`).join('')+'</div>';
+}
+function _cli2Referenti(tb){
+  const th=document.getElementById('cli2-thead');
+  if(th) th.innerHTML='<tr><th>Referente / gruppo</th><th class="r cli2-opz">Società</th><th class="r">Da fatturare</th><th class="r">Da incassare</th><th class="r cli2-opz">Fatturato</th></tr>';
+  const gg=CLI2.gruppi||[];
+  tb.innerHTML = gg.length ? gg.map(g=>`
+    <tr data-n="${esc(g.nome)}" onclick="cli2CercaReferente(this.dataset.n)">
+      <td><div class="cli2-nome">🔗 ${esc(g.nome)}</div><div class="cli2-sub">${g.tipo} · ${g.membri.slice(0,4).map(esc).join(' · ')}${g.membri.length>4?' …':''}</div></td>
+      <td class="r num cli2-opz">${g.membri.length}</td>
+      <td class="r num">${g.daFatt>1?_c2fm(g.daFatt):'<span class="cli2-zero">—</span>'}</td>
+      <td class="r num">${g.residuo>1?_c2fm(g.residuo):'<span class="cli2-zero">—</span>'}</td>
+      <td class="r num cli2-opz">${_c2fm(g.fatturato)}</td></tr>`).join('')
+    : '<tr><td colspan="5" class="cli2-vuoto">Nessun referente o gruppo con movimenti.</td></tr>';
+}
+function cli2CercaReferente(nome){ CLI2.q=nome||''; CLI2.scelto=null; cli2Render(); }
