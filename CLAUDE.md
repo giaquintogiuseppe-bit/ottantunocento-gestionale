@@ -28,3 +28,9 @@ Ragione sociale, marchio, P.IVA, sede, Supabase, login e link alle app stanno **
 `azienda.js` e si leggono da `window.AZIENDA`. Nei testi statici usa gli attributi
 `data-az`, `data-az-href`, `data-az-content`. Serve per far girare lo stesso codice per
 più società (81|00, Aurica) con database separati.
+
+## Regola: niente dati personali o di clienti nel repository
+
+Il repository è **pubblico**. Script SQL, esportazioni, elenchi con nomi di clienti, P.IVA di persone,
+dati di dipendenti non vanno mai committati: tenerli fuori dal repo (cartella temporanea) e
+consegnarli a Giuseppe in chat.

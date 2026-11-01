@@ -608,6 +608,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="ni" onclick="nav('parco');renderParco()">📦 Parco Risorse</div>
   <div class="ni" onclick="nav('dkv')">⛽ Importa DKV</div>
   <div class="ns">Finanze</div>
+  <div class="ni" onclick="nav('clienti')">👥 Clienti <span style="font-size:10px;font-weight:700;letter-spacing:.04em;padding:1px 6px;border-radius:99px;background:var(--td);color:var(--teal);margin-left:4px">NUOVO</span></div>
   <div class="ni" onclick="nav('fatture');renderFatture()">🧾 Fatture & Scadenze</div>
   <div class="ni" onclick="nav('incassi')">📥 Incassi Clienti</div>
   <div class="ni" onclick="nav('clienti-gest');renderClientiGest()">👤 Gestione Clienti</div>
@@ -998,6 +999,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
   <!-- SALDI -->
   <!-- INCASSI CLIENTI -->
+  <!-- CLIENTI (nuova area: clienti.js) -->
+  <div id="pg-clienti" class="pg"><div id="cli2-root"></div></div>
   <!-- CLIENTI -->
   <div id="pg-clienti-gest" class="pg">
     <h2>👤 Gestione Clienti</h2>
@@ -3732,7 +3735,7 @@ function nav(pg){
 function render(p){
   if(p==='cantieri'||p==='clienti-gest'){ caricaRifornimentiCloud().then(()=>{ if(p==='cantieri') rCant(); }); }
   if(p==='clienti-gest'){ refLoad(); }
-  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:()=>rAttrezzeria(),saldi:rSaldi,riepilogo:rRiepilogo,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,'fatture-fornitori':rFattureFornitori,coerenza:rCoerenza,fisco:window.rFisco}[p]||(() =>{}))();
+  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:()=>rAttrezzeria(),clienti:()=>rClienti(),saldi:rSaldi,riepilogo:rRiepilogo,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,'fatture-fornitori':rFattureFornitori,coerenza:rCoerenza,fisco:window.rFisco}[p]||(() =>{}))();
 }
 
 // ============================================================
@@ -12327,7 +12330,10 @@ function apriModalClienteGest(id){
       <div style="padding:0 20px 8px">
         <div class="fg">
           <div class="fs"><label>Ragione sociale *</label><input type="text" id="gcli-rs" value="${c?.ragioneSociale||''}" placeholder="es. Mario Spa..."></div>
-          <div><label>P.IVA / C.F.</label><input type="text" id="gcli-piva" value="${c?.piva||''}"></div>
+          <div><label>P.IVA</label><input type="text" id="gcli-piva" value="${esc(c?.piva||'')}"></div>
+          <div><label>Codice fiscale</label><input type="text" id="gcli-cf" value="${esc(c?.cf||'')}"></div>
+          <div class="fs"><label>PEC</label><input type="email" id="gcli-pec" value="${esc(c?.pec||'')}"></div>
+          <div class="fs"><label>Pagamento</label><input type="text" id="gcli-pag" value="${esc(c?.tipoPagamento||'')}" placeholder="es. Bonifico 60 gg d.f."></div>
           <div class="fs"><label>Referente (contatto)</label><input type="text" id="gcli-ref" value="${c?.referente||''}"></div>
           <div class="fs"><label>Fa capo a (referente)</label>
             <select id="gcli-refid">
@@ -12369,13 +12375,18 @@ function salvaClienteGest(id){
     email:document.getElementById('gcli-email')?.value.trim()||'',
     indirizzo:document.getElementById('gcli-ind')?.value.trim()||'',
     note:document.getElementById('gcli-note')?.value.trim()||'',
-    dataCreazione:id?undefined:today()
+    cf:document.getElementById('gcli-cf')?.value.trim()||'',
+    pec:document.getElementById('gcli-pec')?.value.trim()||'',
+    tipoPagamento:document.getElementById('gcli-pag')?.value.trim()||''
   };
-  if(id){ const idx=DB.clienti.findIndex(x=>x.id===id); if(idx>=0)DB.clienti[idx]=dati; else DB.clienti.push(dati); }
+  if(!id) dati.dataCreazione=today();
+  // Modifica: si aggiornano solo i campi del modulo, gli altri (IBAN, cellulare, archivio, origine…) restano.
+  if(id){ const idx=DB.clienti.findIndex(x=>x.id===id); if(idx>=0)DB.clienti[idx]=Object.assign({},DB.clienti[idx],dati); else DB.clienti.push(dati); }
   else DB.clienti.push(dati);
   save(); cloudSalva(true);
   document.getElementById('modal-cli-gest')?.remove();
   renderClientiGest();
+  if(typeof cli2DopoModifica==='function') cli2DopoModifica();
   toast(`✓ ${rs} salvato`);
 }
 
@@ -12815,9 +12826,10 @@ function _pcCompute(){
   (_fatture||[]).forEach(f=>{
     if(f.tipo!=='unica' && f.tipo!=='acconto') return;
     if(f.stato==='annullata') return;
-    const k0=_pcNorm(f.cliente); if(!k0) return;
+    const cl=(f.cliente_id && cliById[f.cliente_id]) ? cliById[f.cliente_id] : null;   // collegamento sicuro fattura→cliente
+    const k0=_pcNorm(cl ? cl.ragioneSociale : f.cliente); if(!k0) return;
     const k=bucket(k0);
-    const socNome=nomeAnag[k0]||f.cliente;
+    const socNome=cl ? cl.ragioneSociale : (nomeAnag[k0]||f.cliente);
     const e=get(k, gruppoLabel[k]||socNome);
     addMembro(e, socNome);
     const imp=+f.importo||0, acc=_pcAcc(f);
@@ -12843,7 +12855,7 @@ function _pcCompute(){
     return (_fatture||[]).some(f=>{
       if(f.stato==='annullata' || (f.tipo!=='unica'&&f.tipo!=='acconto')) return false;
       if(f.cantiere_id) return false;
-      if(_pcNorm(f.cliente)!==key) return false;
+      if(_pcNorm((f.cliente_id && cliById[f.cliente_id]) ? cliById[f.cliente_id].ragioneSociale : f.cliente)!==key) return false;
       const imp=+f.importo||0;
       return Math.abs(imp-r)<=Math.max(1,r*0.02) || Math.abs(imp-r*1.22)<=Math.max(1,r*1.22*0.02);
     });
@@ -14784,6 +14796,7 @@ setTimeout(()=>{
 <!-- ═══════════ fine SELETTORE COMMESSA v1.1 ═══════════ -->
 <!-- ═══════════ QUADRO FISCALE (import Genya + quadro) ═══════════ -->
 <script src="attrezzeria.js?v=20261101"></script>
+<script src="clienti.js?v=20261101"></script>
 <script src="fisco.js?v=20261030"></script>
 </body>
 </html>
