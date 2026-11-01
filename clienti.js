@@ -83,6 +83,21 @@ const CLI2 = { filtro:'attivi', q:'', scelto:null, tab:'panoramica', dati:null, 
   .cli2-vuoto{color:var(--text2);font-size:13px;padding:12px}
   .cli2-nota{font-size:12.5px;color:var(--text2);border-left:3px solid var(--brd);padding:2px 0 2px 10px}
   .cli2-gruppo{border:1px dashed var(--teal);border-radius:10px;padding:10px 12px;font-size:13px}
+  .cli2-flusso{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .cli2-step{border:1px solid var(--brd);border-radius:10px;padding:10px 12px;background:var(--c2-soft);display:flex;flex-direction:column;gap:3px;min-width:0}
+  .cli2-step small{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text2);font-weight:700}
+  .cli2-step .num{font-size:18px;font-weight:600}
+  .cli2-step .def{font-size:11.5px;color:var(--text2);line-height:1.35}
+  .cli2-step.s1{border-top:3px solid var(--brd)} .cli2-step.s2{border-top:3px solid var(--c2-warn)} .cli2-step.s3{border-top:3px solid var(--c2-ok)}
+  .cli2-iva{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;padding:1px 6px;border-radius:99px;border:1px solid var(--brd);color:var(--text2);vertical-align:1px;white-space:nowrap}
+  .cli2-soc{width:100%;border-collapse:collapse;font-size:13px}
+  .cli2-soc th{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text2);font-weight:600;text-align:right;padding:6px 8px;border-bottom:1px solid var(--brd);vertical-align:bottom}
+  .cli2-soc th:first-child,.cli2-soc td:first-child{text-align:left}
+  .cli2-soc td{padding:8px;border-bottom:1px solid var(--brd);text-align:right;white-space:nowrap}
+  .cli2-soc td:first-child{white-space:normal;min-width:140px}
+  .cli2-soc tr.click{cursor:pointer}.cli2-soc tr.click:hover td{background:var(--c2-soft)}
+  .cli2-soc tfoot td{font-weight:700;border-bottom:0}
+  @media (max-width:700px){ .cli2-flusso{grid-template-columns:1fr} }
   @media (max-width:1100px){ .cli2-corpo{grid-template-columns:minmax(0,1fr)} .cli2-tabw{max-height:none} }
   @media (max-width:700px){ .cli2-tot,.cli2-cifre{grid-template-columns:repeat(2,minmax(0,1fr))} .cli2-anag{grid-template-columns:1fr} .cli2-opz{display:none} }
   `;
@@ -124,11 +139,14 @@ function cli2Calcola(){
     const aperte=cant.filter(x=>x.stato!=='concluso' && x.stato!=='perso').length;
     const membri = hit && hit.e && (hit.e.gruppo) ? Object.keys(hit.e.membri||{}) : [];
     const refNome = c.referenteId ? (refById[c.referenteId]||'') : '';
-    dati[c.id]={c, ps, fatt, scaduto, cant, aperte, fattByCant, refNome, gruppo: membri.length>1 ? hit.e : null};
+    const daFattList = hit ? (hit.e.daFatt||[]).filter(x=>_pcNorm(x.soc)===k) : [];
+    const aperteList = fatt.filter(f=>f.stato==='emessa' && ((+f.importo||0)-_pcAcc(f))>0.01);
+    const daEmettere = fatt.filter(f=>f.stato==='da_emettere');
+    dati[c.id]={c, ps, fatt, scaduto, cant, aperte, fattByCant, refNome, daFattList, aperteList, daEmettere, gruppo: membri.length>1 ? hit.e : null};
   });
   // Referenti / gruppi: stesse posizioni aggregate di "Posizione clienti" (bucket ref:<id> o grp:<nome>)
   CLI2.gruppi=(pos.list||[]).filter(e=>e.gruppo).map(e=>({key:e.key, nome:e.gruppo, membri:Object.keys(e.membri||{}),
-    fatturato:e.fatturato||0, incassato:e.incassato||0, residuo:e.residuo||0, daFatt:e.daFattTot||0, tipo:String(e.key).startsWith('ref:')?'Referente':'Gruppo'}))
+    fatturato:e.fatturato||0, incassato:e.incassato||0, residuo:e.residuo||0, daFatt:e.daFattTot||0, e, tipo:String(e.key).startsWith('ref:')?'Referente':'Gruppo'}))
     .sort((a,b)=>(b.residuo+b.daFatt)-(a.residuo+a.daFatt) || a.nome.localeCompare(b.nome));
   const v=Object.values(dati), att=v.filter(d=>!d.c.archiviato);
   CLI2.dati=dati;
@@ -164,8 +182,8 @@ function cli2Render(){
     </div>
     <div class="cli2-tot">
       <div><small>Clienti attivi</small><span class="num">${T.attivi}</span></div>
-      <div><small>Da fatturare</small><span class="num">${_c2fm(T.daFatturare)}</span></div>
-      <div><small>Da incassare</small><span class="num">${_c2fm(T.daIncassare)}</span></div>
+      <div><small>Da fatturare · imponibile</small><span class="num">${_c2fm(T.daFatturare)}</span></div>
+      <div><small>Da incassare · IVA inclusa</small><span class="num">${_c2fm(T.daIncassare)}</span></div>
       <div><small>Di cui scaduto</small><span class="num ${T.scaduto>1?'bad':''}">${_c2fm(T.scaduto)}</span></div>
     </div>
     <div class="cli2-corpo">
@@ -191,7 +209,7 @@ function cli2Elenco(){
   const boxRef=document.getElementById('cli2-ref');
   if(boxRef) boxRef.innerHTML = q ? _cli2RefCard(q) : '';
   if(!q && CLI2.filtro==='referenti'){ _cli2Referenti(tb); return; }
-  const th=document.getElementById('cli2-thead'); if(th) th.innerHTML='<tr><th>Cliente</th><th class="r cli2-opz" title="Commesse aperte">Commesse</th><th class="r">Da fatturare</th><th class="r">Da incassare</th><th>Stato</th></tr>';
+  const th=document.getElementById('cli2-thead'); if(th) th.innerHTML='<tr><th>Cliente</th><th class="r cli2-opz" title="Commesse aperte">Commesse</th><th class="r" title="Lavoro non ancora fatturato, IVA esclusa">Da fatturare<br><span class="cli2-iva">imponibile</span></th><th class="r" title="Fatture emesse non ancora pagate, IVA inclusa">Da incassare<br><span class="cli2-iva">IVA incl.</span></th><th>Stato</th></tr>';
   let v=Object.values(CLI2.dati);
   if(q){ v=v.filter(d=>(d.c.ragioneSociale+' '+(d.c.piva||'')+' '+(d.c.cf||'')+' '+(d.c.indirizzo||'')+' '+(d.c.referente||'')+' '+(d.refNome||'')+' '+(d.c.gruppo||'')).toLowerCase().includes(q)); }
   else {
@@ -214,7 +232,7 @@ function cli2Elenco(){
     : `<tr><td colspan="5" class="cli2-vuoto">${q?'Nessun cliente corrisponde alla ricerca.':'Nessun cliente in questa vista.'}</td></tr>`;
 }
 
-function cli2Apri(id){ CLI2.scelto=id; document.querySelectorAll('#cli2-righe tr').forEach(tr=>tr.classList.toggle('sel', tr.getAttribute('onclick')===`cli2Apri('${id}')`)); cli2Scheda(); }
+function cli2Apri(id){ CLI2.scelto=id; CLI2.gruppoSel=null; document.querySelectorAll('#cli2-righe tr').forEach(tr=>tr.classList.toggle('sel', tr.getAttribute('onclick')===`cli2Apri('${id}')`)); cli2Scheda(); }
 function cli2Tab(t){ CLI2.tab=t; cli2Scheda(); }
 
 async function _cli2Preventivi(id){
@@ -242,6 +260,7 @@ function _c2statoComm(x){
 
 async function cli2Scheda(){
   const el=document.getElementById('cli2-scheda'); if(!el) return;
+  if(CLI2.gruppoSel){ const g=(CLI2.gruppi||[]).find(x=>x.key===CLI2.gruppoSel); if(g){ el.innerHTML=_cli2SchedaGruppo(g); return; } CLI2.gruppoSel=null; }
   const d=CLI2.scelto && CLI2.dati[CLI2.scelto];
   if(!d){ el.innerHTML='<div class="cli2-vuoto">Scegli un cliente dall\'elenco.</div>'; return; }
   const c=d.c, ps=d.ps, id=c.id;
@@ -265,22 +284,12 @@ async function cli2Scheda(){
   const fattOrd = d.fatt.slice().sort((a,b)=>String(b.data_fattura||'').localeCompare(String(a.data_fattura||'')));
 
   if(CLI2.tab==='panoramica'){
-    const tot=Math.max(ps.fatturato+ps.daFatturare,1), pInc=ps.incassato/tot*100, pRes=ps.daIncassare/tot*100, pDaF=ps.daFatturare/tot*100;
     const g=d.gruppo;
-    p.innerHTML=`
-      <div class="cli2-cifre">
-        <div class="cli2-cifra"><small>Fatturato</small><span class="num">${_c2fm(ps.fatturato)}</span></div>
-        <div class="cli2-cifra"><small>Incassato</small><span class="num">${_c2fm(ps.incassato)}</span></div>
-        <div class="cli2-cifra ${ps.daIncassare>1?'evid':''}"><small>Da incassare${d.scaduto>1?` · scaduto ${_c2fm(d.scaduto)}`:''}</small><span class="num" style="${d.scaduto>1?'color:var(--c2-bad)':''}">${_c2fm(ps.daIncassare)}</span></div>
-        <div class="cli2-cifra ${ps.daFatturare>1?'evid':''}"><small>Da fatturare</small><span class="num">${_c2fm(ps.daFatturare)}</span></div>
-      </div>
-      ${(ps.fatturato+ps.daFatturare)>0?`<div><div class="cli2-barra" role="img" aria-label="Incassato ${Math.round(pInc)}%, da incassare ${Math.round(pRes)}%, da fatturare ${Math.round(pDaF)}%">
-        <i style="width:${pInc}%;background:var(--c2-ok)"></i><i style="width:${pRes}%;background:var(--c2-warn)"></i><i style="width:${pDaF}%;background:var(--brd)"></i></div>
-        <div class="cli2-leg"><span><i style="background:var(--c2-ok)"></i>Incassato</span><span><i style="background:var(--c2-warn)"></i>Fatturato, da incassare</span><span><i style="background:var(--brd)"></i>Da fatturare</span></div></div>`:''}
-      ${g?`<div class="cli2-gruppo"><b>Fa parte del gruppo ${esc(g.gruppo)}</b> con ${Object.keys(g.membri).filter(n=>_pcNorm(n)!==_pcNorm(c.ragioneSociale)).map(esc).join(', ')}.<br>
-        Totale gruppo: fatturato ${_c2fm(g.fatturato)} · da incassare ${_c2fm(g.residuo)} · da fatturare ${_c2fm(g.daFattTot)}</div>`:''}
-      <div><div class="cli2-h">Commesse</div>${commesse(d.cant.slice(0,6))}</div>
-      <div><div class="cli2-h">Ultime fatture</div>${fatture(fattOrd.slice(0,4))}</div>`;
+    p.innerHTML=_cli2Soldi({ daFatt:ps.daFatturare, daFattList:d.daFattList, daIncassare:ps.daIncassare, scaduto:d.scaduto,
+        aperteList:d.aperteList, incassato:ps.incassato, fatturato:ps.fatturato, daEmettereList:d.daEmettere })
+      + (g?`<div class="cli2-gruppo"><b>Fa parte del gruppo ${esc(g.gruppo)}</b> con ${Object.keys(g.membri).filter(n=>_pcNorm(n)!==_pcNorm(c.ragioneSociale)).map(esc).join(', ')}.
+          <a href="#" style="color:var(--teal);font-weight:600" onclick="event.preventDefault();cli2ApriGruppo(this.dataset.k)" data-k="${esc(g.key)}">Apri la scheda del gruppo →</a></div>`:'')
+      + `<div><div class="cli2-h">Commesse</div>${commesse(d.cant.slice(0,6))}</div>`;
   } else if(CLI2.tab==='commesse'){
     p.innerHTML=`<div><div class="cli2-h">Tutte le commesse</div>${commesse(d.cant)}</div><p class="cli2-nota">Clic su una commessa per aprirne la scheda.</p>`;
   } else if(CLI2.tab==='preventivi'){
@@ -296,7 +305,7 @@ async function cli2Scheda(){
     const totF=d.fatt.filter(f=>f.stato!=='da_emettere').reduce((s,f)=>s+(+f.importo||0),0);
     p.innerHTML=`
       <div class="cli2-cifre">
-        <div class="cli2-cifra"><small>Fatture emesse</small><span class="num">${_c2fm(totF)}</span></div>
+        <div class="cli2-cifra"><small>Fatture emesse · IVA incl.</small><span class="num">${_c2fm(totF)}</span></div>
         <div class="cli2-cifra"><small>Incassato</small><span class="num">${_c2fm(ps.incassato)}</span></div>
         <div class="cli2-cifra"><small>Da incassare</small><span class="num">${_c2fm(ps.daIncassare)}</span></div>
         <div class="cli2-cifra"><small>Scaduto</small><span class="num" style="${d.scaduto>1?'color:var(--c2-bad)':''}">${_c2fm(d.scaduto)}</span></div>
@@ -344,14 +353,15 @@ function _cli2RefCard(q){
       <div class="cli2-sub" style="margin-top:2px">${g.membri.map(esc).join(' · ')}</div>
       <div style="display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:6px;font-size:13px">
         <span>Fatturato <b class="num">${_c2fm(g.fatturato)}</b></span><span>Incassato <b class="num">${_c2fm(g.incassato)}</b></span>
-        <span>Da incassare <b class="num">${_c2fm(g.residuo)}</b></span><span>Da fatturare <b class="num">${_c2fm(g.daFatt)}</b></span></div></div>`).join('')+'</div>';
+        <span>Da incassare <b class="num">${_c2fm(g.residuo)}</b></span><span>Da fatturare <b class="num">${_c2fm(g.daFatt)}</b> <span class="cli2-iva">imponibile</span></span></div>
+      <button class="bs" style="margin-top:8px;font-size:12px;padding:5px 10px" data-k="${esc(g.key)}" onclick="cli2ApriGruppo(this.dataset.k)">Apri la scheda del gruppo →</button></div>`).join('')+'</div>';
 }
 function _cli2Referenti(tb){
   const th=document.getElementById('cli2-thead');
-  if(th) th.innerHTML='<tr><th>Referente / gruppo</th><th class="r cli2-opz">Società</th><th class="r">Da fatturare</th><th class="r">Da incassare</th><th class="r cli2-opz">Fatturato</th></tr>';
+  if(th) th.innerHTML='<tr><th>Referente / gruppo</th><th class="r cli2-opz">Società</th><th class="r">Da fatturare<br><span class="cli2-iva">imponibile</span></th><th class="r">Da incassare<br><span class="cli2-iva">IVA incl.</span></th><th class="r cli2-opz">Fatturato<br><span class="cli2-iva">IVA incl.</span></th></tr>';
   const gg=CLI2.gruppi||[];
   tb.innerHTML = gg.length ? gg.map(g=>`
-    <tr data-n="${esc(g.nome)}" onclick="cli2CercaReferente(this.dataset.n)">
+    <tr class="${CLI2.gruppoSel===g.key?'sel':''}" data-k="${esc(g.key)}" onclick="cli2ApriGruppo(this.dataset.k)">
       <td><div class="cli2-nome">🔗 ${esc(g.nome)}</div><div class="cli2-sub">${g.tipo} · ${g.membri.slice(0,4).map(esc).join(' · ')}${g.membri.length>4?' …':''}</div></td>
       <td class="r num cli2-opz">${g.membri.length}</td>
       <td class="r num">${g.daFatt>1?_c2fm(g.daFatt):'<span class="cli2-zero">—</span>'}</td>
@@ -360,3 +370,81 @@ function _cli2Referenti(tb){
     : '<tr><td colspan="5" class="cli2-vuoto">Nessun referente o gruppo con movimenti.</td></tr>';
 }
 function cli2CercaReferente(nome){ CLI2.q=nome||''; CLI2.scelto=null; cli2Render(); }
+
+function cli2ApriGruppo(key){
+  CLI2.gruppoSel=key;
+  document.querySelectorAll('#cli2-righe tr').forEach(tr=>tr.classList.toggle('sel', tr.dataset.k===key));
+  cli2Scheda();
+  const el=document.getElementById('cli2-scheda'); if(el && window.innerWidth<1100) el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// Perché una voce è "da fatturare": consuntivo, periodi di fatturazione o ricavo della commessa non ancora fatturato
+function _cli2Motivo(x){
+  if(x.consuntivi && x.consuntivi.length) return 'Consuntivo '+x.consuntivi.map(esc).join(', ')+' non ancora fatturato';
+  if(x.periodi) return x.periodi+(x.periodi===1?' periodo di fatturazione aperto':' periodi di fatturazione aperti');
+  return 'Ricavo della commessa meno quanto già fatturato';
+}
+
+// Blocco soldi: le tre tappe lavoro → fattura → incasso, ognuna con cosa contiene e il dettaglio
+function _cli2Soldi(o){
+  const iva=(typeof _ivaStd==='function')?_ivaStd():0.22;
+  const conIva=o.daFatt*(1+iva);
+  const totApert=(o.aperteList||[]).reduce((s,f)=>s+Math.max(0,(+f.importo||0)-_pcAcc(f)),0);
+  const oggi=_c2oggi();
+  const daF=(o.daFattList||[]).slice().sort((a,b)=>b.r-a.r);
+  const ap=(o.aperteList||[]).slice().sort((a,b)=>String(a.scadenza||'').localeCompare(String(b.scadenza||'')));
+  const em=o.daEmettereList||[];
+  const righeDaF = daF.length ? `<div class="cli2-righe">${daF.map(x=>`
+      <div class="cli2-riga click" onclick="apriDett('${esc(x.c.id)}')"><span class="cli2-cod">${esc(x.c.codice||'')}</span>
+        <span class="cli2-tit">${esc(x.c.nome||'')}<div class="cli2-sub">${_cli2Motivo(x)}${o.mostraSoc&&x.soc?` · da intestare a <b>${esc(x.soc)}</b>`:''}</div></span>
+        <span class="num">${_c2fm(x.r)}</span><span class="cli2-iva">imponibile</span></div>`).join('')}</div>`
+    : '<div class="cli2-righe"><div class="cli2-vuoto">Niente da fatturare.</div></div>';
+  const righeAp = ap.length ? `<div class="cli2-righe">${ap.map(f=>{ const res=Math.max(0,(+f.importo||0)-_pcAcc(f)); const scad=f.scadenza&&f.scadenza<oggi; return `
+      <div class="cli2-riga"><span class="cli2-cod">Fatt. ${esc(f.numero||'')}</span>
+        <span class="cli2-tit">del ${_c2data(f.data_fattura)}${o.mostraSoc?` · ${esc(f.cliente||'')}`:''}${f.cantiere_nome?` · ${esc(f.cantiere_nome)}`:''}<div class="cli2-sub">importo ${_c2fm(f.importo)}${_pcAcc(f)>0?` · già incassati ${_c2fm(_pcAcc(f))}`:''}</div></span>
+        <span class="num">${_c2fm(res)}</span>${scad?`<span class="cli2-b bad">Scaduta ${_c2data(f.scadenza)}</span>`:`<span class="cli2-b neu">${f.scadenza?'Scade '+_c2data(f.scadenza):'Emessa'}</span>`}</div>`; }).join('')}</div>`
+    : '<div class="cli2-righe"><div class="cli2-vuoto">Nessuna fattura da incassare.</div></div>';
+  return `
+    <div class="cli2-flusso">
+      <div class="cli2-step s1"><small>1 · Da fatturare</small><span class="num">${_c2fm(o.daFatt)}</span>
+        <span class="def">Lavoro fatto o accettato, non ancora in fattura. <b>Imponibile, IVA esclusa</b>${o.daFatt>1?` (circa ${_c2fm(conIva)} con IVA)`:''}.</span></div>
+      <div class="cli2-step s2"><small>2 · Fatturato, da incassare</small><span class="num" style="${o.scaduto>1?'color:var(--c2-bad)':''}">${_c2fm(o.daIncassare)}</span>
+        <span class="def">Fatture emesse non ancora pagate. <b>IVA inclusa</b>.${o.scaduto>1?` Di cui <b style="color:var(--c2-bad)">scaduto ${_c2fm(o.scaduto)}</b>.`:''}</span></div>
+      <div class="cli2-step s3"><small>3 · Incassato</small><span class="num">${_c2fm(o.incassato)}</span>
+        <span class="def">Già pagato: fatture saldate, acconti e incassi registrati. <b>IVA inclusa</b>.</span></div>
+    </div>
+    <p class="cli2-nota">Fatturato in tutto: <b class="num">${_c2fm(o.fatturato)}</b> IVA inclusa (= fatture emesse e saldate + fatture da incassare).${(o.compensato||0)>0?` Compensazioni: ${_c2fm(o.compensato)}.`:''}</p>
+    <div><div class="cli2-h">1 · Da fatturare: da dove viene</div>${righeDaF}</div>
+    <div><div class="cli2-h">2 · Fatture da incassare${Math.abs(totApert-o.daIncassare)>1&&ap.length?' (residuo per fattura)':''}</div>${righeAp}</div>
+    ${em.length?`<div><div class="cli2-h">Fatture preparate, non ancora emesse</div><div class="cli2-righe">${em.map(f=>`<div class="cli2-riga"><span class="cli2-cod">${esc(f.numero||'bozza')}</span><span class="cli2-tit">${esc(f.cantiere_nome||f.descrizione||'')}</span><span class="num">${_c2fm(f.importo)}</span><span class="cli2-b neu">Da emettere</span></div>`).join('')}</div></div>`:''}`;
+}
+
+// Scheda del referente / gruppo: società per società, poi il dettaglio di cosa è da fatturare e da incassare
+function _cli2SchedaGruppo(g){
+  const e=g.e||{};
+  const ps=e.perSoc||{};
+  const idPer=n=>{ const k=_pcNorm(n); const d=Object.values(CLI2.dati||{}).find(x=>_pcNorm(x.c.ragioneSociale)===k); return d?d.c.id:''; };
+  const soc=Object.keys(ps).sort((a,b)=>((ps[b].daFatturare+ps[b].daIncassare)-(ps[a].daFatturare+ps[a].daIncassare))||a.localeCompare(b));
+  const t=soc.reduce((s,n)=>({f:s.f+ps[n].fatturato,i:s.i+ps[n].incassato,r:s.r+ps[n].daIncassare,d:s.d+ps[n].daFatturare}),{f:0,i:0,r:0,d:0});
+  const oggi=_c2oggi();
+  const scaduto=(e.fattAperte||[]).filter(f=>f.scadenza&&f.scadenza<oggi).reduce((s,f)=>s+Math.max(0,(+f.importo||0)-_pcAcc(f)),0);
+  return `
+    <div class="cli2-sch-testa">
+      <h3>🔗 ${esc(g.nome)}</h3>
+      <div class="cli2-meta"><span>${g.tipo}</span><span>${soc.length} società</span><span>Stessi numeri di Posizione clienti</span></div>
+    </div>
+    <div class="cli2-corpo-sch">
+      <div><div class="cli2-h">Società per società</div>
+        <div style="overflow-x:auto"><table class="cli2-soc">
+          <thead><tr><th>Società</th><th>Da fatturare<br><span class="cli2-iva">imponibile</span></th><th>Da incassare<br><span class="cli2-iva">IVA incl.</span></th><th>Incassato<br><span class="cli2-iva">IVA incl.</span></th><th>Fatturato<br><span class="cli2-iva">IVA incl.</span></th></tr></thead>
+          <tbody>${soc.map(n=>{ const id=idPer(n); return `<tr class="${id?'click':''}" ${id?`onclick="cli2Apri('${esc(id)}')" title="Apri la scheda della società"`:''}>
+            <td>${esc(n)}</td><td class="num">${ps[n].daFatturare>1?_c2fm(ps[n].daFatturare):'—'}</td><td class="num">${ps[n].daIncassare>1?_c2fm(ps[n].daIncassare):'—'}</td>
+            <td class="num">${_c2fm(ps[n].incassato)}</td><td class="num">${_c2fm(ps[n].fatturato)}</td></tr>`; }).join('')}</tbody>
+          <tfoot><tr><td>Totale società</td><td class="num">${_c2fm(t.d)}</td><td class="num">${_c2fm(t.r)}</td><td class="num">${_c2fm(t.i)}</td><td class="num">${_c2fm(t.f)}</td></tr></tfoot>
+        </table></div>
+        ${(e.compensato||0)>0?`<p class="cli2-nota" style="margin-top:8px">Compensazioni registrate sul gruppo: ${_c2fm(e.compensato)} (riducono il da incassare del gruppo: ${_c2fm(g.residuo)}).</p>`:''}
+      </div>
+      ${_cli2Soldi({ daFatt:g.daFatt, daFattList:e.daFatt, daIncassare:g.residuo, scaduto, aperteList:e.fattAperte, incassato:g.incassato,
+                    fatturato:g.fatturato, daEmettereList:e.daEmettere, mostraSoc:true, compensato:e.compensato })}
+    </div>`;
+}
