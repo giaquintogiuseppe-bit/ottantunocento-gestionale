@@ -17,7 +17,7 @@ const MENU_AREE = [
       { pg:'referenti', nome:'Referenti' }, { pg:'clienti-gest', nome:'Anagrafica (vecchia)', dopo:'renderClientiGest' } ],
     nascoste:['report-cliente'] },
   { id:'fornitori', nome:'Fornitori', icona:'fornitori', schede:[
-      { pg:'fatture-fornitori', nome:'Fatture fornitori' }, { pg:'posizione-fornitori', nome:'Posizione fornitori' },
+      { pg:'fornitori', nome:'Fornitori' }, { pg:'fatture-fornitori', nome:'Fatture fornitori' }, { pg:'posizione-fornitori', nome:'Posizione fornitori' },
       { pg:'scontrini', nome:'Scontrini e foto' } ] },
   { id:'personale', nome:'Personale', icona:'personale', schede:[
       { pg:'personale', nome:'Persone' }, { pg:'presenze', nome:'Presenze' }, { pg:'nuova-giornata', nome:'Nuova giornata' }, { pg:'anagrafica', nome:'Anagrafica' },

@@ -1003,6 +1003,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
   <!-- SALDI -->
   <!-- INCASSI CLIENTI -->
+  <!-- FORNITORI (nuova vista: fornitori.js) -->
+  <div id="pg-fornitori" class="pg"><div id="fo2-root"></div></div>
   <!-- PERSONALE (nuova vista: personale.js) -->
   <div id="pg-personale" class="pg"><div id="pe2-root"></div></div>
   <!-- COMMESSE (nuova vista: commesse.js) -->
@@ -3619,7 +3621,7 @@ function nav(pg){
 function render(p){
   if(p==='cantieri'||p==='clienti-gest'){ caricaRifornimentiCloud().then(()=>{ if(p==='cantieri') rCant(); }); }
   if(p==='clienti-gest'){ refLoad(); }
-  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:()=>rAttrezzeria(),clienti:()=>rClienti(),commesse:()=>rCommesse(),personale:()=>rPersonale(),saldi:rSaldi,riepilogo:rRiepilogo,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,'fatture-fornitori':rFattureFornitori,coerenza:rCoerenza,fisco:window.rFisco}[p]||(() =>{}))();
+  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:()=>rAttrezzeria(),clienti:()=>rClienti(),commesse:()=>rCommesse(),personale:()=>rPersonale(),fornitori:()=>rFornitori(),saldi:rSaldi,riepilogo:rRiepilogo,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,'fatture-fornitori':rFattureFornitori,coerenza:rCoerenza,fisco:window.rFisco}[p]||(() =>{}))();
 }
 
 // ============================================================
@@ -14690,8 +14692,9 @@ setTimeout(()=>{
 <script src="attrezzeria.js?v=20261101"></script>
 <script src="clienti.js?v=20261101d"></script>
 <script src="commesse.js?v=20261101c"></script>
-<script src="personale.js?v=20261101"></script>
-<script src="menu.js?v=20261101c"></script>
+<script src="personale.js?v=20261101b"></script>
+<script src="fornitori.js?v=20261101b"></script>
+<script src="menu.js?v=20261101d"></script>
 <script src="fisco.js?v=20261030"></script>
 </body>
 </html>
