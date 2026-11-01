@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <meta name="robots" content="noindex">
-<title>Reimposta password — Ottantunocento S.r.l.</title>
+<title data-az="Reimposta password — {ragioneSociale}">Reimposta password — Ottantunocento S.r.l.</title>
+<script src="azienda.js?v=20261101"></script>
 <style>
   :root{ --navy:#152238; --navy2:#1e3350; --teal:#0e6b64; --teal2:#0b544f; --gold:#c69a3e; --ink:#152238; --ink2:#5a6272; --err:#a63b3b; --ok:#0e6b64; }
   *{ box-sizing:border-box; }
@@ -35,7 +36,7 @@
 </head>
 <body>
 <div class="box" id="box">
-  <div class="ey">Ottantunocento S.r.l.</div>
+  <div class="ey" data-az="{ragioneSociale}">Ottantunocento S.r.l.</div>
   <h2>Reimposta password</h2>
   <div class="sub" id="intro">Scegli una nuova password per il tuo accesso.</div>
   <div id="form">
@@ -51,13 +52,13 @@
 <script>
 (function(){
   'use strict';
-  var SB_URL  = 'https://xqbhujcnjvwbwzpwjujf.supabase.co';
-  var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxYmh1amNuanZ3Ynd6cHdqdWpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MzM4ODUsImV4cCI6MjA5NzMwOTg4NX0.VstO3aII143jpPXjgKg0t3du-yc5rS9xs2hYko_2DRs';
+  var SB_URL  = AZIENDA.supabase.url;
+  var SB_ANON = AZIENDA.supabase.anonKey;
   // link di ritorno alle app (con ?v= per bypassare la cache)
   var APPS = [
-    ['Gestionale','https://giaquintogiuseppe-bit.github.io/ottantunocento-gestionale/'],
-    ['Planning','https://giaquintogiuseppe-bit.github.io/ottantunocento-planning/'],
-    ['Preventivi','https://giaquintogiuseppe-bit.github.io/preventivi/']
+    ['Gestionale', AZIENDA.app.gestionale],
+    ['Planning',   AZIENDA.app.planning],
+    ['Preventivi', AZIENDA.app.preventivi]
   ];
 
   function el(id){ return document.getElementById(id); }
@@ -68,7 +69,7 @@
   }
   function schermata(titolo, testo, ok){
     el('box').innerHTML =
-      '<div class="ey">Ottantunocento S.r.l.</div>'+
+      '<div class="ey">'+AZIENDA.ragioneSociale+'</div>'+
       '<h2>'+titolo+'</h2>'+
       '<div class="sub '+(ok?'':'')+'">'+testo+'</div>'+
       '<div class="links">'+APPS.map(function(a){ return '<a href="'+a[1]+'">Apri '+a[0]+'</a>'; }).join('')+'</div>';

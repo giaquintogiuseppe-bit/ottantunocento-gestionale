@@ -8,6 +8,8 @@ Riepilogo per ripartire in una nuova chat. Tutto il lavoro è su `main` (repo = 
   - **Allocazione fatture→consuntivi** (tabella `allocazioni_fatture`): una fattura copre più consuntivi o parti; "da fatturare" = residuo (imponibile − allocato); stato **"Fatturato" automatico** a residuo 0. Pannello in scheda cantiere "💠 Allocazione fatture → consuntivi".
   - Box scheda cantiere: **Ricavo totale** (+ fonte) · **Fatturato** · **Da fatturare**.
   - Sezione **Attrezzeria** estratta in `attrezzeria.js` (alleggerimento, pilota riuscito).
+  - **SW v72** — fix avvio: dalla v71 il router puntava a `rAttrezzeria` prima che `attrezzeria.js` fosse caricato → l'INIT si interrompeva a `nav('dash')` (niente caricamento cloud all'avvio, niente protezione modifiche non salvate, niente snapshot). Ora il riferimento è pigro.
+  - **Configurazione per azienda** (`azienda.js`, fase 1 del doppio accesso 81|00 / Aurica): tutti i dati della società (ragione sociale, marchio, P.IVA, Supabase, login, link app) stanno lì; il codice legge `window.AZIENDA`. Testi statici via attributi `data-az`, `data-az-href`, `data-az-content`. Protezione: se nello stesso browser/origine c'è già un'altra azienda, l'app si blocca (chiave locale `azienda_attiva`). `manifest.json` resta per installazione.
 - **Amministrazione** (`preventivi`, SW v19):
   - Certifica ricavo = somma consuntivi senza preventivo; "Da fatturare" nella scheda referente (col **residuo**); **cantiere obbligatorio** al salvataggio consuntivo; avviso se consuntivo ≠ preventivo; stato "Fatturato".
 
@@ -21,6 +23,9 @@ Riepilogo per ripartire in una nuova chat. Tutto il lavoro è su `main` (repo = 
 3. **Scheda referente arricchita con le commesse**.
 
 ## Decisioni / note
+- **Aurica S.r.l.**: società indipendente, nessun dato in comune con 81|00 (rapporti solo cliente/fornitore). Stesso codice, **database Supabase separato** (account intestato ad Aurica), **indirizzo web separato** (mai stessa origine: cache e sessione locali non devono mescolarsi).
+- **Fase 0 (fatta)**: revocato EXECUTE ad `anon`/`authenticated` su `agente_aggiungi_spesa` e `agente_registra_acconto` (erano chiamabili senza login); il connettore usa la service role e continua a funzionare.
+- **Prossimo**: fase 2 = spostare gli archivi dal blob `gestionale_dati` a tabelle vere, uno alla volta.
 - **Alleggerimento codice: IN PAUSA.** Incassato il taglio Attrezzeria; il resto del gestionale è troppo intrecciato (helper condivisi in mezzo, agganci all'avvio, globali interdipendenti) → rischio/guadagno sfavorevole. Estrarre altro solo opportunisticamente.
 - Modello di flusso confermato dall'utente: preventivo (con revisioni) → cantiere/commessa (condiviso planning/gestionale) → consuntivo (ultima parola sul ricavo) → fattura (può coprire più consuntivi o parti).
 - GAETA: ~5.000 di "fatturato maturato oltre il documentato" residuo = metà maggio dentro la fattura 169 (non separabile), esclusa su richiesta.

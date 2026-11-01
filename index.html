@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="81|00 Gestionale">
+<meta name="apple-mobile-web-app-title" content="81|00 Gestionale" data-az-content="{marchio} Gestionale">
 <meta name="theme-color" content="#5f4a15">
 <link rel="manifest" href="manifest.json?v=3">
 <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
@@ -15,7 +15,8 @@
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=2">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=2">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=2">
-<title>81|00 Gestionale</title>
+<title data-az="{marchio} Gestionale">81|00 Gestionale</title>
+<script src="azienda.js?v=20261101"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -346,13 +347,13 @@ tbody td{padding:10px 14px;vertical-align:middle}
   'use strict';
   // ── CONFIG (cambia solo queste per ogni app) ─────────────────────────────
   var MODE = 'email';                 // 'email' oppure 'pin'
-  var APP  = 'Gestionale 81|00';
+  var APP  = 'Gestionale ' + AZIENDA.marchio;
   // ── COSTANTI ECOSISTEMA (uguali per tutte) ───────────────────────────────
-  var SB_URL  = 'https://xqbhujcnjvwbwzpwjujf.supabase.co';
-  var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxYmh1amNuanZ3Ynd6cHdqdWpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MzM4ODUsImV4cCI6MjA5NzMwOTg4NX0.VstO3aII143jpPXjgKg0t3du-yc5rS9xs2hYko_2DRs';
-  var PIN_EMAIL = 'giaquinto.giuseppe+campo@gmail.com';  // account condiviso app di campo
-  var LSK = 'sb81_sess';
-  var RESET_URL = 'https://giaquintogiuseppe-bit.github.io/ottantunocento-gestionale/reset.html';  // pagina di reset password (uguale per tutte le app email)
+  var SB_URL  = AZIENDA.supabase.url;
+  var SB_ANON = AZIENDA.supabase.anonKey;
+  var PIN_EMAIL = AZIENDA.accesso.emailPin;  // account condiviso app di campo
+  var LSK = AZIENDA.accesso.chiaveSessione;
+  var RESET_URL = AZIENDA.accesso.paginaReset;  // pagina di reset password (uguale per tutte le app email)
   var _fetch = window.fetch.bind(window);
   // App col PIN: sessione volatile (chiede il PIN a ogni apertura).
   // App con email: sessione persistente (resta connesso finché non esci).
@@ -463,7 +464,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
     var isPin = (MODE==='pin');
     wrap.innerHTML =
       '<div class="box">'+
-        '<div class="ey">Ottantunocento S.r.l.</div>'+
+        '<div class="ey">'+AZIENDA.ragioneSociale+'</div>'+
         '<h2>'+APP+'</h2>'+
         '<div class="sub">'+(isPin?'Inserisci il PIN per accedere':'Accedi con email e password')+'</div>'+
         (isPin
@@ -498,7 +499,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       var emSafe=em.replace(/[<>&]/g,''); err.textContent=''; fga.textContent='Invio…';
       recover(em).then(function(){
         document.querySelector('#l81 .box').innerHTML=
-          '<div class="ey">Ottantunocento S.r.l.</div>'+
+          '<div class="ey">'+AZIENDA.ragioneSociale+'</div>'+
           '<h2>Controlla l\'email</h2>'+
           '<div class="sub">Se <b>'+emSafe+'</b> è un account valido, ti abbiamo inviato un link per reimpostare la password. Aprila e segui il link (guarda anche nello spam).</div>'+
           '<button onclick="location.reload()">Torna al login</button>';
@@ -565,7 +566,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <div id="app">
 <!-- HEADER -->
 <div id="hdr">
-  <div id="hdr-logo">81|00<span>Ottantunocento S.r.l.</span></div>
+  <div id="hdr-logo" data-az="{marchio}">81|00<span data-az="{ragioneSociale}">Ottantunocento S.r.l.</span></div>
   <div id="hdr-r">
     <button class="btn-sb btn-gold" onclick="openExportModal()" style="padding:8px 14px;font-size:12px">📊 Esporta Excel</button>
     <div id="hdr-date"><b id="hdate"></b><span id="htime"></span></div>
@@ -941,7 +942,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div class="ps">Valore e posizione del parco attrezzature — sola lettura. La gestione operativa (uscite, rientri, viaggio) è nell'app <b>Risorse &amp; Depositi</b>.</div>
     <div class="sg" id="parco-kpi"></div>
     <div class="tc mt">
-      <div class="th"><h3>Risorse</h3><a href="https://giaquintogiuseppe-bit.github.io/ottantunocento-risorse/" target="_blank" style="font-size:12px;color:var(--acc,#0e7c66);font-weight:700;text-decoration:none">Apri app Risorse ↗</a></div>
+      <div class="th"><h3>Risorse</h3><a href="https://giaquintogiuseppe-bit.github.io/ottantunocento-risorse/" data-az-href="{app.risorse}" target="_blank" style="font-size:12px;color:var(--acc,#0e7c66);font-weight:700;text-decoration:none">Apri app Risorse ↗</a></div>
       <div style="overflow-x:auto"><table><thead><tr><th>Risorsa</th><th>Categoria</th><th>Gestione</th><th>Q.tà</th><th>Valore</th><th>Posizione ora</th></tr></thead><tbody id="parco-tb"></tbody></table></div>
     </div>
   </div>
@@ -1598,13 +1599,13 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
       <div class="fc" style="margin-bottom:0">
         <h3>⬆ Salva su iCloud</h3>
-        <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">Scarica il file <b style="color:var(--teal)">ottantunocento-dati.json</b> e spostalo nella cartella iCloud Drive. Tutti i tuoi dati sono lì dentro.</p>
+        <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">Scarica il file <b style="color:var(--teal)" data-az="{fileDati}">ottantunocento-dati.json</b> e spostalo nella cartella iCloud Drive. Tutti i tuoi dati sono lì dentro.</p>
         <button class="bp" style="width:100%" onclick="syncSalva()">⬇ Scarica dati (JSON)</button>
         <div style="margin-top:8px;font-size:11px;color:var(--text2);text-align:center">Poi trascina il file in iCloud Drive</div>
       </div>
       <div class="fc" style="margin-bottom:0">
         <h3>⬇ Carica da iCloud</h3>
-        <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">Trascina qui il file <b style="color:var(--teal)">ottantunocento-dati.json</b> da iCloud Drive, oppure clicca per cercarlo.</p>
+        <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">Trascina qui il file <b style="color:var(--teal)" data-az="{fileDati}">ottantunocento-dati.json</b> da iCloud Drive, oppure clicca per cercarlo.</p>
         <div class="sync-zone" id="sync-drop-zone"
           onclick="document.getElementById('syncFileInput').click()"
           ondragover="event.preventDefault();this.classList.add('dragover')"
@@ -1626,14 +1627,14 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div class="step-num">1</div>
       <div class="step-body">
         <h4>Sul Mac da cui esporti</h4>
-        <p>Premi <b style="color:var(--teal)">⬇ Scarica dati (JSON)</b> — il file <code>ottantunocento-dati.json</code> viene scaricato nella cartella Download.</p>
+        <p>Premi <b style="color:var(--teal)">⬇ Scarica dati (JSON)</b> — il file <code data-az="{fileDati}">ottantunocento-dati.json</code> viene scaricato nella cartella Download.</p>
       </div>
     </div>
     <div class="step-card">
       <div class="step-num">2</div>
       <div class="step-body">
         <h4>Sposta su iCloud Drive</h4>
-        <p>Nel Finder trascina il file in <code>iCloud Drive → Ottantunocento</code> (crea la cartella la prima volta). iCloud sincronizza automaticamente su tutti i tuoi Mac.</p>
+        <p>Nel Finder trascina il file in <code data-az="{cartellaIcloud}">iCloud Drive → Ottantunocento</code> (crea la cartella la prima volta). iCloud sincronizza automaticamente su tutti i tuoi Mac.</p>
       </div>
     </div>
     <div class="step-card">
@@ -1926,7 +1927,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div class="fc" style="margin-bottom:14px;flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap">
       <button onclick="document.getElementById('dip-import-file').click()" class="bs" style="font-size:13px;padding:8px 18px">📥 Importa da Excel</button>
       <input type="file" id="dip-import-file" accept=".xlsx,.xls" style="display:none" onchange="importaDipendentiExcel(this)">
-      <span style="font-size:12px;color:var(--text2)">Formato: Anagrafica Lavoratori Ottantunocento</span>
+      <span style="font-size:12px;color:var(--text2)" data-az="Formato: Anagrafica Lavoratori {nomeBreve}">Formato: Anagrafica Lavoratori Ottantunocento</span>
     </div>
 
     <div class="fc">
@@ -2333,7 +2334,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
           <input type="checkbox" id="ce-continuativa" style="accent-color:var(--teal)">
           <span>Continuativa <span style="color:var(--text2);font-size:11px">— con squadra / planning, chiusura manuale (es. Gaeta)</span></span>
         </label>
-        <div style="margin-top:8px;font-size:11px;color:var(--text2)">🔄 Per i <b>noleggi</b>: registra le attrezzature in uscita/rientro nell'app <a href="https://giaquintogiuseppe-bit.github.io/ottantunocento-risorse/" target="_blank" style="color:var(--teal);font-weight:600">Risorse &amp; Depositi ↗</a> (destinazione = questa commessa/cliente).</div>
+        <div style="margin-top:8px;font-size:11px;color:var(--text2)">🔄 Per i <b>noleggi</b>: registra le attrezzature in uscita/rientro nell'app <a href="https://giaquintogiuseppe-bit.github.io/ottantunocento-risorse/" data-az-href="{app.risorse}" target="_blank" style="color:var(--teal);font-weight:600">Risorse &amp; Depositi ↗</a> (destinazione = questa commessa/cliente).</div>
       </div>
       <div>
         <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Periodo</label>
@@ -3119,7 +3120,7 @@ function generaReport(){
   // Logo / titolo
   ctx.fillStyle = '#9a7a1f';
   ctx.font = 'bold 28px -apple-system, Helvetica, Arial, sans-serif';
-  ctx.fillText('81|00  Ottantunocento S.r.l.', 32, 44);
+  ctx.fillText(AZIENDA.marchio+'  '+AZIENDA.ragioneSociale, 32, 44);
 
   ctx.fillStyle = '#8a95a8';
   ctx.font = '15px -apple-system, Helvetica, Arial, sans-serif';
@@ -3232,7 +3233,7 @@ function generaReport(){
   ctx.fillRect(0, yf, W, FOOT_H);
   ctx.fillStyle = '#8a95a8';
   ctx.font = '12px -apple-system,Helvetica,Arial,sans-serif';
-  ctx.fillText('Ottantunocento S.r.l. — P.IVA 02187720616 — Caserta', 32, yf+22);
+  ctx.fillText(AZIENDA.ragioneSociale+' — P.IVA '+AZIENDA.piva+' — '+AZIENDA.sede, 32, yf+22);
   ctx.fillStyle = '#9a7a1f';
   ctx.font = 'bold 12px -apple-system,Helvetica,Arial,sans-serif';
   ctx.fillText('DA PAGARE: '+fm(totDeb)+(totCred>0?'   |   ⊕ CREDITI: '+fm(totCred):''), 32, yf+42);
@@ -3269,8 +3270,8 @@ function fm(n){ return parseFloat(n||0).toLocaleString('it-IT',{style:'currency'
 // ============================================================
 // SYNC CLOUD AUTOMATICA — Supabase
 // ============================================================
-const SUPABASE_URL = 'https://xqbhujcnjvwbwzpwjujf.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxYmh1amNuanZ3Ynd6cHdqdWpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MzM4ODUsImV4cCI6MjA5NzMwOTg4NX0.VstO3aII143jpPXjgKg0t3du-yc5rS9xs2hYko_2DRs';
+const SUPABASE_URL = AZIENDA.supabase.url;
+const SUPABASE_KEY = AZIENDA.supabase.anonKey;
 const SUPABASE_TABLE = 'gestionale_dati';
 
 let cloudSyncInCorso = false;
@@ -4022,7 +4023,7 @@ function _oggi(){ return today(); }
 function _ggTra(d1,d2){ return Math.round((new Date(d2)-new Date(d1))/86400000); }
 
 // ═══ IMPORT FATTURE DA XML/P7M (formato ministeriale) ═══
-const _MIA_PIVA='02187720616';
+const _MIA_PIVA=AZIENDA.piva;
 let _impDaImportare=[]; // fatture nuove pronte per l'import
 
 // estrae il testo XML da un file (xml puro o p7m firmato)
@@ -5698,12 +5699,12 @@ async function importaTimbrature(){
 }
 
 function _nomeDispositivo(){
-  let n=localStorage.getItem('deviceNome81100');
+  let n=localStorage.getItem('deviceNome'+AZIENDA.id);
   if(!n){
     const ua=navigator.userAgent;
     const auto=/iPhone/.test(ua)?'iPhone':/iPad/.test(ua)?'iPad':/Macintosh/.test(ua)?'Mac':/Android/.test(ua)?'Android':'PC';
     n=prompt('Come si chiama questo dispositivo? (comparirà nel registro dei salvataggi)', auto+' di Giuseppe')||auto;
-    localStorage.setItem('deviceNome81100', n);
+    localStorage.setItem('deviceNome'+AZIENDA.id, n);
   }
   return n;
 }
@@ -8502,7 +8503,7 @@ function ripExportCSV(){
   const nl='\r\n';
   const esc=v=>{ const s=String(v==null?'':v); return /[";\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
   const num=v=> (Math.round((v||0)*100)/100).toString().replace('.',',');
-  let out=`L'OTTANTUNOCENTO - Riepilogo dipendenti ${fdate(da)} - ${fdate(al)}${nl}`;
+  let out=`${AZIENDA.intestazione} - Riepilogo dipendenti ${fdate(da)} - ${fdate(al)}${nl}`;
   out+=_ripIntest().map(esc).join(sep)+nl;
   righe.forEach(r=>{ out+=[r.nome,...r.daily.map(num),..._ripRigaVals(r).map(num)].map(esc).join(sep)+nl; });
   const tot=_ripRigaVals({}).map((_,i)=>righe.reduce((a,r)=>a+_ripRigaVals(r)[i],0));
@@ -8518,7 +8519,7 @@ function ripExportXLSX(){
   if(typeof XLSX==='undefined'){ return ripExportCSV(); }
   const {da,al,cols,righe}=_RIP_ULTIMO;
   const r2=v=>Math.round((v||0)*100)/100;
-  const aoa=[[`L'OTTANTUNOCENTO — Riepilogo dipendenti  ${fdate(da)} – ${fdate(al)}`], [], _ripIntest()];
+  const aoa=[[`${AZIENDA.intestazione} — Riepilogo dipendenti  ${fdate(da)} – ${fdate(al)}`], [], _ripIntest()];
   righe.forEach(r=>aoa.push([r.nome,...r.daily.map(r2),..._ripRigaVals(r).map(r2)]));
   const tot=_ripRigaVals({}).map((_,i)=>righe.reduce((a,r)=>a+_ripRigaVals(r)[i],0));
   aoa.push(['TOTALE',...cols.map((c,i)=>r2(righe.reduce((a,r)=>a+r.daily[i],0))),...tot.map(r2)]);
@@ -8794,7 +8795,7 @@ async function doExport(){
 
   // ---- FOGLIO 1: Presenze Personale ----
   if(document.getElementById('exp-presenze').checked){
-    const label=`L'OTTANTUNOCENTO – PRESENZE PERSONALE  |  ${fdate(from)} – ${fdate(to)}`;
+    const label=`${AZIENDA.intestazione} – PRESENZE PERSONALE  |  ${fdate(from)} – ${fdate(to)}`;
     const rows=[[label],[],[
       'Data','Dipendente','Cantiere','Base (€)','Straord. (€)','Totale (€)','Note'
     ]];
@@ -8830,7 +8831,7 @@ async function doExport(){
       ...DB.anticipi.filter(a=>a.data>=from&&a.data<=to).map(a=>({data:a.data,dipNome:a.dipNome,importo:parseFloat(a.importo||0),metodo:a.metodo||'',note:a.note||''})),
       ...(DB.pagamenti||[]).filter(p=>p.data>=from&&p.data<=to).map(p=>({data:p.data,dipNome:p.dipNome,importo:parseFloat(p.pagato||0),metodo:p.metodo||'',note:(p.note||'')+(p.periodoDa?' [sett. '+fdate(p.periodoDa)+'→'+fdate(p.periodoAl||p.periodoDa)+']':'')}))
     ].sort((a,b)=>(a.data||'').localeCompare(b.data||''));
-    const label=`L'OTTANTUNOCENTO – PAGAMENTI DIPENDENTI  |  ${fdate(from)} – ${fdate(to)}`;
+    const label=`${AZIENDA.intestazione} – PAGAMENTI DIPENDENTI  |  ${fdate(from)} – ${fdate(to)}`;
     const rows=[[label],[],['Data','Dipendente','Importo (€)','Metodo','Note']];
     let totAnt=0;
     mov.forEach(a=>{rows.push([fdate(a.data),a.dipNome,a.importo,a.metodo,a.note||'']);totAnt+=a.importo;});
@@ -8843,7 +8844,7 @@ async function doExport(){
   // ---- FOGLIO 3: Carburante ----
   if(document.getElementById('exp-carburante').checked){
     const carbFiltrati=DB.carburante.filter(f=>f.data>=from&&f.data<=to);
-    const label=`L'OTTANTUNOCENTO – SPESE CARBURANTE  |  ${fdate(from)} – ${fdate(to)}`;
+    const label=`${AZIENDA.intestazione} – SPESE CARBURANTE  |  ${fdate(from)} – ${fdate(to)}`;
     const rows=[[label],[],['Data','Prodotto','Litri','Prezzo/L (€)','Totale (€)','Fornitore / Note']];
     let totCarb=0;
     carbFiltrati.forEach(f=>{rows.push([fdate(f.data),f.prodotto,f.litri,f.prezzo,f.totale,f.note]);totCarb+=f.totale;});
@@ -8856,7 +8857,7 @@ async function doExport(){
   // ---- FOGLIO 4: Saldi Dipendenti ----
   if(document.getElementById('exp-saldi').checked){
     ricalcolaSaldi();
-    const label=`L'OTTANTUNOCENTO – SALDI DIPENDENTI  |  aggiornato al ${fdate(to)}`;
+    const label=`${AZIENDA.intestazione} – SALDI DIPENDENTI  |  aggiornato al ${fdate(to)}`;
     const rows=[[label],[],
       ['Dipendente','Maturato (€)','Pagato/dato (€)','Anticipo storico residuo (€)','Danni scalati (€)','Danni residui (€)','Residuo/Saldo (€)','Stato']
     ];
@@ -8878,7 +8879,7 @@ async function doExport(){
 
   // ---- FOGLIO 5: Costi per Cantiere ----
   if(document.getElementById('exp-cantieri').checked){
-    const label=`L'OTTANTUNOCENTO – COSTI PER CANTIERE  |  ${fdate(from)} – ${fdate(to)}`;
+    const label=`${AZIENDA.intestazione} – COSTI PER CANTIERE  |  ${fdate(from)} – ${fdate(to)}`;
     const rows=[[label],[],['Cantiere','Periodo','Ricavo previsto (€)','Costo Personale (€)','Oneri giornalieri (€)','Costo Carburante (€)','Spese dirette (€)','Margine (€)','Note']];
     let totRic=0,totPers=0,totOn=0,totCarbC=0,totSpD=0,totMarg=0;
     DB.cantieri.forEach(c=>{
@@ -8918,7 +8919,7 @@ async function doExport(){
     const totS=DB.saldi.reduce((a,s)=>a+s.saldo,0);
     const totCarb=DB.carburante.filter(f=>f.data>=from&&f.data<=to).reduce((a,f)=>a+f.totale,0);
     const totCant=DB.cantieri.reduce((a,c)=>a+costoPersonaleCantiere(c.nome)+speseDiretteCantiere(c.nome),0);
-    const label=`L'OTTANTUNOCENTO – RIEPILOGO GENERALE  |  ${fdate(from)} – ${fdate(to)}`;
+    const label=`${AZIENDA.intestazione} – RIEPILOGO GENERALE  |  ${fdate(from)} – ${fdate(to)}`;
     const rows=[
       [label],[],
       ['📋  PERSONALE',''],
@@ -8955,7 +8956,7 @@ async function doExport(){
     );
 
     // intestazione: label + date abbreviate + totali
-    const label = `L'OTTANTUNOCENTO – PROSPETTO DIPENDENTI  |  ${fdate(from)} – ${fdate(to)}`;
+    const label = `${AZIENDA.intestazione} – PROSPETTO DIPENDENTI  |  ${fdate(from)} – ${fdate(to)}`;
     const hdr = ['Dipendente', ...colDates.map(d => {
       const [,m,g] = d.split('-');
       return `${g}/${m}`;
@@ -9135,7 +9136,7 @@ async function doExport(){
   // ---- FOGLIO: Pagamenti fine settimana ----
   if(document.getElementById('exp-pagamenti').checked){
     const pagF = (DB.pagamenti||[]).filter(pg => pg.data>=from && pg.data<=to);
-    const label = `L'OTTANTUNOCENTO – PAGAMENTI FINE SETTIMANA  |  ${fdate(from)} – ${fdate(to)}`;
+    const label = `${AZIENDA.intestazione} – PAGAMENTI FINE SETTIMANA  |  ${fdate(from)} – ${fdate(to)}`;
     const rows = [[label],[],
       ['Data pag.','Dipendente','Periodo dal','Periodo al','Maturato (€)','Anticipi dati (€)','Pagato (€)','Anticipo futuro (€)','Note']
     ];
@@ -9188,7 +9189,7 @@ async function doExport(){
       ...DB.anticipi.filter(a=>a.data>=from&&a.data<=to).map(a=>({data:a.data,dipNome:a.dipNome,importo:parseFloat(a.importo||0),metodo:a.metodo||'',note:a.note||''})),
       ...(DB.pagamenti||[]).filter(p=>p.data>=from&&p.data<=to).map(p=>({data:p.data,dipNome:p.dipNome,importo:parseFloat(p.pagato||0),metodo:p.metodo||'',note:(p.note||'')+(p.periodoDa?' [sett. '+fdate(p.periodoDa)+'→'+fdate(p.periodoAl||p.periodoDa)+']':'')}))
     ].sort((a,b)=>(a.data||'').localeCompare(b.data||''));
-    const label = `L'OTTANTUNOCENTO – PAGAMENTI DETTAGLIO  |  ${fdate(from)} – ${fdate(to)}`;
+    const label = `${AZIENDA.intestazione} – PAGAMENTI DETTAGLIO  |  ${fdate(from)} – ${fdate(to)}`;
     const rows = [[label],[],
       ['Data','Dipendente','Importo (€)','Metodo','Note']
     ];
@@ -9222,7 +9223,7 @@ async function doExport(){
 
   // ---- FOGLIO: Addebiti e Scalature ----
   if(document.getElementById('exp-addebiti')?.checked && DB.addebiti && DB.addebiti.length){
-    const label=`L'OTTANTUNOCENTO – ADDEBITI E SCALATURE  |  ${fdate(from)} – ${fdate(to)}`;
+    const label=`${AZIENDA.intestazione} – ADDEBITI E SCALATURE  |  ${fdate(from)} – ${fdate(to)}`;
     const rowsAdd=[[label],[]];
 
     DB.addebiti.forEach(a=>{
@@ -9293,7 +9294,7 @@ async function doExport(){
   // ---- FOGLIO: Ore effettive cantiere ----
   if(_chk('exp-ore-cant')){
     const oc=(typeof _oreCostoPerCantiere==='function'?_oreCostoPerCantiere(from,to):{})||{};
-    const rows=[["L'OTTANTUNOCENTO – ORE EFFETTIVE CANTIERE  |  "+fdate(from)+' – '+fdate(to)],[],['Cantiere','Ore effettive','Netto giornate €','Oneri giornalieri €','Costo pieno €']];
+    const rows=[[AZIENDA.intestazione+" – ORE EFFETTIVE CANTIERE  |  "+fdate(from)+' – '+fdate(to)],[],['Cantiere','Ore effettive','Netto giornate €','Oneri giornalieri €','Costo pieno €']];
     Object.values(oc).sort((x,y)=>((y.pieno||y.costo||0)-(x.pieno||x.costo||0))).forEach(c=>{ rows.push([c.nome, c.ore>0?+c.ore.toFixed(1):'', c.costo||0, c.oneri||0, (c.pieno!=null?c.pieno:c.costo)||0]); });
     const ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:26},{wch:14},{wch:16},{wch:18},{wch:14}];
     XLSX.utils.book_append_sheet(wb,ws,'Ore effettive cantiere');
@@ -9302,7 +9303,7 @@ async function doExport(){
   // ---- FOGLIO: Scontrini ----
   if(_chk('exp-scontrini')){
     const sc=(DB.scontrini||[]).filter(s=>{ const d=s.data||''; return (!from||d>=from)&&(!to||d<=to); }).slice().sort((a,b)=>(a.data||'').localeCompare(b.data||''));
-    const rows=[["L'OTTANTUNOCENTO – SCONTRINI  |  "+fdate(from)+' – '+fdate(to)],[],['Data','Cantiere','Fornitore','Categoria','Importo (€)','Metodo','Stato','Note']];
+    const rows=[[AZIENDA.intestazione+" – SCONTRINI  |  "+fdate(from)+' – '+fdate(to)],[],['Data','Cantiere','Fornitore','Categoria','Importo (€)','Metodo','Stato','Note']];
     let tot=0; sc.forEach(s=>{ tot+=parseFloat(s.importo)||0; rows.push([fdate(s.data), s.cantiere||'', s.fornitore||'', s.categoria||'', parseFloat(s.importo)||0, s.metodo||'', s.contabilizzato?'contabilizzato':'da contabilizzare', (s.note||'').replace(/\n/g,' ')]); });
     rows.push(['TOTALE','','','',tot,'','','']);
     const ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:12},{wch:22},{wch:22},{wch:16},{wch:14},{wch:14},{wch:18},{wch:30}];
@@ -9314,7 +9315,7 @@ async function doExport(){
     let fc=[];
     try{ const F=_FAPI(); const r=await fetch(F.url+'?select=*&limit=20000',{headers:F.h,cache:'no-cache'}); fc=await r.json(); if(!Array.isArray(fc)) fc=[]; }catch(e){ fc=[]; }
     fc=fc.filter(f=>{ const d=f.data_fattura||''; return (!from||d>=from)&&(!to||d<=to); }).sort((a,b)=>(a.data_fattura||'').localeCompare(b.data_fattura||''));
-    const rows=[["L'OTTANTUNOCENTO – FATTURE CLIENTI  |  "+fdate(from)+' – '+fdate(to)],[],['Numero','Data','Cliente','Cantiere','Importo (€)','Stato','Scadenza','Note']];
+    const rows=[[AZIENDA.intestazione+" – FATTURE CLIENTI  |  "+fdate(from)+' – '+fdate(to)],[],['Numero','Data','Cliente','Cantiere','Importo (€)','Stato','Scadenza','Note']];
     let tot=0; fc.forEach(f=>{ tot+=parseFloat(f.importo)||0; rows.push([f.numero||'', fdate(f.data_fattura), f.cliente||'', f.cantiere_nome||'', parseFloat(f.importo)||0, f.stato||'', f.scadenza?fdate(f.scadenza):'', (f.note||'').replace(/\n/g,' ')]); });
     rows.push(['TOTALE','','','',tot,'','','']);
     const ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:12},{wch:12},{wch:28},{wch:24},{wch:14},{wch:14},{wch:12},{wch:30}];
@@ -9326,7 +9327,7 @@ async function doExport(){
     let ff=[];
     try{ const r=await fetch(SUPABASE_URL+'/rest/v1/fatture_acquisto?select=*&limit=20000',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-cache'}); ff=await r.json(); if(!Array.isArray(ff)) ff=[]; }catch(e){ ff=[]; }
     ff=ff.filter(f=>{ const d=f.data_fattura||''; return (!from||d>=from)&&(!to||d<=to); }).sort((a,b)=>(a.data_fattura||'').localeCompare(b.data_fattura||''));
-    const rows=[["L'OTTANTUNOCENTO – FATTURE FORNITORI  |  "+fdate(from)+' – '+fdate(to)],[],['Rif./Numero','Data','Fornitore','Cantiere','Importo (€)','Residuo (€)','Stato','Pagamento','Note']];
+    const rows=[[AZIENDA.intestazione+" – FATTURE FORNITORI  |  "+fdate(from)+' – '+fdate(to)],[],['Rif./Numero','Data','Fornitore','Cantiere','Importo (€)','Residuo (€)','Stato','Pagamento','Note']];
     let tot=0; ff.forEach(f=>{ tot+=parseFloat(f.importo)||0; rows.push([f.rif_fornitore||f.numero||'', fdate(f.data_fattura), f.fornitore||'', f.cantiere_nome||'', parseFloat(f.importo)||0, parseFloat(f.residuo)||0, f.stato_verificato||'', f.metodo_pagamento||'', (f.note||'').replace(/\n/g,' ')]); });
     rows.push(['TOTALE','','','',tot,'','','','']);
     const ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:16},{wch:12},{wch:26},{wch:24},{wch:14},{wch:12},{wch:16},{wch:16},{wch:30}];
@@ -9339,7 +9340,7 @@ async function doExport(){
       alert('Nessun foglio selezionato o nessun dato nel periodo. Controlla le checkbox e l\'intervallo di date.');
       return;
     }
-    const fname = `Ottantunocento_${from}_${to}.xlsx`;
+    const fname = `${AZIENDA.nomeBreve}_${from}_${to}.xlsx`;
     // Metodo 1: XLSX.writeFile (funziona su Mac/PC)
     try {
       XLSX.writeFile(wb, fname);
@@ -11896,7 +11897,7 @@ function syncSalva(){
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href = url;
-  a.download = 'ottantunocento-dati.json';
+  a.download = AZIENDA.fileDati;
   a.click();
   URL.revokeObjectURL(url);
   localStorage.setItem('otto_last_save', ts);
@@ -11941,7 +11942,7 @@ function _syncLoadFile(file, merge){
     try{
       const remote = JSON.parse(ev.target.result);
       if(!remote.personale || !remote.presenze){
-        logEl.innerHTML='<div class="sl-warn">⚠ File non riconosciuto come backup Ottantunocento</div>';
+        logEl.innerHTML='<div class="sl-warn">⚠ File non riconosciuto come backup '+AZIENDA.nomeBreve+'</div>';
         return;
       }
       if(merge){
@@ -14679,7 +14680,7 @@ setTimeout(async()=>{
     setTimeout(()=>{ fotoSpostaVecchie().catch(()=>{}); }, 5000);
   }catch(_){}
   // battesimo del dispositivo: chiesto una volta sola, all'ingresso (non al primo salvataggio)
-  try{ if(!localStorage.getItem('deviceNome81100')) _nomeDispositivo(); }catch(_){}
+  try{ if(!localStorage.getItem('deviceNome'+AZIENDA.id)) _nomeDispositivo(); }catch(_){}
 }, 1200);
 // ping periodico ogni 6 giorni per evitare la pausa automatica Supabase dopo 7gg inattività
 setInterval(()=>{ cloudVerificaConnessione(); }, 1000*60*60*24*6);

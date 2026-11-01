@@ -255,7 +255,7 @@ async function parseFatturaPDF(file){
   else {
     const candidati=[...testoTot.matchAll(/([A-ZÀ-Ù][A-ZÀ-Ù&'\.\s]{3,40}(?:S\.?R\.?L|S\.?N\.?C|S\.?P\.?A|SRL|SNC|SPA))/g)]
       .map(m=>m[1].replace(/\s+/g,' ').trim())
-      .filter(n=>!/OTTANTUNOCENTO|SPETT|DESTINAZION|CLIENTE/i.test(n));
+      .filter(n=>!new RegExp(AZIENDA.nomeBreve.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'|SPETT|DESTINAZION|CLIENTE','i').test(n));
     if(candidati.length) forn=candidati[0];
   }
   const meta={ fornitore:forn, numero:mNum?mNum[1].replace(/\s/g,''):'', data:mData?`${mData[3]}-${mData[2]}-${mData[1]}`:'' };
