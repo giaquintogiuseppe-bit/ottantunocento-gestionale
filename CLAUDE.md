@@ -2,6 +2,11 @@
 
 Stato del progetto, decisioni e cose in sospeso: vedi `STATO.md`.
 
+Strumenti per Claude (in `.claude/`): skill `model-router` (a inizio compito: cosa delegare e a
+quale modello), `mappa-codice` (dove sta cosa in `index.html` — non leggerlo mai per intero),
+`/pubblica`; agenti `cerca-codice` (ricerche nel codice, economico) e `revisore-sql` (revisione
+obbligatoria degli script SQL sui dati di produzione prima di consegnarli).
+
 ## Regola: prova in browser PRIMA di ogni pubblicazione
 
 `main` è la produzione (GitHub Pages pubblica in automatico a ogni push).
