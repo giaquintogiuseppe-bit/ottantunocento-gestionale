@@ -1,0 +1,20 @@
+{
+  "nome": "Lavoro leggero",
+  "versione": "0.1.0-beta.1",
+  "stato": "beta locale non pubblicata",
+  "piattaforma": "Claude Code",
+  "licenza": "Non dichiarata; nessuna licenza open source concessa dal pacchetto.",
+  "fonti": {
+    "ganci/lavoro_leggero.py": "e998f31d36d0a376b0dbdb04a83357c8da4200c7f8b673f976a5a3510cb8d942",
+    "ganci/lavoro_leggero_agente.md": "3749bd2c9843f47b91265e0c1abe314558b924935fc56ae1a181ca14a9f1fb6e"
+  },
+  "trasformazioni": [
+    "Nome Tutor d'efficienza sostituito con Lavoro leggero in intestazione del richiamo e descrizione dell'agente; logica invariata."
+  ],
+  "file": {
+    "SKILL.md": "a4650e95ba997c30935c0a421311683acbfeb9bbfd9309159fdad6f98359de17",
+    "installa.py": "72cfe54b1e1450dc3c2949231cd0ae39e0b743c517c3a3fe1967cbff4790fcc4",
+    "lavoro_leggero.py": "f8baaeeeb10e15e6044c2aecad02c97398086ecdfd5c9abccbae68da0d81b1ad",
+    "lavoro_leggero_agente.md": "6e5d9d769616850866e6e5b1abc20ab673027d9e135b709601cbc2df2cbf2081"
+  }
+}

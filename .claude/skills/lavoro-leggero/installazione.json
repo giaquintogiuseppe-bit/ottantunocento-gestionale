@@ -1,0 +1,24 @@
+{
+  "nome": "lavoro-leggero",
+  "versione": "0.1.0-beta.1",
+  "hook": {
+    "type": "command",
+    "command": "/usr/local/bin/python3",
+    "args": [
+      "/home/user/ottantunocento-gestionale/.claude/skills/lavoro-leggero/lavoro_leggero.py"
+    ],
+    "timeout": 10,
+    "statusMessage": "Lavoro leggero: controllo della richiesta"
+  },
+  "hooks_esisteva": false,
+  "evento_esisteva": false,
+  "settings_esisteva": false,
+  "file": {
+    ".claude/skills/lavoro-leggero/SKILL.md": "a4650e95ba997c30935c0a421311683acbfeb9bbfd9309159fdad6f98359de17",
+    ".claude/skills/lavoro-leggero/installa.py": "72cfe54b1e1450dc3c2949231cd0ae39e0b743c517c3a3fe1967cbff4790fcc4",
+    ".claude/skills/lavoro-leggero/lavoro_leggero.py": "f8baaeeeb10e15e6044c2aecad02c97398086ecdfd5c9abccbae68da0d81b1ad",
+    ".claude/skills/lavoro-leggero/lavoro_leggero_agente.md": "6e5d9d769616850866e6e5b1abc20ab673027d9e135b709601cbc2df2cbf2081",
+    ".claude/skills/lavoro-leggero/MANIFEST.json": "bd8bd63577bc6fc3d086ce8152ba18b9c6efe09586ce39457a3b51fb4d345793",
+    ".claude/agents/lavoro-leggero.md": "6e5d9d769616850866e6e5b1abc20ab673027d9e135b709601cbc2df2cbf2081"
+  }
+}

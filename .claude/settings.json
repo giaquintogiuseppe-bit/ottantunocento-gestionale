@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/local/bin/python3",
+            "args": [
+              "/home/user/ottantunocento-gestionale/.claude/skills/lavoro-leggero/lavoro_leggero.py"
+            ],
+            "timeout": 10,
+            "statusMessage": "Lavoro leggero: controllo della richiesta"
+          }
+        ]
+      }
+    ]
+  }
+}
