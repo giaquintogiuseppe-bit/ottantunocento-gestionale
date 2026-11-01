@@ -672,9 +672,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <button class="bs" style="font-size:12px;padding:5px 12px" onclick="apriOneri()">Gestisci</button>
       <span style="font-size:11px;color:var(--text2)">divisi in parti uguali tra i cantieri del giorno · le giornate senza cantiere restano fuori</span>
     </div>
-    <!-- Inbox presenze dal campo (app Planning di Roberto) -->
+    <!-- Inbox presenze dal campo (app Planning del responsabile di campo) -->
     <div id="pres-campo-box" style="background:rgba(0,180,166,.06);border:1px solid rgba(0,180,166,.28);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <span style="font-size:13px">📨 <b>Presenze dal campo</b> — chi è presente / turno intero o parziale, inviate da Roberto</span>
+      <span style="font-size:13px">📨 <b>Presenze dal campo</b> — chi è presente / turno intero o parziale, inviate dal responsabile di campo</span>
       <span id="pres-campo-badge" style="display:none;background:var(--gold);color:#000;font-size:12px;font-weight:800;border-radius:10px;padding:2px 9px">0</span>
       <button class="bs" style="font-size:12px;padding:5px 12px" onclick="apriPresenzeCampo()">Rivedi e applica →</button>
     </div>
@@ -2301,10 +2301,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <div class="mo" id="modal-presenze-campo">
   <div class="md" style="max-width:680px">
-    <div class="mh"><h3>📨 Presenze dal campo — Roberto</h3><button class="mc" onclick="closeModal('modal-presenze-campo')">✕</button></div>
+    <div class="mh"><h3>📨 Presenze dal campo</h3><button class="mc" onclick="closeModal('modal-presenze-campo')">✕</button></div>
     <div style="padding:0 20px 4px">
       <div style="background:rgba(0,180,166,.06);border:1px solid rgba(0,180,166,.2);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text2);margin-bottom:14px">
-        Roberto segna dal campo chi è <b style="color:var(--text)">presente</b> e se fa turno <b style="color:var(--green)">intero</b> o <b style="color:var(--gold)">parziale</b>.
+        Il responsabile di campo segna chi è <b style="color:var(--text)">presente</b> e se fa turno <b style="color:var(--green)">intero</b> o <b style="color:var(--gold)">parziale</b>.
         <b style="color:var(--text)">Applicando</b> crei i turni nella giornata (importo da compilare, come l'import dal Planning). Gli assenti non generano turni. I turni già presenti non vengono duplicati.
       </div>
       <div id="pres-campo-list" style="max-height:420px;overflow-y:auto">
@@ -2563,135 +2563,11 @@ tbody td{padding:10px 14px;vertical-align:middle}
 if(location.search.indexOf('reset')!==-1){ throw new Error('reset-in-corso'); }
 
 // ============================================================
-// DATI SEED — Report 1-6 giugno 2026
-// ============================================================
-const SEED={
-  personale:[
-    {id:'p01',nome:'Roberto Vergone',ruolo:'Responsabile tecnico'},
-    {id:'p02',nome:'Kir Ivan',ruolo:'Tecnico (Wintime)'},
-    {id:'p03',nome:'Renato Maiorano',ruolo:'Tecnico / Autista'},
-    {id:'p04',nome:'Francesco Scandolara',ruolo:'Tecnico esterno'},
-    {id:'p05',nome:'Dario Campi',ruolo:'Tecnico'},
-    {id:'p06',nome:'Valerio Buco',ruolo:'Tecnico'},
-    {id:'p07',nome:'Pietro Della Ventura',ruolo:'Autista / Tecnico'},
-    {id:'p08',nome:'Vincenzo Pasquariello',ruolo:'Tecnico (Wintime)'},
-    {id:'p09',nome:'Tino',ruolo:'Tecnico esterno'},
-    {id:'p10',nome:'Marcello Feola',ruolo:'Tecnico'},
-    {id:'p11',nome:'Gennaro Feola',ruolo:'Tecnico'},
-  ],
-  presenze:{
-    '2026-06-01':{
-      p01:{cantiere:'Carabinieri',base:0,straord:0,totale:0,note:'Tariffa sett. 1-7 giu'},
-      p02:{cantiere:'Carabinieri',base:50,straord:0,totale:50,note:''},
-      p03:{cantiere:'Carabinieri',base:50,straord:0,totale:50,note:''},
-      p04:{cantiere:'Aversa',base:50,straord:0,totale:50,note:''},
-      p05:{cantiere:'Gaeta',base:70,straord:0,totale:70,note:''},
-      p06:{cantiere:'Gaeta',base:70,straord:0,totale:70,note:''},
-      p07:{cantiere:'Gaeta',base:70,straord:0,totale:70,note:''},
-      p11:{cantiere:'Aversa',base:50,straord:0,totale:50,note:''},
-    },
-    '2026-06-02':{
-      p05:{cantiere:'Firenze',base:50,straord:30,totale:80,note:'Trasferta'},
-      p03:{cantiere:'Firenze',base:50,straord:30,totale:80,note:'Trasferta'},
-      p08:{cantiere:'Firenze',base:50,straord:30,totale:80,note:'Trasferta'},
-      p06:{cantiere:'Gaeta',base:70,straord:0,totale:70,note:''},
-    },
-    '2026-06-03':{
-      p05:{cantiere:'Firenze',base:50,straord:30,totale:80,note:'Rientro ore 16:30'},
-      p03:{cantiere:'Firenze',base:50,straord:30,totale:80,note:'Rientro ore 16:30'},
-      p08:{cantiere:'Firenze',base:50,straord:30,totale:80,note:'Rientro ore 16:30'},
-      p04:{cantiere:'Carabinieri Benv.',base:50,straord:30,totale:80,note:'Fino alle 22:00'},
-      p01:{cantiere:'Carabinieri Benv.',base:0,straord:0,totale:0,note:'Incluso settimana'},
-      p10:{cantiere:'Carabinieri Benv.',base:50,straord:0,totale:50,note:''},
-      p09:{cantiere:'Carabinieri Benv.',base:50,straord:0,totale:50,note:''},
-      p02:{cantiere:'Gaeta',base:70,straord:0,totale:70,note:''},
-    },
-    '2026-06-04':{
-      p01:{cantiere:'Carabinieri',base:0,straord:0,totale:0,note:'Incluso settimana'},
-      p03:{cantiere:'Carabinieri',base:50,straord:30,totale:80,note:'+12h'},
-      p10:{cantiere:'Carabinieri',base:50,straord:30,totale:80,note:'+12h'},
-      p09:{cantiere:'Carabinieri',base:50,straord:30,totale:80,note:'+12h'},
-      p04:{cantiere:'Carabinieri',base:50,straord:30,totale:80,note:'+12h'},
-      p08:{cantiere:'Carabinieri',base:50,straord:30,totale:80,note:'+12h'},
-      p02:{cantiere:'Gaeta',base:70,straord:0,totale:70,note:''},
-      p06:{cantiere:'Gaeta',base:70,straord:0,totale:70,note:''},
-      p07:{cantiere:'Gaeta',base:70,straord:0,totale:70,note:''},
-    },
-    '2026-06-05':{
-      p01:{cantiere:'Carabinieri',base:0,straord:0,totale:0,note:'Incluso settimana'},
-      p02:{cantiere:'Carabinieri',base:50,straord:0,totale:50,note:''},
-      p03:{cantiere:'Carabinieri',base:50,straord:0,totale:50,note:''},
-      p09:{cantiere:'Recale - sedie',base:50,straord:0,totale:50,note:''},
-      p10:{cantiere:'Recale - sedie',base:50,straord:20,totale:70,note:'Straord.'},
-      p08:{cantiere:'Recale - sedie',base:50,straord:0,totale:50,note:''},
-      p04:{cantiere:'Recale - sedie',base:50,straord:20,totale:70,note:'Straord.'},
-      p05:{cantiere:'Gaeta',base:70,straord:0,totale:70,note:''},
-      p06:{cantiere:'Gaeta',base:70,straord:0,totale:70,note:''},
-      p07:{cantiere:'Gaeta',base:70,straord:0,totale:70,note:''},
-    },
-    '2026-06-06':{
-      p01:{cantiere:'Carabinieri smont.',base:0,straord:0,totale:0,note:'Incluso settimana'},
-      p10:{cantiere:'Carabinieri smont.',base:50,straord:0,totale:50,note:''},
-      p08:{cantiere:'Carabinieri smont.',base:50,straord:0,totale:50,note:''},
-      p09:{cantiere:'Carabinieri smont.',base:50,straord:0,totale:50,note:''},
-      p03:{cantiere:'Recale - ricovero',base:0,straord:40,totale:40,note:'Notte'},
-      p02:{cantiere:'Recale - ricovero',base:0,straord:40,totale:40,note:'Notte'},
-      p04:{cantiere:'Recale - ricovero',base:0,straord:40,totale:40,note:'Notte'},
-      p05:{cantiere:'Gaeta',base:70,straord:0,totale:70,note:''},
-      p06:{cantiere:'Gaeta',base:70,straord:0,totale:70,note:''},
-      p07:{cantiere:'Gaeta',base:70,straord:0,totale:70,note:''},
-    },
-  },
-  cantieri:[
-    {id:'c1',nome:'Carabinieri',periodo:'28/05–06/06/26',costo:1810,note:'5 giornate, Roberto incluso settimana'},
-    {id:'c2',nome:'Gaeta',periodo:'1–6/06/26',costo:1120,note:'Valerio+Pietro+Dario+Kir'},
-    {id:'c3',nome:'Firenze',periodo:'2–3/06/26',costo:480,note:'Dario+Renato+Vincenzo × 2gg'},
-    {id:'c4',nome:'Recale – sedie',periodo:'05/06/26',costo:240,note:'Tino+Marcello+Vincenzo+Scandolara'},
-    {id:'c5',nome:'Recale – ricovero notturno',periodo:'06/06/26',costo:120,note:'Renato+Kir+Scandolara notte'},
-    {id:'c6',nome:'Aversa',periodo:'01/06/26',costo:50,note:'Scandolara'},
-  ],
-  carburante:[
-    {id:'f1',data:'2026-06-04',prodotto:'GPL',litri:'25.18',prezzo:'0.745',totale:18.76,note:'Stazione TOIL03 – DKV'},
-    {id:'f2',data:'2026-06-05',prodotto:'Verde',litri:'10.03',prezzo:'1.939',totale:19.45,note:'Italiana Petroli Caserta – DKV'},
-    {id:'f3',data:'2026-06-05',prodotto:'Diesel',litri:'—',prezzo:'—',totale:40.00,note:'Ducato CT 069 FE – contanti'},
-    {id:'f4',data:'2026-06-05',prodotto:'Diesel',litri:'62.02',prezzo:'1.989',totale:123.36,note:'Italiana Petroli Caserta – DKV'},
-  ],
-  anticipi:[
-    {id:'a1',data:'2026-06-02',dipId:'p06',dipNome:'Valerio Buco',importo:40,metodo:'Contanti',note:''},
-    {id:'a2',data:'2026-06-03',dipId:'p04',dipNome:'Francesco Scandolara',importo:50,metodo:'Contanti',note:''},
-    {id:'a3',data:'2026-06-03',dipId:'p04',dipNome:'Francesco Scandolara',importo:158,metodo:'Contanti',note:''},
-    {id:'a4',data:'2026-06-03',dipId:'p09',dipNome:'Tino',importo:50,metodo:'Contanti',note:''},
-    {id:'a5',data:'2026-06-04',dipId:'p04',dipNome:'Francesco Scandolara',importo:50,metodo:'Contanti',note:''},
-    {id:'a6',data:'2026-06-04',dipId:'p06',dipNome:'Valerio Buco',importo:30,metodo:'Contanti',note:''},
-    {id:'a7',data:'2026-06-05',dipId:'p06',dipNome:'Valerio Buco',importo:40,metodo:'Contanti',note:''},
-    {id:'a8',data:'2026-06-05',dipId:'p06',dipNome:'Valerio Buco',importo:30,metodo:'Contanti',note:''},
-    {id:'a9',data:'2026-06-06',dipId:'p06',dipNome:'Valerio Buco',importo:80,metodo:'Contanti',note:'Rettifica – totale confermato €220'},
-  ],
-  pagamenti:[],
-  documenti:[],
-  addebiti:[],
-  speseCantiere:[],
-  scontrini:[],
-  carteDkv:[
-    {id:'dkv1', pan:'007043100109168032', veicolo:'PRAMAC 1', note:'', attiva:true},
-    {id:'dkv2', pan:'007043100109168033', veicolo:'PRAMAC 2', note:'', attiva:true},
-    {id:'dkv3', pan:'007043100111768215', veicolo:'CT068NE',  note:'', attiva:true},
-    {id:'dkv4', pan:'007043100111768213', veicolo:'FS504WE',  note:'', attiva:true},
-  ],
-  saldi:[
-    {id:'s01',dipId:'p01',nome:'Roberto Vergone',maturato:600,anticipi:0,saldo:600},
-    {id:'s02',dipId:'p02',nome:'Kir Ivan',maturato:280,anticipi:0,saldo:280},
-    {id:'s03',dipId:'p03',nome:'Renato Maiorano',maturato:380,anticipi:0,saldo:380},
-    {id:'s04',dipId:'p04',nome:'Francesco Scandolara',maturato:340,anticipi:258,saldo:82},
-    {id:'s05',dipId:'p05',nome:'Dario Campi',maturato:370,anticipi:0,saldo:370},
-    {id:'s06',dipId:'p06',nome:'Valerio Buco',maturato:350,anticipi:220,saldo:130},
-    {id:'s07',dipId:'p07',nome:'Pietro Della Ventura',maturato:280,anticipi:0,saldo:280},
-    {id:'s08',dipId:'p08',nome:'Vincenzo Pasquariello',maturato:340,anticipi:0,saldo:340},
-    {id:'s09',dipId:'p09',nome:'Tino',maturato:230,anticipi:50,saldo:180},
-    {id:'s10',dipId:'p10',nome:'Marcello Feola',maturato:250,anticipi:0,saldo:250},
-    {id:'s11',dipId:'p11',nome:'Gennaro Feola',maturato:100,anticipi:0,saldo:100},
-  ]
-};
+// DATI INIZIALI — struttura vuota: i dati veri arrivano dal cloud all'avvio.
+// (Fino al 01/11/2026 qui c'erano dati di prova con nomi reali di dipendenti e presenze: tolti,
+//  il repository è pubblico. Su un dispositivo nuovo l'app parte vuota e si riempie dal cloud.)
+const SEED={ personale:[], presenze:{}, cantieri:[], carburante:[], anticipi:[], pagamenti:[], documenti:[],
+             addebiti:[], speseCantiere:[], scontrini:[], carteDkv:[], saldi:[] };
 
 // ============================================================
 // STATE
@@ -5295,8 +5171,8 @@ function confermImportaPlanning(){
   nav('presenze'); rPres();
 }
 
-// ── PRESENZE DAL CAMPO (inbox proposte di Roberto) ───────────────
-// Roberto, dall'app Planning, invia il consuntivo giornaliero (chi è
+// ── PRESENZE DAL CAMPO (inbox proposte del responsabile di campo) ───────────────
+// Il responsabile di campo, dall'app Planning, invia il consuntivo giornaliero (chi è
 // presente, turno intero o parziale). Le proposte arrivano nella riga
 // 'roberto_staging' come changeRequest tipo PRESENZE_GIORNO. Qui Giuseppe
 // le rivede e le APPLICA: diventano turni in DB.presenze (importo 0, da
@@ -5311,7 +5187,7 @@ async function _stgRead(){
   if(!Array.isArray(d.changeRequests)) d.changeRequests=[];
   return d;
 }
-// Scrittura su staging SENZA perdere le proposte di Roberto: rilegge riga+versione, applica SOLO la
+// Scrittura su staging SENZA perdere le proposte del responsabile di campo: rilegge riga+versione, applica SOLO la
 // mutazione (muta(d); false = niente da scrivere) ai dati freschi e fa PATCH condizionato alla versione
 // (lock ottimistico). 0 righe = qualcuno ha scritto nel frattempo → riprova (max 5). Mai uno snapshot intero.
 async function _stgMuta(muta){
@@ -5327,7 +5203,7 @@ async function _stgMuta(muta){
     const body=JSON.stringify(row?{dati:d,aggiornato_il:new Date().toISOString()}:{id:'roberto_staging',dati:d,aggiornato_il:new Date().toISOString()});
     const w=row ? await fetch(a.url+'?id=eq.roberto_staging&versione='+(row.versione==null?'is.null':'eq.'+row.versione)+'&select=versione',{method:'PATCH',headers:h,body})
                 : await fetch(a.url+'?select=versione',{method:'POST',headers:h,body});   // riga assente: INSERT semplice
-    if(!row && w.status===409) continue;   // creata da Roberto nel frattempo
+    if(!row && w.status===409) continue;   // creata dal responsabile di campo nel frattempo
     if(!w.ok) throw new Error(await _httpErr(w));
     const out=await w.json().catch(()=>null);
     if(Array.isArray(out)&&out.length) return d;
@@ -5381,7 +5257,7 @@ function _rPresenzeCampoList(stg){
     const nonMatch=voci.filter(v=>v.tipo!=='assente'&&!_matchPersona(v.nome)).length;
     return `<div style="background:var(--card);border:1px solid var(--brd);border-radius:10px;padding:12px 14px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
-        <div style="font-size:13px;font-weight:700">🗓 ${fdate(cr.data)} <span style="color:var(--text2);font-weight:400;font-size:11px">· ${esc(cr.autore||'Roberto')} · ${cr.timestamp?new Date(cr.timestamp).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</span></div>
+        <div style="font-size:13px;font-weight:700">🗓 ${fdate(cr.data)} <span style="color:var(--text2);font-weight:400;font-size:11px">· ${esc(cr.autore||'responsabile di campo')} · ${cr.timestamp?new Date(cr.timestamp).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</span></div>
         <div style="font-size:11px;color:var(--text2)">${cr.nInt||0} intero · ${cr.nPar||0} parziale · ${cr.nAss||0} assente</div>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">${chips}</div>
@@ -9143,7 +9019,7 @@ async function doExport(){
       rows.push(['Pagamenti effettuati','',dTotPag,'','']);
       rows.push([dSaldo<-0.009?'⊕ CREDITO VERSO DIPENDENTE':dSaldo>0.009?'RESIDUO DA PAGARE':'✓ SALDATO','',Math.abs(dSaldo),'','']);
 
-      // note extra (es. compenso settimanale Roberto)
+      // note extra (es. compenso settimanale a forfait)
       const sal=DB.saldi.find(s=>s.dipId===p.id);
       if(sal?.note){rows.push([]);rows.push([`📌 ${sal.note}`,'','','','']);}
 
