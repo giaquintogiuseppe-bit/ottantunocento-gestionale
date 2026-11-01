@@ -19,6 +19,10 @@ node strumenti/prova-pagine.js
   `attrezzeria.js` fosse caricato e l'avvio si interrompeva a metà.
 - Se aggiungi un file `.js` esterno o una pagina nuova, verifica che la prova li copra
   (ed estendila se serve).
+- **Automatico**: l'hook in `.claude/settings.json` (`strumenti/controlli-claude.js`) lancia la prova
+  prima di ogni `git push` e blocca il push se non dà OK; blocca anche le scritture su `main` fatte
+  col connettore GitHub. Per pubblicare usa **`/pubblica`** (versioni con
+  `strumenti/aggiorna-versioni.js`, prova, STATO.md, commit, push, orario).
 - Riporta a Giuseppe l'esito della prova e, dopo la pubblicazione, l'orario: in intestazione
   l'app mostra "versione gg/mm/aa hh:mm" = data di pubblicazione della pagina in uso.
 
@@ -34,3 +38,6 @@ più società (81|00, Aurica) con database separati.
 Il repository è **pubblico**. Script SQL, esportazioni, elenchi con nomi di clienti, P.IVA di persone,
 dati di dipendenti non vanno mai committati: tenerli fuori dal repo (cartella temporanea) e
 consegnarli a Giuseppe in chat.
+L'hook dei controlli blocca i commit con file `.sql`/`.csv`/`.xlsx`…, codici fiscali, IBAN, numeri di
+11 cifre o dati della società fuori da `azienda.js`. Eccezione solo con l'OK di Giuseppe: commento
+`dato-ammesso` sulla riga.
