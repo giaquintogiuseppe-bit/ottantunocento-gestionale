@@ -26,6 +26,20 @@ const server = http.createServer((req, res) => {
   fs.createReadStream(f).pipe(res);
 });
 
+// Nomi globali doppi tra file diversi: una funzione definita in un file .js esterno con lo stesso
+// nome di una del Gestionale la sostituisce senza errori (caso rCruscotto, 01/11/2026).
+function nomiDoppi(){
+  const file=['index.html', ...fs.readdirSync(RADICE).filter(f=>f.endsWith('.js') && f!=='sw.js')];
+  const dove={};
+  file.forEach(f=>{
+    const testo=fs.readFileSync(path.join(RADICE,f),'utf8');
+    const re=/^(?:async[ \t]+)?function[ \t]+([A-Za-z_$][\w$]*)|^(?:const|let|var)[ \t]+([A-Za-z_$][\w$]*)/gm; let m;
+    const visti=new Set();
+    while((m=re.exec(testo))){ const n=m[1]||m[2]; if(visti.has(n)) continue; visti.add(n); (dove[n]=dove[n]||[]).push(f); }
+  });
+  return Object.entries(dove).filter(([,fs_])=>fs_.length>1).map(([n,fs_])=>`nome "${n}" definito in più file: ${fs_.join(', ')}`);
+}
+
 (async () => {
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${server.address().port}/`;
@@ -74,6 +88,7 @@ const server = http.createServer((req, res) => {
   await apri('reset.html');
 
   await browser.close(); server.close();
+  nomiDoppi().forEach(e=>errori.push(e));
   if (errori.length) {
     console.log(`❌ PROVA FALLITA — ${errori.length} errore/i (${pagineProvate} pagine visitate):`);
     [...new Set(errori)].forEach(e => console.log('  • ' + e));

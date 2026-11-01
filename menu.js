@@ -7,7 +7,7 @@
 
 const MENU_AREE = [
   { id:'cruscotto', nome:'Cruscotto', icona:'cruscotto', schede:[
-      { pg:'dash', nome:'Panoramica' }, { pg:'grafici', nome:'Numeri e grafici' } ] },
+      { pg:'cruscotto', nome:'Cruscotto' }, { pg:'dash', nome:'Panoramica classica' }, { pg:'grafici', nome:'Numeri e grafici' } ] },
   { id:'commesse', nome:'Commesse', icona:'commesse', schede:[
       { pg:'commesse', nome:'Commesse' }, { pg:'cantieri', nome:'Elenco classico' }, { pg:'coerenza', nome:'Coerenza' } ],
     nascoste:['dettaglio-cant'] },
@@ -116,4 +116,6 @@ function menuSegui(pg){
   window.nav = function(pg){ _navBase(pg); try{ menuSegui(pg); }catch(e){} };
   menuDisegna();
   menuSegui(typeof curPg!=='undefined' && curPg ? curPg : 'dash');
+  // Pagina d'apertura: il nuovo cruscotto (la panoramica classica resta come scheda)
+  try{ if(typeof curPg!=='undefined' && curPg==='dash' && document.getElementById('pg-cruscotto')) menuApri('cruscotto'); }catch(e){}
 })();
