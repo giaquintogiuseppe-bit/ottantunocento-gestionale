@@ -31,5 +31,6 @@ Riepilogo per ripartire in una nuova chat. Tutto il lavoro è su `main` (repo = 
 - GAETA: ~5.000 di "fatturato maturato oltre il documentato" residuo = metà maggio dentro la fattura 169 (non separabile), esclusa su richiesta.
 
 ## Dove si pubblica
+- **Prima di ogni pubblicazione: `node strumenti/prova-pagine.js` deve dare ✅ OK** (regola in `CLAUDE.md`).
 - Entrambe le app: GitHub Pages da `main`. Dopo un push ricordarsi di **bumpare il SW** e di **riavviare la PWA** sul telefono per prendere la nuova versione.
 - **Gestionale: il service worker NON è registrato** (nessun `serviceWorker.register` in index.html): il numero in `sw.js` non arriva ai dispositivi. L'aggiornamento reale è il controllo automatico `_gestControllaVersione` (al ritorno sull'app confronta Last-Modified e ricarica). In intestazione compare **"versione gg/mm/aa hh:mm"** = data di pubblicazione della pagina in uso.
