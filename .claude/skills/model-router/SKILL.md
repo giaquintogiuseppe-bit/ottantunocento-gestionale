@@ -1,42 +1,49 @@
 ---
 name: model-router
-description: Instradamento dei compiti al modello più economico adeguato (Haiku / Sonnet / Opus / Fable) tramite subagent. Da usare all'INIZIO di ogni compito di Giuseppe, prima di leggere file o fare ricerche, per decidere cosa delegare e a quale modello.
+description: Sceglie il modello Claude più adatto (Haiku, Sonnet, Opus, Fable) per ogni compito, con criteri di efficienza ed efficacia e l'obiettivo di ridurre il consumo di token. Usala all'inizio di ogni compito, prima di delegare a un subagent, e quando un compito cambia di complessità.
 ---
 
-# Model router — partire basso, salire solo se serve
+# Model Router
 
-All'inizio di ogni compito classificalo e decidi **chi** lo fa. La sessione principale coordina,
-decide e scrive le risposte; le parti meccaniche vanno a subagent più economici.
+Obiettivo: **risultato corretto al minor costo in token.** Il costo si misura per compito completato, non per singola richiesta: un modello economico che sbaglia e va rifatto costa di più.
 
-## 1. Delegare o no?
-- **≤ 3 chiamate a strumenti** → fallo direttamente, non delegare (il passaggio costa più del lavoro).
-- Il compito richiede il contesto della conversazione o una decisione dell'utente → resta qui.
-- Più parti indipendenti → subagent in parallelo, nello stesso messaggio.
+## Limite da conoscere
 
-## 2. Quale modello
-| Tipo di lavoro | Modello | Come |
+Claude non può cambiare il modello della sessione principale da solo. Leve disponibili:
+1. **Subagent**: `Agent` con parametro `model` (`haiku` | `sonnet` | `opus` | `fable`). È la leva principale.
+2. **Sessione principale**: se il modello attuale è palesemente sovra/sotto-dimensionato per un compito lungo, suggerire all'utente in una riga di usare `/model <nome>`. Non insistere.
+
+## Tabella di scelta
+
+| Modello | Costo $/1M token (in/out) | Usalo per |
 |---|---|---|
-| Lettura, ricerca nel codice o nei documenti, estrazione, elenchi, formattazione, riassunti di file | **Haiku** | agente `cerca-codice` (Gestionale) o `Explore` / `general-purpose` con `model: haiku` |
-| Lavoro standard: modifiche di codice ben definite, pagine, script, testi, analisi ordinarie | **Sonnet** | `general-purpose` con `model: sonnet` |
-| Decisioni critiche: **fisco, contratti, legale, finanza/importi, architettura, debug complesso**, script SQL sui dati di produzione | **Opus** | sessione principale, o agente `revisore-sql` / `general-purpose` con `model: opus` |
-| Solo se Opus ha fallito sullo stesso problema | **Fable** | **chiedi prima conferma a Giuseppe**, spiegando perché |
+| **haiku** | 0,10 / 0,50 | Cercare file e testo, leggere e riassumere, estrarre dati, classificare, formattare, tradurre testi semplici, comandi git/shell ripetitivi, controlli rapidi, domande fattuali brevi |
+| **sonnet** | 2 / 10 | Coding quotidiano, bug circoscritti, feature di media misura, test, refactor locali, documentazione, email e testi professionali, analisi dati standard |
+| **opus** | 4 / 20 | Architettura e decisioni tecniche, debug difficile su più file, sicurezza, code review critica, questioni legali/fiscali/finanziarie/contrattuali, pianificazione di compiti lunghi, task agentici multi-step |
+| **fable** | 10 / 50 | Solo se opus ha fallito o il problema è eccezionalmente difficile e di lunga durata. Chiedere conferma all'utente prima |
 
-Regole:
-- Parti dal livello più basso plausibile. Se il risultato è incompleto o sbagliato, **sali di un
-  livello** e rilancia con quello che hai imparato — non ripetere lo stesso tentativo.
-- I risultati di un modello economico su temi critici (importi, fisco, dati di produzione) vanno
-  **verificati** dal livello Opus prima di usarli.
-- Brief dei subagent: obiettivo, file da guardare, cosa è già escluso, formato della risposta
-  (breve, con `file:riga`). Il subagent sa solo quello che gli scrivi.
+## Procedura (in 5 secondi, senza scriverla)
 
-## 3. Il modello della sessione
-Non puoi cambiare da solo il modello della sessione principale. Se è sproporzionato rispetto al
-compito (es. sessione Opus per sole letture e formattazioni lunghe, o sessione Haiku/Sonnet per
-una decisione fiscale), dillo a Giuseppe in una riga suggerendo `/model <nome>` (`haiku`,
-`sonnet`, `opus`).
+1. **Classifica** il compito: meccanico → haiku; standard → sonnet; ragionamento critico o errore costoso → opus.
+2. **Rischio**: se un errore avrebbe conseguenze serie (dati in produzione, soldi, contratti, sicurezza) sali di un livello.
+3. **Parti basso, scala solo se serve**: se il risultato è insufficiente, rifai con il livello successivo (un gradino per volta, massimo un tentativo per livello).
+4. **Compiti misti**: spezza. La lettura/ricerca va a haiku, la decisione resta al modello più capace.
+5. **Verifica sui temi critici**: se haiku o sonnet hanno prodotto dati su importi, fisco, contratti o dati in produzione, il risultato va controllato dal livello opus prima di usarlo o consegnarlo.
 
-## 4. Nel Gestionale 81|00
-- Prima di toccare `index.html` (≈940 KB) carica la skill `mappa-codice`; le ricerche larghe
-  vanno a `cerca-codice` (Haiku), mai lettura del file intero.
-- Ogni script SQL che modifica dati passa da `revisore-sql` (Opus) prima della consegna.
-- Le pubblicazioni passano da `/pubblica` (la prova delle pagine è obbligatoria).
+## Regole di risparmio token
+
+- **Non delegare** ciò che richiede ≤ 3 chiamate a strumenti: farlo direttamente costa meno di un subagent.
+- **Delega a haiku** le attività che leggono molto (esplorare il repo, scansionare log, riassumere documenti lunghi): così il contesto principale resta piccolo.
+- **Brief corti e precisi** ai subagent: obiettivo, file da guardare, cosa è già escluso, formato di risposta. Chiedi **solo la conclusione**, non i contenuti dei file.
+- **Parallelizza** subagent indipendenti in un unico messaggio.
+- Leggi solo le parti utili dei file (`Grep`, `offset`/`limit`), non file interi.
+- Risposte all'utente concise; niente riepiloghi ripetuti di cose già dette.
+- Non rifare lavoro già fatto né riaprire decisioni già prese.
+
+## Esempi rapidi
+
+- "Trova dove viene calcolato il totale fattura" → `Agent(model: "haiku", subagent_type: "Explore")`
+- "Correggi questo errore nel form" → sonnet (o direttamente, se breve)
+- "Riprogetta il sistema di sincronizzazione offline" → opus
+- "Rivedi questo contratto di subappalto" → opus
+- "Rinomina queste 20 variabili" → haiku

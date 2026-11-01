@@ -6,6 +6,9 @@ Strumenti per Claude (in `.claude/`): skill `model-router` (a inizio compito: co
 quale modello), `mappa-codice` (dove sta cosa in `index.html` — non leggerlo mai per intero),
 `/pubblica`; agenti `cerca-codice` (ricerche nel codice, economico) e `revisore-sql` (revisione
 obbligatoria degli script SQL sui dati di produzione prima di consegnarli).
+Routing nel Gestionale (oltre alle regole di `model-router`, identica a quella del repo Mobile —
+se la modifichi, allinea anche l'altra): ricerche in `index.html` → agente `cerca-codice`;
+script SQL che modificano dati → agente `revisore-sql`; pubblicazioni → `/pubblica`.
 
 ## Regola: prova in browser PRIMA di ogni pubblicazione
 
