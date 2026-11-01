@@ -3720,7 +3720,7 @@ function nav(pg){
 function render(p){
   if(p==='cantieri'||p==='clienti-gest'){ caricaRifornimentiCloud().then(()=>{ if(p==='cantieri') rCant(); }); }
   if(p==='clienti-gest'){ refLoad(); }
-  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:rAttrezzeria,saldi:rSaldi,riepilogo:rRiepilogo,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,'fatture-fornitori':rFattureFornitori,coerenza:rCoerenza,fisco:window.rFisco}[p]||(() =>{}))();
+  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:()=>rAttrezzeria(),saldi:rSaldi,riepilogo:rRiepilogo,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,'fatture-fornitori':rFattureFornitori,coerenza:rCoerenza,fisco:window.rFisco}[p]||(() =>{}))();
 }
 
 // ============================================================
