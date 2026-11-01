@@ -276,7 +276,7 @@ async function cli2Scheda(){
     <div class="cli2-corpo-sch" id="cli2-pann"></div>`;
   const p=document.getElementById('cli2-pann');
   const commesse = list => list.length ? `<div class="cli2-righe">${list.map(x=>{ const r=_pcRicavo(x); const ft=d.fattByCant[x.id]||0; return `
-      <div class="cli2-riga click" onclick="apriDett('${esc(x.id)}')"><span class="cli2-cod">${esc(x.codice||'')}</span><span class="cli2-tit">${esc(x.nome||'')}${ft?`<div class="cli2-sub">fatturato ${_c2fm(ft)}</div>`:''}</span><span class="num">${r?_c2fm(r):'—'}</span>${_c2statoComm(x)}</div>`; }).join('')}</div>`
+      <div class="cli2-riga click" onclick="(typeof cm2ApriDa==='function'?cm2ApriDa:apriDett)('${esc(x.id)}')"><span class="cli2-cod">${esc(x.codice||'')}</span><span class="cli2-tit">${esc(x.nome||'')}${ft?`<div class="cli2-sub">fatturato ${_c2fm(ft)}</div>`:''}</span><span class="num">${r?_c2fm(r):'—'}</span>${_c2statoComm(x)}</div>`; }).join('')}</div>`
       : '<div class="cli2-righe"><div class="cli2-vuoto">Nessuna commessa per questo cliente.</div></div>';
   const fatture = list => list.length ? `<div class="cli2-righe">${list.map(f=>{ const acc=_pcAcc(f); return `
       <div class="cli2-riga"><span class="cli2-cod">Fatt. ${esc(f.numero||'')}</span><span class="cli2-tit">del ${_c2data(f.data_fattura)}${f.cantiere_nome?` · ${esc(f.cantiere_nome)}`:''}${acc>0&&f.stato!=='pagata'?`<div class="cli2-sub">acconti ${_c2fm(acc)}</div>`:''}</span><span class="num">${_c2fm(f.importo)}</span>${_c2statoFatt(f)}</div>`; }).join('')}</div>`
@@ -395,7 +395,7 @@ function _cli2Soldi(o){
   const ap=(o.aperteList||[]).slice().sort((a,b)=>String(a.scadenza||'').localeCompare(String(b.scadenza||'')));
   const em=o.daEmettereList||[];
   const righeDaF = daF.length ? `<div class="cli2-righe">${daF.map(x=>`
-      <div class="cli2-riga click" onclick="apriDett('${esc(x.c.id)}')"><span class="cli2-cod">${esc(x.c.codice||'')}</span>
+      <div class="cli2-riga click" onclick="(typeof cm2ApriDa==='function'?cm2ApriDa:apriDett)('${esc(x.c.id)}')"><span class="cli2-cod">${esc(x.c.codice||'')}</span>
         <span class="cli2-tit">${esc(x.c.nome||'')}<div class="cli2-sub">${_cli2Motivo(x)}${o.mostraSoc&&x.soc?` · da intestare a <b>${esc(x.soc)}</b>`:''}</div></span>
         <span class="num">${_c2fm(x.r)}</span><span class="cli2-iva">imponibile</span></div>`).join('')}</div>`
     : '<div class="cli2-righe"><div class="cli2-vuoto">Niente da fatturare.</div></div>';

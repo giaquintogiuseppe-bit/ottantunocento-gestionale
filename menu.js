@@ -9,7 +9,7 @@ const MENU_AREE = [
   { id:'cruscotto', nome:'Cruscotto', icona:'cruscotto', schede:[
       { pg:'dash', nome:'Panoramica' }, { pg:'grafici', nome:'Numeri e grafici' } ] },
   { id:'commesse', nome:'Commesse', icona:'commesse', schede:[
-      { pg:'cantieri', nome:'Elenco commesse' }, { pg:'coerenza', nome:'Coerenza' } ],
+      { pg:'commesse', nome:'Commesse' }, { pg:'cantieri', nome:'Elenco classico' }, { pg:'coerenza', nome:'Coerenza' } ],
     nascoste:['dettaglio-cant'] },
   { id:'clienti', nome:'Clienti', icona:'clienti', schede:[
       { pg:'clienti', nome:'Clienti' }, { pg:'fatture', nome:'Fatture e scadenze', dopo:'renderFatture' },

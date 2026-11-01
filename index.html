@@ -1003,6 +1003,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
   <!-- SALDI -->
   <!-- INCASSI CLIENTI -->
+  <!-- COMMESSE (nuova vista: commesse.js) -->
+  <div id="pg-commesse" class="pg"><div id="cm2-root"></div></div>
   <!-- CLIENTI (nuova area: clienti.js) -->
   <div id="pg-clienti" class="pg"><div id="cli2-root"></div></div>
   <!-- CLIENTI -->
@@ -3739,7 +3741,7 @@ function nav(pg){
 function render(p){
   if(p==='cantieri'||p==='clienti-gest'){ caricaRifornimentiCloud().then(()=>{ if(p==='cantieri') rCant(); }); }
   if(p==='clienti-gest'){ refLoad(); }
-  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:()=>rAttrezzeria(),clienti:()=>rClienti(),saldi:rSaldi,riepilogo:rRiepilogo,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,'fatture-fornitori':rFattureFornitori,coerenza:rCoerenza,fisco:window.rFisco}[p]||(() =>{}))();
+  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:()=>rAttrezzeria(),clienti:()=>rClienti(),commesse:()=>rCommesse(),saldi:rSaldi,riepilogo:rRiepilogo,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,'fatture-fornitori':rFattureFornitori,coerenza:rCoerenza,fisco:window.rFisco}[p]||(() =>{}))();
 }
 
 // ============================================================
@@ -7202,8 +7204,11 @@ function _nextComCodice(){
   return 'COM-'+anno+'-'+String(max+1).padStart(3,'0');
 }
 
-// Perno: mantiene allineata la tabella cloud "commesse" (il blob resta la fonte di verità).
-async function syncCommessePerno(){
+// Perno: la tabella cloud "commesse" ora la allinea il DATABASE (trigger trg_commesse_da_blob su
+// gestionale_dati, 01/11/2026), per qualsiasi app salvi. Da qui non si scrive più: una copia
+// scritta dal Gestionale con dati locali non aggiornati poteva sovrascrivere quella giusta.
+async function syncCommessePerno(){ return; }
+async function _syncCommessePernoDismessa(){
   try{
     const rows=(DB.cantieri||[]).map(c=>({
       id:c.id, codice:c.codice||null, nome:c.nome||null,
@@ -7221,7 +7226,8 @@ async function syncCommessePerno(){
     await fetch(SUPABASE_URL+'/rest/v1/commesse',{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(rows)});
   }catch(e){ /* il perno si riallinea al prossimo salvataggio */ }
 }
-async function _commessaDelRemote(id){
+async function _commessaDelRemote(id){ return; }   // ora ci pensa il trigger del database
+async function _commessaDelRemoteDismessa(id){
   try{ await fetch(SUPABASE_URL+'/rest/v1/commesse?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}}); }catch(e){}
 }
 
@@ -14800,8 +14806,9 @@ setTimeout(()=>{
 <!-- ═══════════ fine SELETTORE COMMESSA v1.1 ═══════════ -->
 <!-- ═══════════ QUADRO FISCALE (import Genya + quadro) ═══════════ -->
 <script src="attrezzeria.js?v=20261101"></script>
-<script src="clienti.js?v=20261101c"></script>
-<script src="menu.js?v=20261101"></script>
+<script src="clienti.js?v=20261101d"></script>
+<script src="commesse.js?v=20261101b"></script>
+<script src="menu.js?v=20261101b"></script>
 <script src="fisco.js?v=20261030"></script>
 </body>
 </html>
