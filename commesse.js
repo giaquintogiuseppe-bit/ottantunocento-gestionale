@@ -139,12 +139,13 @@ function cm2Calcola(){
   (_fatture||[]).forEach(f=>{ if(!f.cantiere_id || f.stato==='annullata' || (f.tipo!=='unica'&&f.tipo!=='acconto')) return; (fattBy[f.cantiere_id]=fattBy[f.cantiere_id]||[]).push(f); });
   // squadra: giornate per commessa (le presenze indicano il cantiere per nome)
   const sq={};
+  const nomeDaId={}; (DB.cantieri||[]).forEach(c=>{ if(c&&c.id) nomeDaId[c.id]=c.nome; });
   Object.keys(DB.presenze||{}).forEach(d=>{
     if(d.length!==10) return;
     Object.keys(DB.presenze[d]||{}).forEach(dip=>{
       const visti=new Set();
       (typeof getTurniRaw==='function' ? getTurniRaw(d,dip) : []).forEach(t=>{
-        const k=_m2norm(t.cantiere); if(!k || visti.has(k)) return; visti.add(k);
+        const k=_m2norm((t.cantiereId && nomeDaId[t.cantiereId]) || t.cantiere); if(!k || visti.has(k)) return; visti.add(k);
         const x=(sq[k]=sq[k]||{giorni:new Set(),pg:0,persone:{},ultimo:''});
         x.giorni.add(d); x.pg++; x.persone[dip]=(x.persone[dip]||0)+1; if(d>x.ultimo) x.ultimo=d;
       });

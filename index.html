@@ -5735,7 +5735,7 @@ function getTurniRaw(data, dipId){
   if(pr.turni) return pr.turni; // nuovo formato
   // Vecchio formato → turno singolo virtuale
   if(pr.totale||pr.base||pr.cantiere){
-    return [{id:'legacy_'+data+'_'+dipId, cantiere:pr.cantiere||'', oraI:'08:00', oraF:'18:00', importo:pr.totale||0, notturno:false}];
+    return [{id:'legacy_'+data+'_'+dipId, cantiere:pr.cantiere||'', cantiereId:pr.cantiereId||undefined, oraI:'08:00', oraF:'18:00', importo:pr.totale||0, notturno:false}];
   }
   return [];
 }
@@ -5814,11 +5814,15 @@ function _buildCostiCache(){
     _costiCache[k][key] += parseFloat(val)||0;
     _costiCache[k].totale += parseFloat(val)||0;
   };
+  // Il codice commessa sul turno (cantiereId, messo dal database) vale più del nome scritto:
+  // così rinominare una commessa non stacca i costi. Senza codice si usa il nome, come prima.
+  const _nomeDaId={}; (DB.cantieri||[]).forEach(c=>{ if(c&&c.id) _nomeDaId[c.id]=c.nome; });
+  const _cantDi = t => (t && t.cantiereId && _nomeDaId[t.cantiereId]) || (t && t.cantiere) || '';
   // Personale: legge turni individuali per cantiere (nuovo e vecchio formato)
   Object.keys(DB.presenze||{}).forEach(d=>{
     Object.keys(DB.presenze[d]||{}).forEach(dipId=>{
       getTurniRaw(d, dipId).forEach(t=>{
-        reg(t.cantiere, 'personale', t.importo||0);
+        reg(_cantDi(t), 'personale', t.importo||0);
       });
     });
   });
@@ -5827,7 +5831,7 @@ function _buildCostiCache(){
     Object.keys(DB.presenze[d]||{}).forEach(dipId=>{
       const p=DB.presenze[d][dipId]||{};
       const cants=[];
-      getTurniRaw(d, dipId).forEach(t=>{ const n=(t.cantiere||'').trim(); if(n && !cants.includes(n)) cants.push(n); });
+      getTurniRaw(d, dipId).forEach(t=>{ const n=_cantDi(t).trim(); if(n && !cants.includes(n)) cants.push(n); });
       if(!cants.length) return;
       const fisso=(p.costoFisso!=null && p.costoFisso!=='')?(parseFloat(p.costoFisso)||0):costoFissoAllaData(d);
       quoteEque(fisso, cants.length).forEach((q,i)=>reg(cants[i],'oneri',q));
@@ -14807,7 +14811,7 @@ setTimeout(()=>{
 <!-- ═══════════ QUADRO FISCALE (import Genya + quadro) ═══════════ -->
 <script src="attrezzeria.js?v=20261101"></script>
 <script src="clienti.js?v=20261101d"></script>
-<script src="commesse.js?v=20261101b"></script>
+<script src="commesse.js?v=20261101c"></script>
 <script src="menu.js?v=20261101b"></script>
 <script src="fisco.js?v=20261030"></script>
 </body>
