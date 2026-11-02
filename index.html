@@ -1295,55 +1295,48 @@ tbody td{padding:10px 14px;vertical-align:middle}
   </div>
 
   <div id="pg-fatture" class="pg">
-    <div class="pt">🧾 Fatture & Scadenze</div>
-    <div class="ps">Traccia le fatture (emesse o da emettere) e ricevi gli alert di sollecito. L'emissione resta al commercialista.</div>
-
-    <!-- CRUSCOTTO ALERT -->
-    <div id="fatt-alert" style="margin-bottom:16px"></div>
-
-    <!-- 📥 IMPORT DA GENYA (agente automatico) -->
-    <div class="fc" style="margin-bottom:16px;border:1px solid var(--teal)">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-        <div>
-          <div style="font-weight:600;color:var(--teal)">📥 Importa da ultimo export Genya</div>
-          <div id="genya-info" style="font-size:12px;color:var(--text2);margin-top:3px">Controllo export sullo Storage…</div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <label style="font-size:12px;color:var(--text2)">Anno:
-            <select id="genya-anno" title="Quali fatture importare dall'export Genya" style="font-size:12px;padding:6px 8px;margin-left:4px"></select>
-          </label>
-          <button class="bs" onclick="genyaInfo()" title="Ricontrolla data ultimo export" style="font-size:12px;padding:7px 11px">🔄</button>
-          <button class="bs" onclick="genyaImportClienti()" title="Importa le fatture EMESSE (clienti) dall'ultimo export Genya — con conferma" style="font-size:12px;padding:7px 13px;background:var(--teal);border-color:var(--teal)">📥 Clienti (emesse)</button>
-          <button class="bs" onclick="genyaImportFornitori()" title="Importa le fatture RICEVUTE (fornitori) dall'ultimo export Genya — con conferma" style="font-size:12px;padding:7px 13px;background:var(--teal);border-color:var(--teal)">📥 Fornitori (ricevute)</button>
-        </div>
+   <div class="ft2">
+    <div class="ft2-testa">
+      <div><h2>Fatture e scadenze</h2><p>Le fatture ai clienti: cosa è da incassare, cosa è scaduto, cosa è già pagato. Clicca una riga per aprirla. L'emissione resta su Genya.</p></div>
+      <div class="ft2-az">
+        <input type="file" id="fatt-import-file" accept=".xml,.p7m" multiple style="display:none" onchange="fattImportaXML(this)">
+        <input type="file" id="fatt-wd-file" accept=".xlsx,.xls" style="display:none" onchange="fattImportaWebDesk(this)">
+        <button class="bs" onclick="document.getElementById('fatt-import-file').click()" title="Importa fatture dai file XML/P7M ministeriali (emesse e ricevute)">📁 Importa XML</button>
+        <button class="bs" onclick="document.getElementById('fatt-wd-file').click()" title="Importa l'elenco fatture EMESSE esportato da Web Desk (Excel)">📥 Web Desk</button>
+        <button class="bs" onclick="apriCollegaCommessa()" title="Collega in blocco le fatture (clienti e fornitori) alle commesse">🔗 Collega a commessa</button>
+        <button class="bs" onclick="apriGenyaFatt()" title="Prepara la scheda dati fattura da compilare su Genya (Claude in Chrome). Non invia nulla.">🧾 Prepara per Genya</button>
+        <button class="bp" onclick="fattNuova()">+ Nuova fattura</button>
       </div>
     </div>
 
-    <!-- FILTRI + AZIONI -->
-    <div class="fc">
-      <input type="text" id="fatt-search" placeholder="🔍 Cerca fattura per cliente, cantiere o numero…" oninput="fattRenderLista()" style="width:100%;box-sizing:border-box;background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-size:13px;padding:9px 12px;outline:none;margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="bs fatt-flt on" data-flt="tutte" onclick="fattFiltra('tutte')" style="font-size:12px;padding:6px 12px">Tutte</button>
-          <button class="bs fatt-flt" data-flt="da_emettere" onclick="fattFiltra('da_emettere')" style="font-size:12px;padding:6px 12px">Da emettere</button>
-          <button class="bs fatt-flt" data-flt="emessa" onclick="fattFiltra('emessa')" style="font-size:12px;padding:6px 12px">Emesse (non pagate)</button>
-          <button class="bs fatt-flt" data-flt="parziali" onclick="fattFiltra('parziali')" style="font-size:12px;padding:6px 12px">◐ Parziali</button>
-          <button class="bs fatt-flt" data-flt="scadute" onclick="fattFiltra('scadute')" style="font-size:12px;padding:6px 12px">⚠ Scadute</button>
-          <button class="bs fatt-flt" data-flt="pagata" onclick="fattFiltra('pagata')" style="font-size:12px;padding:6px 12px">Pagate</button>
-          <button class="bs fatt-flt" data-flt="duplicati" onclick="fattFiltra('duplicati')" style="font-size:12px;padding:6px 12px;color:var(--red)">⚠ Duplicati</button>
-        </div>
-        <div style="display:flex;gap:8px">
-          <input type="file" id="fatt-import-file" accept=".xml,.p7m" multiple style="display:none" onchange="fattImportaXML(this)">
-          <button class="bs" onclick="document.getElementById('fatt-import-file').click()" title="Importa fatture dai file XML/P7M ministeriali">📁 Importa da XML</button>
-          <input type="file" id="fatt-wd-file" accept=".xlsx,.xls" style="display:none" onchange="fattImportaWebDesk(this)">
-          <button class="bs" onclick="document.getElementById('fatt-wd-file').click()" title="Importa l'elenco fatture EMESSE esportato da Web Desk (Excel)" style="background:var(--teal);border-color:var(--teal)">📥 Web Desk</button>
-          <button class="bs" onclick="apriCollegaCommessa()" title="Collega in blocco le fatture (clienti e fornitori) alle commesse">🔗 Collega a commessa</button>
-          <button class="bs" onclick="apriGenyaFatt()" title="Prepara la scheda dati fattura da compilare su Genya (Claude in Chrome). Non invia nulla.">🧾 Prepara per Genya</button>
-          <button class="bp" onclick="fattNuova()">+ Nuova fattura</button>
-        </div>
+    <!-- riquadri + da sollecitare (fatture.js) -->
+    <div id="fatt-alert"></div>
+
+    <!-- 📥 IMPORT DA GENYA (export sullo Storage) -->
+    <div class="ft2-pan">
+      <div class="ft2-genya">
+        <span>📥 <b>Ultimo export Genya</b></span>
+        <span id="genya-info" class="t">Controllo export sullo Storage…</span>
+        <span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <label class="t">Anno <select id="genya-anno" title="Quali fatture importare dall'export Genya"></select></label>
+          <button class="bs" onclick="genyaInfo()" title="Ricontrolla data ultimo export">🔄</button>
+          <button class="bs" onclick="genyaImportClienti()" title="Importa le fatture EMESSE (clienti) dall'ultimo export Genya — con conferma">Importa clienti</button>
+          <button class="bs" onclick="genyaImportFornitori()" title="Importa le fatture RICEVUTE (fornitori) dall'ultimo export Genya — con conferma">Importa fornitori</button>
+        </span>
+      </div>
+    </div>
+
+    <!-- FILTRI + ELENCO -->
+    <div class="ft2-pan">
+      <div class="ft2-filtri" id="ft2-chips"></div>
+      <div class="ft2-filtri" style="background:var(--card)">
+        <input type="text" id="fatt-search" class="ft2-cerca" placeholder="🔎 Cerca cliente, commessa, numero o nota…" oninput="fattRenderLista()">
+        <select id="ft2-anno" class="ft2-sel" onchange="ft2Anno(this.value)"></select>
+        <span class="ft2-sub" id="ft2-info"></span>
       </div>
       <div id="fatt-lista"></div>
     </div>
+   </div>
   </div>
 
   <div id="pg-incassi" class="pg">
@@ -4171,6 +4164,7 @@ function fattStatoScadenza(f){
 }
 
 function fattRenderAlert(){
+  if(typeof ft2Alert==='function') return ft2Alert();   // veste nuova (fatture.js)
   const box=document.getElementById('fatt-alert'); if(!box) return;
   const daSollecitare=_fatture.map(f=>({f,s:fattStatoScadenza(f)})).filter(x=>x.s).sort((a,b)=>b.s.urg-a.s.urg||new Date(a.f.scadenza)-new Date(b.f.scadenza));
   if(!daSollecitare.length){ box.innerHTML=''; return; }
@@ -4198,6 +4192,7 @@ function fattFiltra(f){
 }
 
 function fattRenderLista(){
+  if(typeof ft2Lista==='function'){ ft2Lista(); if(typeof ft2Alert==='function') ft2Alert(); return; }   // veste nuova (fatture.js)
   const cont=document.getElementById('fatt-lista'); if(!cont) return;
   let lista=[..._fatture];
   const dupSet=_fattDupSet();
@@ -14736,6 +14731,7 @@ setTimeout(()=>{
 <script src="commesse.js?v=20261101c"></script>
 <script src="personale.js?v=20261101b"></script>
 <script src="presenze.js?v=20261102"></script>
+<script src="fatture.js?v=20261102"></script>
 <script src="fornitori.js?v=20261101b"></script>
 <script src="cruscotto.js?v=20261101"></script>
 <script src="menu.js?v=20261101f"></script>
