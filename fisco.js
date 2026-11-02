@@ -323,6 +323,25 @@ async function bancaUpsert(movs){
   }
   return n;
 }
+// Movimenti "in attesa" (contabilizzato = NO): quando la banca li contabilizza cambia il testo
+// (es. "Pagamento Tramite Pos | Bar…" → "Bar Via… Carta…"), quindi la chiave cambia e il filtro
+// anti-doppione non li riconosce. Il file nuovo è la versione aggiornata del suo periodo: i movimenti
+// in attesa già salvati in quelle date, che nel file non ci sono più con la stessa chiave, si tolgono.
+// Mai quelli abbinati a mano a una fattura.
+async function bancaSostituisciInAttesa(movs){
+  const date=movs.map(m=>m.data).filter(Boolean).sort(); if(!date.length) return 0;
+  const da=date[0], a=date[date.length-1], nuove=new Set(movs.map(m=>m.chiave));
+  const url=SUPABASE_URL+'/rest/v1/fisco_banca_movimenti';
+  const r=await fetch(url+'?select=id,chiave,stato_ricon,fattura_id&contabilizzato=eq.false&data=gte.'+da+'&data=lte.'+a,{headers:FH()});
+  if(!r.ok) throw new Error('movimenti in attesa HTTP '+r.status);
+  const vecchi=(await r.json()).filter(m=>!nuove.has(m.chiave) && m.stato_ricon!=='manuale' && !m.fattura_id);
+  for(let i=0;i<vecchi.length;i+=80){
+    const ids=vecchi.slice(i,i+80).map(m=>m.id).join(',');
+    const d=await fetch(url+'?id=in.('+ids+')',{method:'DELETE',headers:Object.assign({},FH(),{Prefer:'return=minimal'})});
+    if(!d.ok) throw new Error('sostituzione movimenti in attesa HTTP '+d.status);
+  }
+  return vecchi.length;
+}
 async function bancaImportFile(input){
   const file=input.files&&input.files[0]; if(!file) return; const stato=document.getElementById('banca-imp-stato');
   stato.textContent='⏳ Leggo '+file.name+'…';
@@ -331,8 +350,9 @@ async function bancaImportFile(input){
     const movs=bancaParseEC(aoa); if(!movs.length){ stato.textContent='⚠ Nessun movimento riconosciuto.'; input.value=''; return; }
     const ent=movs.filter(m=>m.segno==='entrata').length, usc=movs.length-ent;
     stato.textContent='⏳ Salvo '+movs.length+' movimenti ('+ent+' incassi, '+usc+' uscite)…';
+    const sost=await bancaSostituisciInAttesa(movs);
     const n=await bancaUpsert(movs); BANCA.loaded=false; await bancaCarica();
-    stato.textContent='✅ Importati '+n+' movimenti ('+ent+' incassi, '+usc+' uscite). Reimportare lo stesso periodo non crea doppioni.'; input.value='';
+    stato.textContent='✅ Importati '+n+' movimenti ('+ent+' incassi, '+usc+' uscite)'+(sost?' · '+sost+' movimenti "in attesa" sostituiti dalla versione contabilizzata':'')+'. Reimportare lo stesso periodo non crea doppioni.'; input.value='';
     bancaRender();
   }catch(e){ stato.textContent='❌ Errore: '+(e.message||e); input.value=''; }
 }
@@ -577,7 +597,7 @@ async function bancaScollega(id){
   }catch(e){ alert('Errore: '+(e.message||e)); }
 }
 // esponi le funzioni usate dagli onclick/nav
-window.fiscoVista=fiscoVista; window.bancaImportFile=bancaImportFile; window.bancaRender=bancaRender; window.bancaFiltra=bancaFiltra; window.bancaRicarica=bancaRicarica; window.bancaSvuota=bancaSvuota;
+window.fiscoVista=fiscoVista; window.bancaImportFile=bancaImportFile; window.bancaSostituisciInAttesa=bancaSostituisciInAttesa; window.bancaRender=bancaRender; window.bancaFiltra=bancaFiltra; window.bancaRicarica=bancaRicarica; window.bancaSvuota=bancaSvuota;
 window.bancaApriLink=bancaApriLink; window.bancaRenderLink=bancaRenderLink; window.bancaCollega=bancaCollega; window.bancaScollega=bancaScollega;
 window.confrontoVista=confrontoVista; window.confrontoFiltra=confrontoFiltra; window.confrontoRender=confrontoRender; window.confrontoRicarica=confrontoRicarica;
 window.fiscoImportFile=fiscoImportFile; window.rFisco=rFisco; window.fiscoRender=fiscoRender;
