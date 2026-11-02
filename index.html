@@ -1125,6 +1125,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <button id="fisco-tab-doc" class="pf-flt on" onclick="fiscoVista('doc')">📄 Documenti</button>
       <button id="fisco-tab-banca" class="pf-flt" onclick="fiscoVista('banca')">🏦 Banca &amp; riconciliazione</button>
       <button id="fisco-tab-confronto" class="pf-flt" onclick="fiscoVista('confronto')">⚖️ Confronto clienti/fornitori</button>
+      <button id="fisco-tab-quad" class="pf-flt" onclick="fiscoVista('quad')">🧮 Quadratura</button>
     </div>
 
     <div id="fisco-view-doc">
@@ -1213,6 +1214,20 @@ tbody td{padding:10px 14px;vertical-align:middle}
       </div>
       <div class="sg" id="conf-kpi"></div>
       <div id="conf-list"></div>
+    </div>
+
+    <!-- QUADRATURA: Genya ↔ gestionale ↔ banca, documento per documento (quadratura.js) -->
+    <div id="fisco-view-quad" class="qd" style="display:none">
+      <div class="qd-intro">Ogni fattura di Genya confrontata con il gestionale (Clienti → Fatture e scadenze, Fornitori → Fatture fornitori) e con i movimenti della banca. Da qui si aggiungono le fatture mancanti e si registrano nel gestionale gli incassi e i pagamenti visti in banca.</div>
+      <div class="qd-barra">
+        <button class="pf-flt on" data-qd-lato="cli" onclick="quadLato('cli')">👤 Clienti (emesse)</button>
+        <button class="pf-flt" data-qd-lato="forn" onclick="quadLato('forn')">🏭 Fornitori (ricevute)</button>
+        <input id="qd-q" class="qd-cerca" oninput="quadRender()" placeholder="🔎 Cerca numero, cliente/fornitore, oggetto…">
+        <select id="qd-anno" class="qd-sel" onchange="quadRender()"></select>
+        <button class="bs" style="font-size:12px;padding:7px 12px" onclick="quadApri(true)" title="Ricarica Genya, banca e gestionale">🔄 Ricarica</button>
+      </div>
+      <div class="qd-tot" id="qd-tot"></div>
+      <div id="qd-corpo"></div>
     </div>
   </div>
 
@@ -14724,6 +14739,7 @@ setTimeout(()=>{
 <script src="fornitori.js?v=20261101b"></script>
 <script src="cruscotto.js?v=20261101"></script>
 <script src="menu.js?v=20261101f"></script>
-<script src="fisco.js?v=20261102b"></script>
+<script src="fisco.js?v=20261102c"></script>
+<script src="quadratura.js?v=20261102"></script>
 </body>
 </html>

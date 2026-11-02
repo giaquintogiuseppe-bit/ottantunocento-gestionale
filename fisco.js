@@ -377,8 +377,18 @@ async function fiscoVista(v){
   document.getElementById('fisco-tab-doc').classList.toggle('on',v==='doc');
   document.getElementById('fisco-tab-banca').classList.toggle('on',v==='banca');
   const ct=document.getElementById('fisco-tab-confronto'); if(ct) ct.classList.toggle('on',v==='confronto');
+  const qv=document.getElementById('fisco-view-quad'); if(qv) qv.style.display=(v==='quad')?'':'none';
+  const qt=document.getElementById('fisco-tab-quad'); if(qt) qt.classList.toggle('on',v==='quad');
   if(v==='banca'){ if(!FISCO.loaded) await fiscoCarica(); if(!BANCA.loaded) await bancaCarica(); bancaRender(); }
   if(v==='confronto'){ await confrontoCarica(); confrontoRender(); }
+  if(v==='quad' && typeof quadApri==='function'){ await quadApri(); }
+}
+// Dati per la Quadratura (quadratura.js): documenti Genya, movimenti banca e abbinamenti banca→fattura
+async function fiscoQuadDati(ricarica){
+  if(ricarica){ FISCO.loaded=false; BANCA.loaded=false; bancaInvalida(); }
+  if(!FISCO.loaded) await fiscoCarica();
+  if(!BANCA.loaded) await bancaCarica();
+  return { rows:FISCO.rows, mov:BANCA.rows, R:bancaRiconcilia() };
 }
 // ═══════════ CONFRONTO: Genya (fiscale) ↔ gestionale (posizioni) ↔ banca ═══════════
 const CONF={sub:'cli', flt:'tutti'};
@@ -606,7 +616,7 @@ async function bancaScollega(id){
 window.fiscoVista=fiscoVista; window.bancaImportFile=bancaImportFile; window.bancaSostituisciInAttesa=bancaSostituisciInAttesa; window.bancaRender=bancaRender; window.bancaFiltra=bancaFiltra; window.bancaRicarica=bancaRicarica; window.bancaSvuota=bancaSvuota;
 window.bancaApriLink=bancaApriLink; window.bancaRenderLink=bancaRenderLink; window.bancaCollega=bancaCollega; window.bancaScollega=bancaScollega;
 window.confrontoVista=confrontoVista; window.confrontoFiltra=confrontoFiltra; window.confrontoRender=confrontoRender; window.confrontoRicarica=confrontoRicarica;
-window.fiscoImportFile=fiscoImportFile; window.fiscoParseGenya=fiscoParseGenya; window.rFisco=rFisco; window.fiscoRender=fiscoRender;
+window.fiscoImportFile=fiscoImportFile; window.fiscoParseGenya=fiscoParseGenya; window.fiscoQuadDati=fiscoQuadDati; window.rFisco=rFisco; window.fiscoRender=fiscoRender;
 window.fiscoFiltra=fiscoFiltra; window.fiscoRicarica=fiscoRicarica; window.fiscoDettaglio=fiscoDettaglio;
 window.fiscoSvuotaTutto=fiscoSvuotaTutto; window.fiscoSFiltra=fiscoSFiltra;
 })();
