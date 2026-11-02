@@ -23,6 +23,12 @@ function fiscoParseGenya(aoa,ctx){
     pu:ix('Prezzo Un.'),ptot:ix('Prezzo Tot.'),civa:ix('Codice IVA'),iva:ix('IVA'),triga:ix('Tipo riga'),
     tot:ix('Totale (val)'),imp:ix('Imponibile (val)'),imposta:ix('Imposta (val)'),
     stato:ix('Stato'),fepa:ix('Fepa o B2b'),split:ix('Split') };
+  // Pulsante sbagliato? L'export Genya delle EMESSE ha la colonna "Cliente", quello delle RICEVUTE
+  // "Fornitore" (e "Numero Rif. fornitore"). Importare con il pulsante sbagliato crea documenti finti
+  // (es. 02/11/2026: ricevute caricate come emesse → ogni costo comparso due volte).
+  const fileRicevute=(C.forn>=0||C.rifN>=0)&&C.cli<0, fileEmesse=C.cli>=0&&C.forn<0&&C.rifN<0;
+  if(ctx==='emesse' && fileRicevute) throw new Error('questo file è di documenti RICEVUTI (ha la colonna Fornitore): usa il pulsante delle fatture ricevute o delle note di credito ricevute. Nulla è stato importato.');
+  if(ctx==='ricevute' && fileEmesse) throw new Error('questo file è di documenti EMESSI (ha la colonna Cliente): usa il pulsante delle fatture emesse o delle note di credito emesse. Nulla è stato importato.');
   const docs=new Map();
   for(let r=h+1;r<aoa.length;r++){
     const row=aoa[r]; if(!row||row[C.num]==null||String(row[C.num]).trim()==='') continue;
@@ -600,7 +606,7 @@ async function bancaScollega(id){
 window.fiscoVista=fiscoVista; window.bancaImportFile=bancaImportFile; window.bancaSostituisciInAttesa=bancaSostituisciInAttesa; window.bancaRender=bancaRender; window.bancaFiltra=bancaFiltra; window.bancaRicarica=bancaRicarica; window.bancaSvuota=bancaSvuota;
 window.bancaApriLink=bancaApriLink; window.bancaRenderLink=bancaRenderLink; window.bancaCollega=bancaCollega; window.bancaScollega=bancaScollega;
 window.confrontoVista=confrontoVista; window.confrontoFiltra=confrontoFiltra; window.confrontoRender=confrontoRender; window.confrontoRicarica=confrontoRicarica;
-window.fiscoImportFile=fiscoImportFile; window.rFisco=rFisco; window.fiscoRender=fiscoRender;
+window.fiscoImportFile=fiscoImportFile; window.fiscoParseGenya=fiscoParseGenya; window.rFisco=rFisco; window.fiscoRender=fiscoRender;
 window.fiscoFiltra=fiscoFiltra; window.fiscoRicarica=fiscoRicarica; window.fiscoDettaglio=fiscoDettaglio;
 window.fiscoSvuotaTutto=fiscoSvuotaTutto; window.fiscoSFiltra=fiscoSFiltra;
 })();
