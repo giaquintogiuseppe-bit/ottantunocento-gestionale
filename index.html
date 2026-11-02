@@ -665,81 +665,99 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
   <!-- PRESENZE (storico + modifica inline) -->
   <div id="pg-presenze" class="pg">
-    <div class="pt">Presenze</div>
-    <div style="background:var(--card);border:1px solid var(--brd);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <span style="font-size:13px">⚙️ <b>Oneri giornalieri</b> (contributi e spese per giornata retribuita):</span>
-      <span class="mn" id="oneri-attuale" style="font-weight:800;color:var(--gold)"></span>
-      <button class="bs" style="font-size:12px;padding:5px 12px" onclick="apriOneri()">Gestisci</button>
-      <span style="font-size:11px;color:var(--text2)">divisi in parti uguali tra i cantieri del giorno · le giornate senza cantiere restano fuori</span>
+   <div class="pr2">
+    <div class="pr2-testa">
+      <div><h2>Presenze</h2><p>Chi ha lavorato, dove e per quanto: un giorno alla volta. Le modifiche si salvano da sole.</p></div>
+      <div class="pr2-az">
+        <button class="bs" onclick="openExportModal()" title="Export Excel unico: scegli periodo e fogli">📊 Esporta Excel</button>
+        <button class="bp" onclick="nav('nuova-giornata')">+ Nuova giornata</button>
+      </div>
     </div>
-    <!-- Inbox presenze dal campo (app Planning del responsabile di campo) -->
-    <div id="pres-campo-box" style="background:rgba(0,180,166,.06);border:1px solid rgba(0,180,166,.28);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <span style="font-size:13px">📨 <b>Presenze dal campo</b> — chi è presente / turno intero o parziale, inviate dal responsabile di campo</span>
-      <span id="pres-campo-badge" style="display:none;background:var(--gold);color:#000;font-size:12px;font-weight:800;border-radius:10px;padding:2px 9px">0</span>
-      <button class="bs" style="font-size:12px;padding:5px 12px" onclick="apriPresenzeCampo()">Rivedi e applica →</button>
+    <div class="pr2-pan">
+      <div class="pr2-giorno">
+        <button class="pr2-frec" onclick="presNav(-1)" title="Giorno precedente">◀</button>
+        <input type="date" id="pres-date" class="pr2-data" onchange="loadPres();rPresHist()" aria-label="Data">
+        <button class="pr2-frec" onclick="presNav(1)" title="Giorno successivo">▶</button>
+        <button class="bs" style="font-size:12px;padding:6px 12px" onclick="pr2Oggi()">Oggi</button>
+        <span class="pr2-giorno-tit" id="pr2-giorno-tit"></span>
+        <span class="pr2-info" id="pres-info"></span>
+      </div>
+      <div class="pr2-sett" id="pr2-sett"></div>
     </div>
-    <div class="ps">Seleziona una data per visualizzare e modificare le presenze</div>
-    <div class="fc">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-        <!-- frecce navigazione -->
-        <button onclick="presNav(-1)" style="background:var(--card);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-size:18px;width:36px;height:36px;cursor:pointer;margin-top:20px;flex-shrink:0" title="Giorno precedente">◀</button>
-        <div>
-          <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Data (qualsiasi data passata o futura)</label>
-          <input type="date" id="pres-date" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:8px 12px;outline:none" onchange="loadPres()">
-        </div>
-        <button onclick="presNav(1)" style="background:var(--card);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-size:18px;width:36px;height:36px;cursor:pointer;margin-top:20px;flex-shrink:0" title="Giorno successivo">▶</button>
-        <div style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap">
-          <button class="bp" onclick="savePres()">💾 Salva giornata</button>
-          <button class="bs" onclick="nav('nuova-giornata')">➕ Nuova giornata</button>
-          <button class="bs" onclick="openAddDipModal()" title="Aggiunge un dipendente già in rubrica a questa giornata">👤 Aggiungi dipendente</button>
-          <button class="bs" onclick="openModal('modal-pers')" title="Crea una nuova persona e aggiungila subito a questa giornata">🆕 Nuova persona</button>
-          <button class="bs" onclick="openExportModal()" style="background:var(--green);color:#000" title="Export Excel unico: scegli periodo e fogli">📊 Export Excel</button>
+    <div class="pr2-tot" id="pr2-tot"></div>
+    <div class="pr2-avvisi">
+      <!-- Inbox presenze dal campo (app Planning del responsabile di campo) -->
+      <div class="pr2-avv campo" id="pres-campo-box">
+        <span>📨 <b>Presenze dal campo</b> <span class="t">inviate dal responsabile di campo</span></span>
+        <span id="pres-campo-badge" class="pr2-badge" style="display:none">0</span>
+        <button class="bs" onclick="apriPresenzeCampo()">Rivedi e applica →</button>
+      </div>
+      <div class="pr2-avv">
+        <span>⚙️ <b>Oneri giornalieri</b> <span class="mn" id="oneri-attuale" style="font-weight:700;color:var(--gold)"></span></span>
+        <span class="t" style="font-size:12px">divisi tra le commesse del giorno</span>
+        <button class="bs" onclick="apriOneri()">Gestisci</button>
+      </div>
+    </div>
+    <div class="pr2-pan">
+      <div class="pr2-pan-h">
+        <span class="pr2-h">Chi ha lavorato</span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <button class="pr2-chip on" data-pr2-vista="persona" onclick="pr2Vista('persona')">Per persona</button>
+          <button class="pr2-chip" data-pr2-vista="commessa" onclick="pr2Vista('commessa')">Per commessa</button>
+          <button class="bs" style="font-size:12px;padding:5px 11px" onclick="openAddDipModal()" title="Aggiunge più persone insieme">👥 Aggiungi più persone</button>
         </div>
       </div>
-      <div id="pres-info" style="font-size:12px;color:var(--text2);margin-bottom:12px;font-family:'IBM Plex Mono',monospace"></div>
-      <!-- GRIGLIA PERSONE con edit inline -->
-      <div class="pg-grid" id="pres-grid"></div>
+      <!-- elenco delle persone con i loro turni (lo disegna presenze.js) -->
+      <div id="pres-grid"></div>
+      <div class="pr2-assenti" id="pr2-assenti"></div>
     </div>
     <!-- storico -->
-    <div class="tc">
-      <div class="th"><h3>Storico giornate</h3><input class="ts" placeholder="Cerca..." oninput="filterT('pres-hist',this.value)"></div>
-      <div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Cantieri</th><th>Presenti</th><th>Maturato</th><th></th></tr></thead><tbody id="pres-hist"></tbody></table></div>
+    <div class="pr2-pan">
+      <div class="pr2-pan-h"><span class="pr2-h">Storico giornate</span><input class="pr2-cerca" placeholder="Cerca data, commessa o persona…" oninput="filterT('pres-hist',this.value)"></div>
+      <div class="pr2-tw"><table class="pr2-t"><thead><tr><th>Data</th><th>Commesse</th><th>Presenti</th><th style="text-align:right">Maturato</th><th></th></tr></thead><tbody id="pres-hist"></tbody></table></div>
     </div>
+   </div>
   </div>
 
   <!-- NUOVA GIORNATA (form aggiunta) -->
   <div id="pg-nuova-giornata" class="pg">
-    <div class="pt">Nuova Giornata</div>
-    <div class="ps">Aggiungi una giornata di lavoro con compensi per ogni persona</div>
-    <div class="fc">
-      <h3>Dati giornata</h3>
-      <div class="fg">
-        <div><label>Data</label><input type="date" id="ng-data" onchange="ngDataChanged()"></div>
-        <div><label>Cantiere principale</label><select id="ng-cantiere" class="cantiere-select" data-sc="nome" data-sc-data="#ng-data" onchange="ngCantierePrincipale(this)" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 12px;width:100%;outline:none"><option value="">— Nessun cantiere —</option></select></div>
-      </div>
-      <div style="margin-top:14px;padding:14px;background:rgba(240,180,41,.06);border:1px solid rgba(240,180,41,.25);border-radius:10px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-          <div style="font-size:13px;font-weight:700;color:var(--gold)">⏱ Importa timbrature (bot Telegram)</div>
-          <button class="bp" onclick="importaTimbrature()" style="font-size:12px;padding:7px 14px">Importa nel giorno scelto ↑</button>
+   <div class="pr2">
+    <div class="pr2-testa">
+      <div><h2>Nuova giornata</h2><p>Spunta chi ha lavorato, scegli commessa, orario e compenso, poi salva: la giornata compare in Presenze. Chi c'è già resta com'è.</p></div>
+      <div class="pr2-az"><button class="bs" onclick="nav('presenze')">← Torna a Presenze</button></div>
+    </div>
+    <div class="ng2-passi">
+      <div class="pr2-pan" style="margin-bottom:0">
+        <div class="pr2-pan-h"><span class="pr2-h">1 · Giorno e commessa</span></div>
+        <div class="ng2-campi">
+          <div><label for="ng-data">Data</label><input type="date" id="ng-data" onchange="ngDataChanged()"></div>
+          <div><label>Commessa principale</label><select id="ng-cantiere" class="cantiere-select" data-sc="nome" data-sc-data="#ng-data" onchange="ngCantierePrincipale(this)"><option value="">— Nessuna commessa —</option></select></div>
+          <div class="ng2-orario">
+            <div><label for="ng-oraI">Orario standard: dalle</label><input type="time" id="ng-oraI" value="08:00" onchange="ng2Orario()"></div>
+            <div><label for="ng-oraF">alle</label><input type="time" id="ng-oraF" value="18:00" onchange="ng2Orario()"></div>
+          </div>
         </div>
-        <div style="font-size:11px;color:var(--text2);margin-top:6px">Legge ingressi e uscite registrati con /timbra e li trasforma in turni con gli orari veri (importo da compilare). Mai distruttivo: i turni esistenti restano.</div>
       </div>
-      <div style="margin-top:14px;padding:14px;background:rgba(154,122,31,.06);border:1px solid rgba(154,122,31,.2);border-radius:10px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <div style="font-size:13px;font-weight:700;color:var(--teal)">📅 Importa turni dal Planning</div>
-          <button class="bp" onclick="apriModalImportaPlanning()" style="font-size:12px;padding:7px 14px">Seleziona giorni →</button>
+      <div class="pr2-pan" style="margin-bottom:0">
+        <div class="pr2-pan-h"><span class="pr2-h">Oppure importa</span></div>
+        <div class="ng2-imp">
+          <div class="ng2-imp-v"><div><b>⏱ Timbrature del giorno</b><div>Ingressi e uscite dal bot Telegram, con gli orari veri. I turni già presenti restano.</div></div>
+            <button class="bp" onclick="importaTimbrature()">Importa</button></div>
+          <div class="ng2-imp-v"><div><b>📅 Turni dal Planning</b><div>Il programma lavori già pianificato. Non modifica i dati esistenti.</div></div>
+            <button class="bp" onclick="apriModalImportaPlanning()">Scegli i giorni</button></div>
         </div>
-        <div style="font-size:11px;color:var(--text2)">Importa il programma lavori dal Planning in un click — i dati esistenti non vengono mai modificati.</div>
       </div>
     </div>
-    <div class="fc">
-      <h3>Compensi per persona</h3>
+    <div class="pr2-pan" style="margin-top:14px">
+      <div class="pr2-pan-h"><span class="pr2-h">2 · Chi ha lavorato</span>
+        <div style="display:flex;gap:6px"><button class="pr2-chip" onclick="ng2Tutti(true)">Segna tutti</button><button class="pr2-chip" onclick="ng2Tutti(false)">Nessuno</button></div></div>
       <div id="ng-persone-list"></div>
-      <div class="fa" style="margin-top:16px">
-        <button class="bp" onclick="saveNuovaGiornata()">💾 Salva giornata</button>
-        <button class="bs" onclick="nav('presenze')">Annulla</button>
-      </div>
     </div>
+    <div class="ng2-piede">
+      <div><small id="ng2-n">Nessuno segnato</small><span class="num" id="ng-tot">€ 0,00</span></div>
+      <div style="display:flex;gap:8px"><button class="bs" onclick="nav('presenze')">Annulla</button><button class="bp" onclick="saveNuovaGiornata()">💾 Salva giornata</button></div>
+    </div>
+   </div>
   </div>
 
   <!-- CANTIERI -->
@@ -4698,6 +4716,7 @@ function loadPres(){
 
   document.getElementById('pres-info').textContent=
     d?`${fdate(d)} — ${Object.keys(stato).length} presenti — Maturato: ${fmt(totGiornata)}`:'Seleziona una data';
+  if(typeof pr2Disegna==='function'){ pr2Disegna(d); return; }   // veste nuova (presenze.js)
 
   const cantOpzioni=`<option value="">— Nessun cantiere —</option>`+
     _optCantByNome('')+
@@ -4827,8 +4846,9 @@ function updateTurno(pid,ti,field,val){
   },0);
   const info=document.getElementById('pres-info');
   if(info)info.textContent=`${fdate(d)} — ${Object.keys(DB.presenze[d]).length} presenti — Maturato: ${fmt(totG)}`;
-  // Ricarica solo se cambia notturno (per mostrare/nascondere il badge)
-  if(field==='notturno') loadPres();
+  if(typeof pr2Aggiorna==='function') pr2Aggiorna(d);   // numeri del giorno e settimana (presenze.js)
+  // Ricarica se cambia notturno (avviso) o la commessa (evidenzia i turni senza commessa)
+  if(field==='notturno' || (field==='cantiere' && typeof pr2Disegna==='function')) loadPres();
 }
 
 function _aggiornaTotalePres(d,pid){
@@ -4936,12 +4956,12 @@ function rPresHist(){
       Object.keys(st).flatMap(dipId=>getTurniRaw(d,dipId).map(t=>t.cantiere).filter(Boolean))
     )].join(', ');
     const tot=Object.keys(st).reduce((a,dipId)=>a+totaleRegistrato(d,dipId),0);
-    return`<tr>
+    return`<tr class="${d===gv('pres-date')?'on':''}">
       <td class="mn" style="cursor:pointer" onclick="presJump('${d}')">${fdate(d)}</td>
       <td style="font-size:11px">${cants||'—'}</td>
       <td style="font-size:11px;color:var(--text2)">${prs||'—'}</td>
-      <td class="mn or">${tot?fmt(tot):'—'}</td>
-      <td><button class="bd" onclick="delGiornata('${d}')">✕</button></td>
+      <td class="mn or" style="text-align:right">${tot?fmt(tot):'—'}</td>
+      <td style="text-align:right"><button class="bd" onclick="delGiornata('${d}')" title="Elimina la giornata">✕</button></td>
     </tr>`;
   }).join('')||'<tr><td colspan="5" class="empty">Nessuna giornata registrata</td></tr>';
 }
@@ -5419,6 +5439,7 @@ function rNuovaGiornata(){
     if(cur) cantSel.value=cur;
   }
 
+  if(typeof ng2Righe==='function' && ng2Righe()){ ngCalcTot(); return; }   // veste nuova (presenze.js)
   document.getElementById('ng-persone-list').innerHTML=`
     <table style="width:100%">
       <thead><tr>
@@ -5465,11 +5486,13 @@ function ngCantierePrincipale(selectEl){
 
 function ngToggle(pid){
   const cb=document.getElementById('ngc-'+pid);
-  const flds=['ngcant-','ngbase-','ngstr-','ngnote-'];
+  const flds=['ngcant-','ngbase-','ngstr-','ngnote-','ngi-','ngf-'];
   flds.forEach(pref=>{
     const el=document.getElementById(pref+pid);
-    if(el){el.disabled=!cb.checked;el.style.opacity=cb.checked?'1':'.4';}
+    if(el){el.disabled=!cb.checked; if(!el.classList.contains('campo')) el.style.opacity=cb.checked?'1':'.4';}
   });
+  const riga=document.getElementById('ngr-'+pid); if(riga) riga.classList.toggle('on', cb.checked);
+  if(typeof ng2Piede==='function') ng2Piede();
   if(cb.checked){
     const cant=gv('ng-cantiere');
     const ce=document.getElementById('ngcant-'+pid);
@@ -5521,7 +5544,8 @@ function saveNuovaGiornata(){
         delete pr.cantiere; delete pr.base; delete pr.straord;
       }
       const giaStesso=pr.turni.some(t=>(t.cantiere||'')===cantP && parseFloat(t.importo||0)===base+straord);
-      if(!giaStesso) pr.turni.push({id:uid(),cantiere:cantP,oraI:'08:00',oraF:'18:00',importo:base+straord,notturno:false});
+      const oraIP=gv('ngi-'+p.id)||'08:00', oraFP=gv('ngf-'+p.id)||'18:00';
+      if(!giaStesso) pr.turni.push({id:uid(),cantiere:cantP,oraI:oraIP,oraF:oraFP,importo:base+straord,notturno:false});
       if(notaP) pr.note=notaP;
       pr.totale=pr.turni.reduce((a,t)=>a+parseFloat(t.importo||0),0);
       count++;
@@ -14696,6 +14720,7 @@ setTimeout(()=>{
 <script src="clienti.js?v=20261101e"></script>
 <script src="commesse.js?v=20261101c"></script>
 <script src="personale.js?v=20261101b"></script>
+<script src="presenze.js?v=20261102"></script>
 <script src="fornitori.js?v=20261101b"></script>
 <script src="cruscotto.js?v=20261101"></script>
 <script src="menu.js?v=20261101f"></script>
