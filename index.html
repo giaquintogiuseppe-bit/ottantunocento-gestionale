@@ -4392,17 +4392,25 @@ async function _fattDelete(id){
 // Possibili doppioni: stesso cliente + stesso numero (base), oppure stesso
 // cliente + stesso importo + stessa data. Flag per revisione, non auto-cancella.
 function _fattDupSet(){
+  // Doppione = stesso cliente e stesso numero (nello stesso anno), oppure stesso cliente, importo e data
+  // quando ad almeno una delle due MANCA il numero. Due fatture con numeri diversi non sono doppioni
+  // (es. rate uguali dello stesso cliente nello stesso giorno: Juvecaserta 253 e 254, 02/11/2026).
   const base=s=>String(s||'').split('/')[0].replace(/[^a-z0-9]/gi,'').toLowerCase();
+  const anno=f=>(String(f.numero||'').split('/')[1]||'').trim() || String(f.data_fattura||'').slice(0,4);
   const byNum={}, byImp={}, s=new Set();
   (_fatture||[]).forEach(f=>{
     if(f.stato==='annullata'||(f.tipo||'')==='nota di credito') return;   // le NC/annullate non sono doppioni
     const cli=_nomeSort(f.cliente), nb=base(f.numero);   // nome indipendente dall'ordine delle parole
-    if(cli && nb){ const k=cli+'|'+nb; (byNum[k]=byNum[k]||[]).push(f.id); }
+    if(cli && nb){ const k=cli+'|'+nb+'|'+anno(f); (byNum[k]=byNum[k]||[]).push(f.id); }
     const k2=cli+'|'+(parseFloat(f.importo)||0).toFixed(2)+'|'+(f.data_fattura||'');
-    (byImp[k2]=byImp[k2]||[]).push(f.id);
+    (byImp[k2]=byImp[k2]||[]).push({id:f.id, nb});
   });
   Object.values(byNum).forEach(ids=>{ if(ids.length>1) ids.forEach(i=>s.add(String(i))); });
-  Object.values(byImp).forEach(ids=>{ if(ids.length>1) ids.forEach(i=>s.add(String(i))); });
+  Object.values(byImp).forEach(arr=>{
+    if(arr.length<2) return;
+    const senzaNumero=arr.filter(x=>!x.nb);
+    if(senzaNumero.length) arr.forEach(x=>s.add(String(x.id)));   // una senza numero accanto a un'altra uguale: da controllare
+  });
   return s;
 }
 // Elimina rapido di una fattura per id (dalla lista, per i doppioni)
