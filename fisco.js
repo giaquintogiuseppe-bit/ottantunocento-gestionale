@@ -479,6 +479,14 @@ function bancaRiconcilia(){ if(_riconCache) return _riconCache; _riconCache=_ban
 function _bancaRiconciliaCalc(){
   const emesse=FISCO.rows.filter(f=>f.tipo==='emessa'), ricevute=FISCO.rows.filter(f=>f.tipo==='ricevuta');
   const byNum={emessa:{},ricevuta:{}}; emesse.forEach(f=>{(byNum.emessa[String(f.numero)]=byNum.emessa[String(f.numero)]||[]).push(f);}); ricevute.forEach(f=>{(byNum.ricevuta[String(f.numero)]=byNum.ricevuta[String(f.numero)]||[]).push(f);});
+  // Numeri "puliti" della fattura: in "FPR 82/26" il bonifico cita "82", in "0005526" cita "5526".
+  // Valgono SOLO se anche il nome della controparte del movimento corrisponde (vedi PASSO 1).
+  const byTok={emessa:{},ricevuta:{}};
+  const _tok=f=>{ const out=new Set(); const n=String(f.numero||''); const yy=f.anno?String(f.anno%100):null;
+    (n.match(/\d+/g)||[]).forEach((t,i,arr)=>{ const v=String(parseInt(t,10)); if(!(parseInt(v,10)>0)) return;
+      if(f.anno && (v===String(f.anno) || (i>0 && v===yy && arr.length>1))) return;   // l'anno non è il numero
+      out.add(v); }); return out; };
+  emesse.forEach(f=>_tok(f).forEach(t=>{(byTok.emessa[t]=byTok.emessa[t]||[]).push(f);})); ricevute.forEach(f=>_tok(f).forEach(t=>{(byTok.ricevuta[t]=byTok.ricevuta[t]||[]).push(f);}));
   const attr={}; // fattura.id -> importo attribuito
   const movInfo={}; // mov.chiave -> {fatt:[{f,imp}], tipo:'num'|'nome'|null}
   const add=(f,imp)=>{ attr[f.id]=(attr[f.id]||0)+imp; };
@@ -491,7 +499,10 @@ function _bancaRiconciliaCalc(){
     if(!rif.length) return;
     const cp=_bCp(m);
     const targets=[]; const seen=new Set();
-    rif.forEach(n=>{ let cands=(byNum[pool][n]||[]).filter(f=>_bDateOk(f,m)); if(!cands.length) return;
+    rif.forEach(n=>{ let cands=(byNum[pool][n]||[]).filter(f=>_bDateOk(f,m));
+      // "82" ↔ "FPR 82/26" dello STESSO fornitore: vale se il numero esatto non c'è, o se c'è ma è di un'altra controparte
+      if(!cands.some(f=>_bNomeMatch(f.controparte_nome,cp))){ const tk=(byTok[pool][n]||[]).filter(f=>_bDateOk(f,m) && _bNomeMatch(f.controparte_nome,cp)); if(tk.length) cands=tk; }
+      if(!cands.length) return;
       let pick=cands.find(f=>_bNomeMatch(f.controparte_nome,cp)) || cands.slice().sort((a,b)=>Math.abs((a.totale||0)-m.importo)-Math.abs((b.totale||0)-m.importo))[0];
       if(pick && !seen.has(pick.id)){ seen.add(pick.id); targets.push(pick); } });
     if(!targets.length) return;
