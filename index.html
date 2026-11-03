@@ -1132,6 +1132,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
     <div style="background:var(--navy2);border:1px solid var(--brd);border-radius:10px;padding:14px;margin:12px 0">
       <div style="font-weight:700;font-size:13px;margin-bottom:10px">⬆️ Importa da Genya</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px">
+        <button class="bp" onclick="fiscoImportAuto()" title="Fatture emesse e ricevute + note di credito dell'anno scelto, dall'export che il robot scarica da Genya più volte al giorno">🔄 Importa ultimo export automatico</button>
+        <span style="font-size:11px;color:var(--text2)">Fatture + note di credito, anno selezionato nel filtro (se vuoto: anno in corso). Oppure carica i file a mano:</span>
+      </div>
       <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
         <label style="display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text2)">📤 Fatture EMESSE (clienti)
           <input type="file" accept=".xlsx,.xls" onchange="fiscoImportFile(this,'emesse')"></label>
@@ -14743,7 +14747,7 @@ setTimeout(()=>{
 <script src="fornitori.js?v=20261101b"></script>
 <script src="cruscotto.js?v=20261101"></script>
 <script src="menu.js?v=20261101f"></script>
-<script src="fisco.js?v=20261102d"></script>
+<script src="fisco.js?v=20261103a"></script>
 <script src="quadratura.js?v=20261102"></script>
 </body>
 </html>

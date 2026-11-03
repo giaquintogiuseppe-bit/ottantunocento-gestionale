@@ -25,6 +25,8 @@ Riepilogo per ripartire in una nuova chat. Tutto il lavoro è su `main` (repo = 
 
 ## Decisioni / note
 - **Export Genya (03/11/2026)**: lo scarica il workflow GitHub Actions del repo **privato** `fatture-81100` (`scarica-fatture.mjs`, Playwright: login WebDesk/Genya → export emesse + ricevute → bucket `genya-export`: `emesse.xlsx`, `ricevute.xlsx`, `storico/<tipo>__AAAA-MM-GG.xlsx`, `ultimo-export.json`). Cron ogni 3 ore 05–20 UTC (GitHub spesso ritarda le corse). Il bucket va tenuto **privato**: il Gestionale legge da `/storage/v1/object/authenticated/genya-export` col token utente; policy `genya_export_select` (admin o area operativo).
+  - Dal 03/11/2026 scarica anche le **note di credito** (tile "NOTE DI CREDITO" in Vendite e Acquisti → `nc_emesse.xlsx`, `nc_ricevute.xlsx`; opzionali, se falliscono le fatture si caricano lo stesso; se un export NC è identico a quello delle fatture viene scartato).
+  - **Fisco → "🔄 Importa ultimo export automatico"** (`fiscoImportAuto` in fisco.js): legge i 4 file dal bucket, tiene solo l'anno selezionato (o l'anno in corso), unisce i doppioni tra file per `fiscoChiave`, chiede conferma e fa l'upsert come l'import manuale.
 - **Aurica S.r.l.**: società indipendente, nessun dato in comune con 81|00 (rapporti solo cliente/fornitore). Stesso codice, **database Supabase separato** (account intestato ad Aurica), **indirizzo web separato** (mai stessa origine: cache e sessione locali non devono mescolarsi).
 - **Fase 0 (fatta)**: revocato EXECUTE ad `anon`/`authenticated` su `agente_aggiungi_spesa` e `agente_registra_acconto` (erano chiamabili senza login); il connettore usa la service role e continua a funzionare.
 - **Clienti (fase 2, primo archivio) — 01/11/2026**:

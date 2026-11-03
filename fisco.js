@@ -102,6 +102,46 @@ async function fiscoImportFile(input,ctx){
     input.value=''; FISCO.loaded=false; await rFisco();
   }catch(e){ stato.textContent='⚠ Errore import: '+String(e.message||e).slice(0,180); console.error('fisco import',e); input.value=''; }
 }
+// Import dall'export automatico (repo fatture-81100 → bucket privato genya-export):
+// fatture emesse/ricevute + note di credito, solo l'anno scelto (Genya esporta tutto lo storico).
+const FISCO_AUTO_FILE=[['emesse','emesse','fatture emesse'],['ricevute','ricevute','fatture ricevute'],['nc_emesse','emesse','NC emesse'],['nc_ricevute','ricevute','NC ricevute']];
+async function _fiscoAutoAoa(nome){
+  const r=await fetch(SUPABASE_URL+'/storage/v1/object/authenticated/genya-export/'+nome+'.xlsx?t='+Date.now(),{cache:'no-cache'});
+  if(r.status===400||r.status===404) return null;            // file non (ancora) presente
+  if(!r.ok) throw new Error('HTTP '+r.status+' su '+nome+'.xlsx');
+  const wb=XLSX.read(await r.arrayBuffer(),{cellDates:true});
+  return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null});
+}
+async function fiscoImportAuto(){
+  const stato=document.getElementById('fisco-imp-stato');
+  const selA=document.getElementById('fisco-anno');
+  const anno=parseInt(selA&&selA.value,10)||new Date().getFullYear();
+  try{
+    let quando='';
+    try{ const m=await (await fetch(SUPABASE_URL+'/storage/v1/object/authenticated/genya-export/ultimo-export.json?t='+Date.now(),{cache:'no-cache'})).json(); if(m.aggiornato_il) quando=new Date(m.aggiornato_il).toLocaleString('it-IT'); }catch(e){}
+    const perChiave=new Map(), conteggi=[], mancanti=[];
+    for(const [nome,ctx,etich] of FISCO_AUTO_FILE){
+      stato.textContent='⏳ Scarico '+etich+'…';
+      const aoa=await _fiscoAutoAoa(nome);
+      if(!aoa){ mancanti.push(etich); continue; }
+      const docs=fiscoParseGenya(aoa,ctx).filter(d=>d.testata.anno===anno);
+      docs.forEach(d=>perChiave.set(fiscoChiave(d.testata),d));   // stesso documento in due file → una volta sola
+      conteggi.push(etich+': '+docs.length);
+    }
+    const docs=[...perChiave.values()];
+    if(!docs.length){ stato.textContent='⚠ Nessun documento del '+anno+' nell\'export automatico.'+(mancanti.length?' Mancano: '+mancanti.join(', ')+'.':''); return; }
+    const tipi={}; docs.forEach(d=>tipi[d.testata.tipo]=(tipi[d.testata.tipo]||0)+1);
+    const msg='Export automatico Genya'+(quando?' del '+quando:'')+' — anno '+anno+'\n\n'+conteggi.join('\n')+
+      (mancanti.length?'\nNon ancora disponibili: '+mancanti.join(', '):'')+
+      '\n\nDocumenti da salvare: '+docs.length+' ('+Object.entries(tipi).map(([k,v])=>v+' '+k).join(', ')+')\n\nImportare? I doppioni verranno aggiornati, non duplicati.';
+    if(!confirm(msg)){ stato.textContent=''; return; }
+    stato.textContent='⏳ Salvo '+docs.length+' documenti…';
+    const res=await fiscoUpsert(docs);
+    stato.textContent='✓ Export automatico: '+res.docs+' documenti ('+res.righe+' righe) del '+anno+' — doppioni aggiornati, non duplicati.'+(mancanti.length?' Mancano: '+mancanti.join(', ')+'.':'');
+    FISCO.loaded=false; await rFisco();
+  }catch(e){ stato.textContent='⚠ Errore import automatico: '+String(e.message||e).slice(0,180); console.error('fisco auto',e); }
+}
+window.fiscoImportAuto=fiscoImportAuto;
 const FISCO={rows:[], flt:'tutte', sflt:'tutte', loaded:false, righeByFatt:{}};
 // lettura paginata: PostgREST limita a ~1000 righe per richiesta, quindi scorriamo a pagine
 async function _fFetchAll(path){
