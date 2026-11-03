@@ -1832,11 +1832,11 @@ tbody td{padding:10px 14px;vertical-align:middle}
           ondragleave="this.classList.remove('over')"
           ondrop="event.preventDefault();this.classList.remove('over');document.getElementById('gpsFileInput').files=event.dataTransfer.files;gpsLoad({target:document.getElementById('gpsFileInput')})"
           onclick="document.getElementById('gpsFileInput').click()">
-          <h3 style="margin:0 0 4px">📡 Trascina qui il report GPS Kinesis (facoltativo)</h3>
-          <p style="margin:0;font-size:12px;color:var(--text2)">Storico viaggi — aggiunge consumi reali e pieni a mezzo fermo. Gli scontrini del bot Telegram arrivano da soli.</p>
+          <h3 style="margin:0 0 4px">📡 Trascina qui lo Storico viaggi GPS Radius (CSV o Excel)</h3>
+          <p style="margin:0;font-size:12px;color:var(--text2)">Viene salvato nel gestionale: basta caricarlo una volta per periodo. Serve per consumi reali, pieni a mezzo fermo e posizione del mezzo all'ora del pieno. Gli scontrini del bot Telegram arrivano da soli.</p>
           <div id="gps-stato" style="font-size:12px;font-weight:700;color:var(--teal);margin-top:6px"></div>
         </div>
-        <input type="file" id="gpsFileInput" accept=".xls,.xlsx" style="display:none" onchange="gpsLoad(event)">
+        <input type="file" id="gpsFileInput" accept=".csv,.xls,.xlsx" style="display:none" onchange="gpsLoad(event)">
         <div class="fa" style="margin-bottom:14px"><button class="bp" onclick="dkvControllo()">🕵️ Esegui controllo</button>
         <span style="font-size:12px;color:var(--text2)">Incrocia le transazioni DKV con scontrini Telegram e viaggi GPS</span></div>
         <div id="dkv-controllo-out"></div>
@@ -11412,6 +11412,7 @@ let _GPS = {};   // TARGA → { giorni: {'2026-07-03': {km, luoghi:Set}}, kmTot 
 const _DKV_CARTA_TARGAGPS = { 'GM972CF':'GM972CF','CT068NE':'CT068NE','FS504WE':'FS504WE',
   'F9341PT':'FX943SG','G86499N':'NTI894','GB649YN':'NTI894','PRAMAC 1':null,'PRAMAC 2':'GM972CF' };
 async function gpsLoad(ev){
+  if(typeof gpsImporta==='function') return gpsImporta(ev);   // gps.js: CSV/Excel, anteprima, salvataggio nel cloud
   const file = ev.target.files[0]; if(!file) return;
   try{
     const wb = XLSX.read(await file.arrayBuffer(), {cellDates:true});
@@ -11459,6 +11460,13 @@ async function dkvControllo(){
   const out=document.getElementById('dkv-controllo-out');
   const trans=(typeof _dkvData!=='undefined'&&_dkvData.length?_dkvData:[]).filter(t=>!t.rifiutata);
   if(!trans.length){ out.innerHTML='<div class="empty">Carica prima il file DKV (in alto), poi torna qui.</div>'; return; }
+  // tragitti GPS salvati nel cloud per il periodo del file (gps.js)
+  let gpsInfo='';
+  if(typeof gpsCaricaPeriodo==='function'){
+    const d0=trans.reduce((a,t)=>a<t.data?a:t.data, trans[0].data), d1=trans.reduce((a,t)=>a>t.data?a:t.data, trans[0].data);
+    try{ const n=await gpsCaricaPeriodo(d0,d1); gpsInfo=n?` · viaggi GPS nel gestionale: ${n}`:''; }catch(e){ gpsInfo=' · ⚠ viaggi GPS non letti dal cloud'; }
+  }
+  const posRighe=[];
   let scontrini=[];
   try{
     const r=await fetch(`${SUPABASE_URL}/rest/v1/scontrini_telegram?select=ts,autore,mezzo,cantiere&order=ts.asc&limit=2000`,
@@ -11484,6 +11492,12 @@ async function dkvControllo(){
       const g=_GPS[targaGps].giorni[t.data];
       if(!g || g.km<1) anomalie.push({tipo:'🛑 Pieno a mezzo fermo', t, msg:`${t.targa}: rifornimento il ${fdate(t.data)} ma il GPS non registra viaggi quel giorno`});
     }
+    // dov'era il mezzo all'ora del pieno? (gps.js)
+    if(targaGps && typeof gpsPosizione==='function'){
+      const pos=gpsPosizione(targaGps,t.data,t.ora), staz=gpsStazioneDkv(t), stesso=gpsStessoPosto(staz,pos);
+      if(pos.tipo!=='nessuno') posRighe.push({t,targaGps,pos,staz,stesso});
+      if(stesso===false && pos.tipo==='sosta') anomalie.push({tipo:'📍 Mezzo altrove', t, msg:`${t.targa} alle ${t.ora}: per il GPS era a ${pos.luogo||'?'}, il distributore è ${staz}`});
+    }
   });
   // consumi per veicolo nel periodo del file
   const dal=trans.reduce((a,t)=>a<t.data?a:t.data, trans[0].data), al=trans.reduce((a,t)=>a>t.data?a:t.data, trans[0].data);
@@ -11505,11 +11519,16 @@ async function dkvControllo(){
     <td class="mn or">${fmt(a.t.importo)}</td><td style="font-size:11px;color:var(--text2)">${a.msg}</td></tr>`).join('')
     :'<tr><td colspan="5" class="empty">Nessuna anomalia: ogni pieno ha il suo scontrino e il mezzo era in movimento 🎉</td></tr>';
   out.innerHTML=`
-    <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Periodo del file: ${fdate(dal)} → ${fdate(al)} · scontrini bot considerati: ${scontrini.length}${Object.keys(_GPS).length?'':' · <b>GPS non caricato</b>: trascina lo Storico viaggi qui sopra per consumi e mezzi fermi'}</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Periodo del file: ${fdate(dal)} → ${fdate(al)} · scontrini bot considerati: ${scontrini.length}${gpsInfo}${Object.keys(_GPS).length?'':' · <b>GPS non caricato</b>: trascina lo Storico viaggi qui sopra per consumi, mezzi fermi e posizione'}</div>
     <h3 style="margin:10px 0 6px">Per veicolo</h3>
     <table class="tb"><thead><tr><th>Carta</th><th>Pieni</th><th>Spesa</th><th>Litri</th><th>Km GPS</th><th>Consumo</th></tr></thead><tbody>${righeV}</tbody></table>
     <h3 style="margin:16px 0 6px">Anomalie (${anomalie.length})</h3>
-    <table class="tb"><thead><tr><th>Tipo</th><th>Data</th><th>Carta</th><th>Importo</th><th>Dettaglio</th></tr></thead><tbody>${righeA}</tbody></table>`;
+    <table class="tb"><thead><tr><th>Tipo</th><th>Data</th><th>Carta</th><th>Importo</th><th>Dettaglio</th></tr></thead><tbody>${righeA}</tbody></table>
+    ${posRighe.length?`<h3 style="margin:16px 0 6px">Pieni e posizione GPS (${posRighe.length})</h3>
+    <table class="tb"><thead><tr><th>Data e ora</th><th>Carta</th><th>Importo</th><th>Distributore (DKV)</th><th>GPS a quell'ora</th><th>Esito</th></tr></thead><tbody>${posRighe.map(x=>{
+      const p=x.pos, dove=p.tipo==='viaggio'?'🚗 in viaggio: '+esc(p.luogo):(p.tipo==='sosta'?'🅿️ fermo a '+esc(p.luogo||'?')+(p.daMin!=null?` <span style="color:var(--text2)">(da ${p.daMin} min)</span>`:''):'viaggi del giorno: '+esc((p.luoghi||[]).slice(0,3).join(' · ')));
+      const es=x.stesso===true?'<span style="color:var(--green)">✓ stesso posto</span>':(x.stesso===false?(p.tipo==='sosta'?'<span style="color:var(--red)">⚠ altrove</span>':'<span style="color:var(--gold)">da verificare</span>'):'<span style="color:var(--text2)">—</span>');
+      return `<tr><td class="mn">${fdate(x.t.data)} ${esc(x.t.ora||'')}</td><td><b>${esc(x.t.targa)}</b>${x.targaGps!==x.t.targa?` <span style="font-size:10px;color:var(--text2)">GPS ${esc(x.targaGps)}</span>`:''}</td><td class="mn or">${fmt(x.t.importo)}</td><td style="font-size:11px">${esc(x.staz||'—')}</td><td style="font-size:11px">${dove}</td><td>${es}</td></tr>`;}).join('')}</tbody></table>`:''}`;
 }
 
 function dkvLoad(ev){
@@ -14752,5 +14771,6 @@ setTimeout(()=>{
 <script src="fisco.js?v=20261103b"></script>
 <script src="quadratura.js?v=20261102"></script>
 <script src="banca.js?v=20261103a"></script>
+<script src="gps.js?v=20261103a"></script>
 </body>
 </html>
