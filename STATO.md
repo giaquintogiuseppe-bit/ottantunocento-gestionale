@@ -18,6 +18,8 @@ Riepilogo per ripartire in una nuova chat. Tutto il lavoro è su `main` (repo = 
 - **GAETA** (`mqldv7z16ss`): creati periodi Giugno (6.500, fatt. 169) e Luglio (13.707,59, fatt. 196); scollegate dal cantiere le fatture **126** e **226** (periodi precedenti / Procult per errore). Ricavo documentale 32.457,59 · da fatturare 710 (CONS-2026-005, ottobre).
 - **Affissioni Safeguard** (`ag649dd9cd35`): fattura 270 allocata a CONS-2026-007 (18.980) → da fatturare 0; CONS-2026-007 messo a "Fatturato"; le due bozze vecchie CONS-2026-003/004 **annullate** (non cancellate).
 
+- **03/11/2026 07:43 UTC — date Fisco cancellate dal robot (risolto alle 07:50)**: il primo giro reale del robot contabilità ha scritto `data_fattura`/`rif_fornitore_data` = null su tutte le 873 fatture 2026 (le date Excel create in Node non superano `instanceof Date` nel contesto vm di fisco.js). Ripristinate rileggendo gli stessi export Genya col robot corretto (0 documenti senza data). Ora il robot ricrea le date nel contesto del Gestionale e si ferma se >5% dei documenti risulta senza data.
+
 ## In sospeso (funzionale)
 1. **226 Procult** — riassegnarla al suo vero cantiere/cliente (ora `cantiere_id` = null).
 2. **Piedimonte Matese** — due preventivi accettati identici da 2.500 (PREV-2026-007 e PREV-2026-019), ora sommati a 5.000: verificare se uno è la ri-quotazione dell'altro (nel caso mettere in bozza/annullato quello vecchio).
