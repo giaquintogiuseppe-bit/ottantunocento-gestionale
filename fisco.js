@@ -667,6 +667,8 @@ async function bancaScollega(id){
 window.fiscoVista=fiscoVista; window.bancaImportFile=bancaImportFile; window.bancaSostituisciInAttesa=bancaSostituisciInAttesa; window.bancaRender=bancaRender; window.bancaFiltra=bancaFiltra; window.bancaRicarica=bancaRicarica; window.bancaSvuota=bancaSvuota;
 window.bancaApriLink=bancaApriLink; window.bancaRenderLink=bancaRenderLink; window.bancaCollega=bancaCollega; window.bancaScollega=bancaScollega;
 window.confrontoVista=confrontoVista; window.confrontoFiltra=confrontoFiltra; window.confrontoRender=confrontoRender; window.confrontoRicarica=confrontoRicarica;
+// usate anche dal robot contabilità (repo fatture-81100), che carica questo stesso file
+window.fiscoUpsert=fiscoUpsert; window.fiscoChiave=fiscoChiave; window.bancaParseEC=bancaParseEC; window.bancaUpsert=bancaUpsert;
 window.fiscoImportFile=fiscoImportFile; window.fiscoParseGenya=fiscoParseGenya; window.fiscoQuadDati=fiscoQuadDati; window.rFisco=rFisco; window.fiscoRender=fiscoRender;
 window.fiscoFiltra=fiscoFiltra; window.fiscoRicarica=fiscoRicarica; window.fiscoDettaglio=fiscoDettaglio;
 window.fiscoSvuotaTutto=fiscoSvuotaTutto; window.fiscoSFiltra=fiscoSFiltra;
