@@ -27,7 +27,7 @@ const MENU_AREE = [
   { id:'mezzi', nome:'Mezzi e attrezzature', icona:'mezzi', schede:[
       { pg:'flotta', nome:'Flotta e carburante' }, { pg:'dkv', nome:'Importa DKV' },
       { pg:'attrezzeria', nome:'Attrezzeria' }, { pg:'parco', nome:'Parco risorse', dopo:'renderParco' } ] },
-  { id:'fisco', nome:'Fisco e documenti', icona:'fisco', schede:[ { pg:'fisco', nome:'Quadro fiscale' } ] },
+  { id:'fisco', nome:'Fisco e documenti', icona:'fisco', schede:[ { pg:'fisco', nome:'Quadro fiscale' }, { pg:'banca', nome:'Banca' } ] },
   { id:'impostazioni', nome:'Impostazioni', icona:'impostazioni', schede:[
       { pg:'sync', nome:'Sync cloud' },
       { azione:'menuAggiornaApp', nome:'Aggiorna app' } ] }

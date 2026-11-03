@@ -1117,6 +1117,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
   </div>
 
   <!-- QUADRO FISCALE (import Genya: emesse / ricevute / note di credito) -->
+  <!-- BANCA: controllo movimenti, etichette, registro del robot (banca.js) -->
+  <div id="pg-banca" class="pg"><div id="bk-root"></div></div>
   <div id="pg-fisco" class="pg">
     <div class="pt">📑 Quadro fiscale</div>
     <div class="ps">Import degli export Excel di Genya (fatture emesse, ricevute e note di credito) con oggetto e righe. I file si leggono in locale, nessun dato esce dal dispositivo. Reimportare lo stesso file non crea doppioni. Fonte: tabelle fisco_fatture / fisco_fatture_righe.</div>
@@ -3653,7 +3655,7 @@ function nav(pg){
 function render(p){
   if(p==='cantieri'||p==='clienti-gest'){ caricaRifornimentiCloud().then(()=>{ if(p==='cantieri') rCant(); }); }
   if(p==='clienti-gest'){ refLoad(); }
-  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:()=>rAttrezzeria(),clienti:()=>rClienti(),commesse:()=>rCommesse(),personale:()=>rPersonale(),fornitori:()=>rFornitori(),cruscotto:()=>rCruscottoOggi(),saldi:rSaldi,riepilogo:rRiepilogo,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,'fatture-fornitori':rFattureFornitori,coerenza:rCoerenza,fisco:window.rFisco}[p]||(() =>{}))();
+  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:()=>rAttrezzeria(),clienti:()=>rClienti(),commesse:()=>rCommesse(),personale:()=>rPersonale(),fornitori:()=>rFornitori(),cruscotto:()=>rCruscottoOggi(),saldi:rSaldi,riepilogo:rRiepilogo,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,'fatture-fornitori':rFattureFornitori,coerenza:rCoerenza,fisco:window.rFisco,banca:()=>window.rBanca&&window.rBanca()}[p]||(() =>{}))();
 }
 
 // ============================================================
@@ -14746,8 +14748,9 @@ setTimeout(()=>{
 <script src="fatture.js?v=20261102"></script>
 <script src="fornitori.js?v=20261101b"></script>
 <script src="cruscotto.js?v=20261101"></script>
-<script src="menu.js?v=20261101f"></script>
+<script src="menu.js?v=20261103a"></script>
 <script src="fisco.js?v=20261103b"></script>
 <script src="quadratura.js?v=20261102"></script>
+<script src="banca.js?v=20261103a"></script>
 </body>
 </html>
