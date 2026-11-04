@@ -360,7 +360,31 @@ function bancaParseEC(aoa){
   }
   return out;
 }
+// Stesso movimento, testo cambiato: tra un export e l'altro la banca a volte allunga la descrizione
+// (04/11/2026: Meeting & Words ed Event Generation importati due volte). La chiave usa il testo, quindi
+// prima di salvare cerco il movimento già presente con stessa data, importo, segno e conto e
+// stesso codice disposizione bancaria (COD. DISP.) — oppure testo vecchio = inizio del nuovo —
+// e riuso la SUA chiave: si aggiorna quello (abbinamenti a mano ed etichette restano).
+function _bCodDisp(m){ const x=String((m.dettagli||'')+' '+(m.operazione||'')).match(/COD\.?\s*DISP\.?\s*(\d{8,})/i); return x?x[1]:null; }
+function _bTesto(m){ return String((m.operazione||'')+'~'+(m.dettagli||'')).replace(/\s+/g,' ').trim().toUpperCase(); }
+async function bancaRiusaChiavi(movs){
+  const date=movs.map(m=>m.data).filter(Boolean).sort(); if(!date.length) return 0;
+  const url=SUPABASE_URL+'/rest/v1/fisco_banca_movimenti';
+  const r=await fetch(url+'?select=chiave,data,importo,segno,conto,operazione,dettagli&data=gte.'+date[0]+'&data=lte.'+date[date.length-1],{headers:FH()});
+  if(!r.ok) throw new Error('movimenti esistenti HTTP '+r.status);
+  const esist=await r.json(); const per=new Set(esist.map(e=>e.chiave)), presi=new Set(movs.map(m=>m.chiave).filter(k=>per.has(k)));
+  let n=0;
+  movs.forEach(m=>{
+    if(per.has(m.chiave)) return;
+    const cod=_bCodDisp(m), t=_bTesto(m);
+    const cands=esist.filter(e=>!presi.has(e.chiave) && e.data===m.data && e.segno===m.segno && Math.abs(Number(e.importo)-Number(m.importo))<0.005 && (e.conto||'')===(m.conto||'')
+      && ((cod && _bCodDisp(e)===cod) || (()=>{ const te=_bTesto(e); return te.length>=20 && (t.startsWith(te)||te.startsWith(t)); })()));
+    if(cands.length===1){ m.chiave=cands[0].chiave; presi.add(m.chiave); n++; }
+  });
+  return n;
+}
 async function bancaUpsert(movs){
+  await bancaRiusaChiavi(movs);
   const url=SUPABASE_URL+'/rest/v1/fisco_banca_movimenti'; const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o;};
   let n=0;
   for(const part of chunk(movs,300)){
@@ -375,6 +399,7 @@ async function bancaUpsert(movs){
 // in attesa già salvati in quelle date, che nel file non ci sono più con la stessa chiave, si tolgono.
 // Mai quelli abbinati a mano a una fattura.
 async function bancaSostituisciInAttesa(movs){
+  await bancaRiusaChiavi(movs);
   const date=movs.map(m=>m.data).filter(Boolean).sort(); if(!date.length) return 0;
   const da=date[0], a=date[date.length-1], nuove=new Set(movs.map(m=>m.chiave));
   const url=SUPABASE_URL+'/rest/v1/fisco_banca_movimenti';
@@ -668,7 +693,7 @@ window.fiscoVista=fiscoVista; window.bancaImportFile=bancaImportFile; window.ban
 window.bancaApriLink=bancaApriLink; window.bancaRenderLink=bancaRenderLink; window.bancaCollega=bancaCollega; window.bancaScollega=bancaScollega;
 window.confrontoVista=confrontoVista; window.confrontoFiltra=confrontoFiltra; window.confrontoRender=confrontoRender; window.confrontoRicarica=confrontoRicarica;
 // usate anche dal robot contabilità (repo fatture-81100), che carica questo stesso file
-window.fiscoUpsert=fiscoUpsert; window.fiscoChiave=fiscoChiave; window.bancaParseEC=bancaParseEC; window.bancaUpsert=bancaUpsert;
+window.fiscoUpsert=fiscoUpsert; window.fiscoChiave=fiscoChiave; window.bancaParseEC=bancaParseEC; window.bancaUpsert=bancaUpsert; window.bancaRiusaChiavi=bancaRiusaChiavi;
 window.fiscoImportFile=fiscoImportFile; window.fiscoParseGenya=fiscoParseGenya; window.fiscoQuadDati=fiscoQuadDati; window.rFisco=rFisco; window.fiscoRender=fiscoRender;
 window.fiscoFiltra=fiscoFiltra; window.fiscoRicarica=fiscoRicarica; window.fiscoDettaglio=fiscoDettaglio;
 window.fiscoSvuotaTutto=fiscoSvuotaTutto; window.fiscoSFiltra=fiscoSFiltra;
