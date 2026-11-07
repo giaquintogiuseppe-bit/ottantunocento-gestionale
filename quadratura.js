@@ -284,3 +284,106 @@ function quadApriGest(id){
 }
 // dopo una scrittura: i calcoli del gestionale (posizioni, cruscotto, commesse) si rifanno
 function _qdDopo(){ try{ if(typeof invalidaCache==='function') invalidaCache(); }catch(e){} }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGAMENTI DALLA BANCA PER CONTROPARTE — riuso del motore Quadratura dentro
+   le schede Clienti e Fornitori. Solo lettura (nessuna scrittura).
+   Risponde a: "i pagamenti che vedo in Fisco/Banca non compaiono nella
+   scheda cliente/fornitore". Qui li mostriamo, raggruppati per controparte.
+   ═══════════════════════════════════════════════════════════════════════ */
+// Carica (una volta, poi in cache) i dati che servono: fatture Genya, banca, gestionale.
+async function _bncDati(force){
+  if(!QD.dati || force){
+    const [F,G]=await Promise.all([fiscoQuadDati(!!force), _qdCaricaGest()]);
+    QD.dati={rows:F.rows, mov:F.mov, R:F.R, fatt:G.fatt, fa:G.fa};
+  }
+  return QD.dati;
+}
+// Normalizza una ragione sociale (tolgo accenti, punteggiatura e forme giuridiche) — autonomo,
+// perché _cNorm/_bNomeMatch sono privati dentro l'IIFE di fisco.js.
+function _bncNorm(s){
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9]+/g,' ')
+    .replace(/\b(s r l s|s r l|srls|srl|s p a|spa|s n c|snc|s a s|sas|s c a r l|scarl|societa|soc|coop)\b/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+function _bncMatch(a,b){ a=_bncNorm(a); b=_bncNorm(b); if(!a||!b) return false; return a===b; }
+// Righe della Quadratura filtrate su una controparte (per nome normalizzato). lato: 'cli' | 'forn'.
+function _bncRighe(nome, lato){
+  if(!QD.dati) return [];
+  const prev=QD.lato; QD.lato=(lato==='cli')?'cli':'forn';
+  let out=[];
+  try{ out=qdCalcola().filter(r=>_bncMatch(r.f.controparte_nome, nome)); }catch(e){ out=[]; }
+  QD.lato=prev;
+  return out;
+}
+// Riepilogo banca per una controparte: movimenti abbinati a fatture, movimenti "da spiegare",
+// e fatture che risultano pagate/incassate in banca ma ancora aperte nel gestionale.
+function _bncScheda(nome, lato){
+  const vuoto={attr:[], daSpiegare:[], pagateAperte:[], totAttr:0, totSpiegare:0};
+  if(!QD.dati) return vuoto;
+  const segno=(lato==='cli')?'entrata':'uscita';
+  const righe=_bncRighe(nome, lato);
+  const R=QD.dati.R||{movInfo:{}}, mov=QD.dati.mov||[];
+  const attr=[]; const chiaviAttr=new Set();
+  righe.forEach(r=>(r.movs||[]).forEach(m=>{ attr.push({data:m.data, imp:+m.imp||0, tipo:m.tipo, fnum:r.f.numero, fanno:r.f.anno}); chiaviAttr.add(m.chiave); }));
+  const daSpiegare=[];
+  mov.forEach(m=>{
+    if(m.segno!==segno) return;
+    if(chiaviAttr.has(m.chiave)) return;
+    if(R.movInfo && R.movInfo[m.chiave]) return;           // già abbinato ad altra controparte
+    const cp=m.controparte_estratta||'';
+    if(!cp || !_bncMatch(cp,nome)) return;
+    daSpiegare.push({data:m.data, imp:+m.importo||0, testo:((m.operazione||'')+' '+(m.dettagli||'')).trim()});
+  });
+  const pagateAperte=righe.filter(r=>r.esito==='pagamento');
+  return { attr, daSpiegare, pagateAperte,
+    totAttr:attr.reduce((s,m)=>s+m.imp,0), totSpiegare:daSpiegare.reduce((s,m)=>s+m.imp,0) };
+}
+// HTML del blocco "Pagamenti dalla banca" — stile proprio, uguale nelle due schede.
+function _bncHTML(nome, lato){
+  const S=_bncScheda(nome, lato), cli=(lato==='cli');
+  const eur=v=>(typeof _qdEur==='function')?_qdEur(v):('€ '+(Math.round((+v||0)*100)/100).toLocaleString('it-IT'));
+  const dat=s=>(typeof _qdData==='function')?_qdData(s):String(s||'');
+  const E=(typeof esc==='function')?esc:(s=>String(s==null?'':s));
+  const t2='var(--text2)', brd='var(--brd)', warn='var(--gold,#c07d16)', ok='var(--green,#2f7d4f)';
+  const tagTipo={num:'🔗 per numero',nome:'≈ per nome',manuale:'📌 a mano'};
+  const invLbl=(num,anno)=>{ const s=String(num||''); return s+((anno && !/\//.test(s))?'/'+anno:''); };
+  let h='<div style="display:flex;flex-direction:column;gap:14px">';
+  h+='<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    +'<div style="flex:1;min-width:130px;border:1px solid '+brd+';border-radius:10px;padding:10px 12px"><small style="color:'+t2+';font-size:11px;letter-spacing:.05em;text-transform:uppercase">'+(cli?'Incassato':'Pagato')+' in banca</small><div class="num" style="font-size:18px;font-weight:600">'+eur(S.totAttr+S.totSpiegare)+'</div></div>'
+    +'<div style="flex:1;min-width:130px;border:1px solid '+brd+';border-radius:10px;padding:10px 12px"><small style="color:'+t2+';font-size:11px;letter-spacing:.05em;text-transform:uppercase">Non abbinato a fattura</small><div class="num" style="font-size:18px;font-weight:600;'+(S.totSpiegare>0.5?'color:'+warn:'')+'">'+eur(S.totSpiegare)+'</div></div>'
+  +'</div>';
+  if(S.pagateAperte.length){
+    const n=S.pagateAperte.length;
+    const verbo=cli?(n===1?'incassata':'incassate'):(n===1?'pagata':'pagate');
+    h+='<div style="border:1px solid '+warn+';background:color-mix(in srgb,'+warn+' 10%,transparent);border-radius:10px;padding:10px 12px">'
+      +'<b style="font-size:13px;color:'+warn+'">⚠ '+n+' fattur'+(n===1?'a':'e')+' '+verbo+' in banca ma apert'+(n===1?'a':'e')+' nel gestionale</b>'
+      +'<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">'
+      +S.pagateAperte.map(r=>'<div style="font-size:12.5px">Fatt. '+E(invLbl(r.f.numero,r.f.anno))+' · <span style="color:'+t2+'">banca '+eur(r.banca)+' su '+eur(r.tot)+'</span></div>').join('')
+      +'</div><div style="font-size:11.5px;color:'+t2+';margin-top:6px">Si registrano da <b>Fisco e documenti → Quadratura</b> (gruppo «'+(cli?'Incassate':'Pagate')+' in banca, aperte»).</div></div>';
+  }
+  h+='<div><div style="font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:'+t2+';font-weight:600;margin-bottom:6px">Movimenti abbinati a fatture</div>';
+  h+=S.attr.length
+    ? '<div style="border:1px solid '+brd+';border-radius:10px;overflow:hidden">'+S.attr.slice().sort((a,b)=>String(b.data).localeCompare(String(a.data))).map(m=>'<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-bottom:1px solid '+brd+';font-size:13px"><span>'+dat(m.data)+' · <span style="color:'+t2+'">Fatt. '+E(invLbl(m.fnum,m.fanno))+'</span> <span style="font-size:11px;color:'+t2+'">'+(tagTipo[m.tipo]||'')+'</span></span><span class="num" style="color:'+ok+'">'+eur(m.imp)+'</span></div>').join('')+'</div>'
+    : '<div style="color:'+t2+';font-size:13px;padding:6px 0">Nessun pagamento dalla banca abbinato a una fattura di questa controparte.</div>';
+  h+='</div>';
+  if(S.daSpiegare.length){
+    h+='<div><div style="font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:'+t2+';font-weight:600;margin-bottom:6px">Movimenti della banca non abbinati</div>'
+      +'<div style="border:1px solid '+brd+';border-radius:10px;overflow:hidden">'+S.daSpiegare.slice().sort((a,b)=>String(b.data).localeCompare(String(a.data))).map(m=>'<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-bottom:1px solid '+brd+';font-size:13px"><span>'+dat(m.data)+' · <span style="color:'+t2+'">'+E(String(m.testo||'').slice(0,42))+'</span></span><span class="num">'+eur(m.imp)+'</span></div>').join('')+'</div>'
+      +'<div style="font-size:11.5px;color:'+t2+';margin-top:6px">Risultano di questa controparte ma non legati a una fattura: si abbinano da <b>Fisco e documenti → Banca</b>.</div></div>';
+  }
+  h+='</div>';
+  return h;
+}
+// Riempie il pannello "Dalla banca" di una scheda (Clienti o Fornitori), caricando i dati se serve.
+// contId = id del contenitore; stillHere = funzione che dice se l'utente è ancora su questa scheda/tab.
+async function _bncPann(contId, nome, lato, stillHere){
+  const pn=document.getElementById(contId); if(!pn) return;
+  pn.innerHTML='<div style="color:var(--text2);padding:12px">Carico i movimenti dalla banca…</div>';
+  try{
+    await _bncDati(false);
+    if(typeof stillHere==='function' && !stillHere()) return;
+    pn.innerHTML=_bncHTML(nome, lato);
+  }catch(e){ pn.innerHTML='<div style="color:var(--text2);padding:12px">⚠ Non riesco a caricare i movimenti dalla banca: '+((typeof esc==='function')?esc(e.message||e):(e.message||e))+'</div>'; }
+}

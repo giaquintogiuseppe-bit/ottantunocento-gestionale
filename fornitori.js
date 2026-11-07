@@ -192,7 +192,7 @@ function fo2Scheda(){
   const d=FO2.scelto && FO2.dati[FO2.scelto];
   if(!d){ el.innerHTML='<div class="fo2-vuoto">Scegli un fornitore dall\'elenco.</div>'; return; }
   const e=d.e, nComm=Object.keys(d.perCant).length, nExtra=(e.extraList||[]).length;
-  const TABS=[['panoramica','Panoramica',''],['fatture','Fatture',d.ff.length],['commesse','Commesse',nComm||''],['pagamenti','Pagamenti senza fattura',nExtra||'']];
+  const TABS=[['panoramica','Panoramica',''],['fatture','Fatture',d.ff.length],['commesse','Commesse',nComm||''],['pagamenti','Pagamenti senza fattura',nExtra||''],['banca','Dalla banca','']];
   el.innerHTML=`
     <div class="fo2-sch-testa"><h3>${esc(e.nome)}</h3><div class="fo2-sub">${d.ff.length} fatture · ${_f2fm(e.importo)} in tutto (IVA inclusa)${d.ultima?' · ultima il '+_f2data(d.ultima):''}</div></div>
     <div class="fo2-tabs" role="tablist">${TABS.map(([k,t,n])=>`<button role="tab" class="${FO2.tab===k?'on':''}" onclick="fo2Tab('${k}')">${t}${n!==''?`<span class="n">${n}</span>`:''}</button>`).join('')}</div>
@@ -236,6 +236,10 @@ function fo2Scheda(){
         <div class="fo2-riga"><span></span><span class="fo2-tit">${esc(n)}<div class="fo2-sub">${x.n} ${x.n===1?'fattura':'fatture'} · ${_f2fm(x.lordo)} IVA inclusa</div></span><span class="num">${_f2fm(x.netto)}</span><span></span></div>`).join('')}</div>`
       :'<div class="fo2-righe"><div class="fo2-vuoto">Nessuna fattura assegnata a una commessa.</div></div>'}</div>
       ${d.senzaCant?`<p class="fo2-nota">${d.senzaCant===1?'1 fattura':d.senzaCant+' fatture'} di questo fornitore senza commessa.</p>`:''}${azioni}`;
+  } else if(FO2.tab==='banca'){
+    pn.innerHTML='<div class="fo2-vuoto">Carico i movimenti dalla banca…</div>';
+    if(typeof _bncPann==='function') _bncPann('fo2-pann', e.nome, 'forn', ()=>FO2.scelto===e.nome && FO2.tab==='banca');
+    else pn.innerHTML='<div class="fo2-vuoto">Modulo banca non disponibile.</div>';
   } else {
     const ex=(e.extraList||[]).slice().sort((a,b)=>String(b.data||'').localeCompare(String(a.data||'')));
     pn.innerHTML=`<div><div class="fo2-h">Pagamenti e compensazioni senza fattura</div>${ex.length?`<div class="fo2-righe">${ex.map(p=>{ const comp=p.comp===true||p.metodo==='compensazione'; return `

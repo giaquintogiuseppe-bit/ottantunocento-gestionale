@@ -267,7 +267,7 @@ async function cli2Scheda(){
   if(!d){ el.innerHTML='<div class="cli2-vuoto">Scegli un cliente dall\'elenco.</div>'; return; }
   const c=d.c, ps=d.ps, id=c.id;
   const prev = CLI2.prev[id];
-  const TABS=[['panoramica','Panoramica',''],['commesse','Commesse',d.cant.length],['preventivi','Preventivi',prev?prev.length:''],['fatture','Fatture e incassi',d.fatt.length],['anagrafica','Anagrafica','']];
+  const TABS=[['panoramica','Panoramica',''],['commesse','Commesse',d.cant.length],['preventivi','Preventivi',prev?prev.length:''],['fatture','Fatture e incassi',d.fatt.length],['banca','Dalla banca',''],['anagrafica','Anagrafica','']];
   const pag = c.tipoPagamento ? esc(c.tipoPagamento) : '';
   el.innerHTML=`
     <div class="cli2-sch-testa">
@@ -314,6 +314,10 @@ async function cli2Scheda(){
       </div>
       <div><div class="cli2-h">Fatture</div>${fatture(fattOrd)}</div>
       <p class="cli2-nota">Gli acconti e gli incassi si registrano come oggi da Fatture &amp; Scadenze e da Incassi clienti.</p>`;
+  } else if(CLI2.tab==='banca'){
+    p.innerHTML='<div class="cli2-vuoto">Carico i movimenti dalla banca…</div>';
+    if(typeof _bncPann==='function') _bncPann('cli2-pann', c.ragioneSociale, 'cli', ()=>CLI2.scelto===id && CLI2.tab==='banca');
+    else p.innerHTML='<div class="cli2-vuoto">Modulo banca non disponibile.</div>';
   } else {
     const riga=(t,v,mono)=>`<dt>${t}</dt><dd${mono?' class="num"':''}>${v?esc(v):'—'}</dd>`;
     const refNome = c.referenteId && typeof REF!=='undefined' ? ((REF||[]).find(r=>r.id===c.referenteId)||{}).nome : '';
