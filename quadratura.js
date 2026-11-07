@@ -360,8 +360,9 @@ function _bncHTML(nome, lato){
     h+='<div style="border:1px solid '+warn+';background:color-mix(in srgb,'+warn+' 10%,transparent);border-radius:10px;padding:10px 12px">'
       +'<b style="font-size:13px;color:'+warn+'">⚠ '+n+' fattur'+(n===1?'a':'e')+' '+verbo+' in banca ma apert'+(n===1?'a':'e')+' nel gestionale</b>'
       +'<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">'
-      +S.pagateAperte.map(r=>'<div style="font-size:12.5px">Fatt. '+E(invLbl(r.f.numero,r.f.anno))+' · <span style="color:'+t2+'">banca '+eur(r.banca)+' su '+eur(r.tot)+'</span></div>').join('')
-      +'</div><div style="font-size:11.5px;color:'+t2+';margin-top:6px">Si registrano da <b>Fisco e documenti → Quadratura</b> (gruppo «'+(cli?'Incassate':'Pagate')+' in banca, aperte»).</div></div>';
+      +S.pagateAperte.map(r=>'<div style="font-size:12.5px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span>Fatt. '+E(invLbl(r.f.numero,r.f.anno))+' · <span style="color:'+t2+'">banca '+eur(r.banca)+' su '+eur(r.tot)+'</span></span>'
+        +'<button onclick="_bncRegistra(\''+E(String(r.f.id))+'\',\''+lato+'\')" style="font-size:11.5px;padding:3px 10px;border:1px solid '+warn+';background:var(--card);color:'+warn+';border-radius:7px;cursor:pointer;white-space:nowrap">✓ Registra '+(cli?'incasso':'pagamento')+'</button></div>').join('')
+      +'</div><div style="font-size:11.5px;color:'+t2+';margin-top:6px">Registra col pulsante «✓ Registra '+(cli?'incasso':'pagamento')+'» qui sopra, oppure da <b>Fisco e documenti → Quadratura</b>.</div></div>';
   }
   h+='<div><div style="font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:'+t2+';font-weight:600;margin-bottom:6px">Movimenti abbinati a fatture</div>';
   h+=S.attr.length
@@ -386,4 +387,25 @@ async function _bncPann(contId, nome, lato, stillHere){
     if(typeof stillHere==='function' && !stillHere()) return;
     pn.innerHTML=_bncHTML(nome, lato);
   }catch(e){ pn.innerHTML='<div style="color:var(--text2);padding:12px">⚠ Non riesco a caricare i movimenti dalla banca: '+((typeof esc==='function')?esc(e.message||e):(e.message||e))+'</div>'; }
+}
+// Registra sul gestionale il pagamento/incasso visto in banca per una fattura (riuso _qdScriviPagamento),
+// con conferma. Dopo la scrittura ricalcola e ridisegna la scheda (Clienti o Fornitori).
+async function _bncRegistra(fid, lato){
+  if(!QD.dati){ if(typeof toast==='function') toast('Dati banca non caricati'); return; }
+  const prev=QD.lato; QD.lato=(lato==='cli')?'cli':'forn';
+  let r=null;
+  try{ r=qdCalcola().find(x=>String(x.f.id)===String(fid)); }catch(e){}
+  if(!r || r.esito!=='pagamento' || !r.g){ QD.lato=prev; if(typeof toast==='function') toast('Nulla da registrare per questa fattura'); return; }
+  const cli=(lato==='cli');
+  const righe=(r.movs||[]).map(m=>'• '+_qdData(m.data)+'  '+_qdEur(m.imp)+'  '+({num:'(abbinato per numero)',nome:'(abbinato per nome e importo — controlla)',manuale:'(abbinato a mano)'}[m.tipo]||'')).join('\n');
+  const ok=(typeof confirm==='function')?confirm((cli?'Registrare l\'incasso':'Registrare il pagamento')+' della fattura '+(r.f.numero||'')+' di '+(r.f.controparte_nome||'')+'?\n\nMovimenti in banca:\n'+righe+'\n\nTotale '+_qdEur(r.banca)+' su '+_qdEur(r.g.importo)+'.'):true;
+  if(!ok){ QD.lato=prev; return; }
+  try{
+    await _qdScriviPagamento(r);
+    if(typeof _qdDopo==='function') _qdDopo();
+    QD.lato=prev;
+    if(typeof toast==='function') toast('✓ Registrato in '+(cli?'Fatture e scadenze':'Fatture fornitori'));
+    if(cli){ if(typeof cli2Calcola==='function') cli2Calcola(); if(typeof cli2Render==='function') cli2Render(); }
+    else { if(typeof fo2Calcola==='function') fo2Calcola(); if(typeof fo2Render==='function') fo2Render(); }
+  }catch(e){ QD.lato=prev; if(typeof toast==='function') toast('⚠ Non registrato: '+(e.message||e)); }
 }
