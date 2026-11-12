@@ -171,7 +171,7 @@ function ft2Lista(){
   let h='';
   h+=`<div class="ft2-tw"><table class="ft2-t"><thead><tr>
       ${th('cliente','Cliente / commessa')}${th('numero','Numero')}${th('data_fattura','Data')}${th('scadenza','Scadenza')}<th>Stato</th>${th('importo','Importo','r')}<th class="r">Da incassare</th></tr></thead><tbody>
-    ${lista.map(f=>{
+    ${(()=>{ const riga=f=>{
       const k=_f2Classe(f), s=fattStatoScadenza(f), acc=_fattAccTot(f), resid=_fattResiduo(f), imp=+f.importo||0;
       const isDup=dupSet.has(String(f.id));
       const badge={pagata:['ok','Pagata'],da_emettere:['neu','Da emettere'],annullata:['neu','Annullata (NC)'],nc:['neu','Nota di credito'],
@@ -188,7 +188,14 @@ function ft2Lista(){
         <td class="r num" style="font-weight:600;${_f2Credito(f)?'':'color:var(--text2);text-decoration:line-through'}">${fmtE(imp)}</td>
         <td class="r">${f.stato==='emessa'&&_f2Credito(f)?`<span class="num" style="font-weight:600">${fmtE(resid)}</span>${perc!=null?`<div class="ft2-barra" title="incassato ${perc}%"><i style="width:${perc}%"></i></div>`:''}`:'<span class="ft2-sub">—</span>'}
           ${isDup?`<div><button class="bs" style="font-size:11px;padding:3px 8px;margin-top:4px;color:var(--f2-bad)" onclick="event.stopPropagation();fattEliminaId(${f.id})">Elimina doppione</button></div>`:''}</td>
-      </tr>`; }).join('')}
+      </tr>`; };
+      // Da seguire in cima (da incassare, da emettere, doppioni), il resto per anno ▸ mese (raggruppa.js)
+      return typeof RAGGRUPPA!=='undefined'
+        ? RAGGRUPPA.tabella({ chiave:'fatture', voci:lista, colonne:7, cerca:q, riga, anno:FT2.anno||'tutti', ordina:false,
+            data:f=>f.data_fattura, somma:f=>_f2Credito(f)?(+f.importo||0):0, formato:fmtE,
+            daSeguire:f=>f.stato==='da_emettere' || dupSet.has(String(f.id)) || (_f2Credito(f)&&f.stato==='emessa'&&_fattResiduo(f)>0.009) })
+        : lista.map(riga).join(''); })()}
     </tbody></table></div>`;
   cont.innerHTML=h;
 }
+if(typeof RAGGRUPPA!=='undefined') RAGGRUPPA.registra('fatture', ()=>ft2Lista());

@@ -9906,7 +9906,8 @@ function rDocumenti(){
 
   // render cards
   const oggi2=new Date(oggi);
-  document.getElementById('doc-grid').innerHTML=[...DB.documenti].sort((a,b)=>(a.scadenza||'9999')>(b.scadenza||'9999')?1:-1).map(d=>{
+  const _docOrd=[...DB.documenti].sort((a,b)=>(a.scadenza||'9999')>(b.scadenza||'9999')?1:-1);
+  const _docCard=d=>{
     const scadDate=d.scadenza?new Date(d.scadenza):null;
     const diffGg=scadDate?Math.round((scadDate-oggi2)/(86400000)):null;
     let cls='scad-ok',bclass='badge-scad bg',stato='✅ OK';
@@ -9925,7 +9926,13 @@ function rDocumenti(){
       ${d.note?`<div style="font-size:11px;color:var(--text2);margin-top:4px;font-style:italic">${d.note}</div>`:''}
       <button class="bd" style="margin-top:8px" onclick="delItem('documenti','${d.id}',rDocumenti)">Elimina</button>
     </div>`;
-  }).join('')||'<div class="empty">Nessun documento registrato</div>';
+  };
+  // Da seguire in cima (scaduti o in scadenza entro 30 giorni), il resto per mese di scadenza dal più vicino (raggruppa.js)
+  const _rg=typeof RAGGRUPPA!=='undefined'; if(_rg) RAGGRUPPA.registra('documenti', rDocumenti);
+  document.getElementById('doc-grid').innerHTML=(_docOrd.length && _rg
+    ? RAGGRUPPA.tabella({ chiave:'documenti', modo:'blocchi', voci:_docOrd, riga:_docCard, data:d=>d.scadenza, crescente:true,
+        daSeguire:d=>!!(d.scadenza && d.scadenza<=tra30s) })
+    : _docOrd.map(_docCard).join(''))||'<div class="empty">Nessun documento registrato</div>';
 }
 
 function addDocumento(){
@@ -13529,11 +13536,12 @@ function fffRender(){
     (dupSet.size?'<div class="sc" onclick="fffFiltra(\'duplicati\')" style="cursor:pointer;border-color:rgba(232,75,75,.4)" title="Possibili doppioni: stesso fornitore, importo e data"><div class="lb">Possibili doppioni 🔍</div><div class="vl" style="color:#e0645f">'+dupSet.size+'</div></div>':'');
   const list=_fffFiltered();
   if(!list.length){ box.innerHTML='<div style="color:var(--text2);padding:24px;text-align:center">Nessuna fattura per questo filtro.</div>'; return; }
-  let h='<div style="color:var(--text2);font-size:12px;margin-bottom:6px">'+list.length+' fatture</div>';
+  const _rg=typeof RAGGRUPPA!=='undefined'; if(_rg) RAGGRUPPA.registra('fatt-forn', fffRender);
+  let h='<div style="display:flex;align-items:center;gap:10px;color:var(--text2);font-size:12px;margin-bottom:6px">'+(_rg?RAGGRUPPA.selettoreAnno('fatt-forn',rows,r=>r.data_fattura):'')+'<span>'+list.length+' fatture</span></div>';
   h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:860px">'+
     '<thead><tr style="text-align:left;color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.03em">'+
     '<th style="padding:8px 10px">Data</th><th style="padding:8px 10px">Numero</th><th style="padding:8px 10px">Fornitore</th><th style="padding:8px 10px;text-align:right">Importo</th><th style="padding:8px 10px">Stato</th><th style="padding:8px 10px;min-width:240px">Cantiere</th><th style="padding:8px 10px">Nota</th></tr></thead><tbody>';
-  list.forEach(r=>{
+  const _fffRiga=r=>{ let h='';
     const id=esc(String(r.id));
     const isDup=dupSet.has(String(r.id));
     const pagata=_fffIsPagata(r);
@@ -13550,8 +13558,12 @@ function fffRender(){
       '<td style="padding:8px 10px;white-space:nowrap">'+_fffBadge(r)+' '+togglePag+'</td>'+
       '<td style="padding:8px 10px" class="fff-cant">'+cant+' <button onclick="fffEdit(this,\''+id+'\')" style="background:none;border:1px solid var(--brd);border-radius:6px;color:var(--text2);cursor:pointer;font-size:11px;padding:2px 7px;margin-left:6px">✏️</button></td>'+
       '<td style="padding:8px 10px;max-width:200px;color:var(--text2)"><span onclick="fffNota(\''+id+'\')" title="Modifica nota" style="cursor:pointer;display:inline-block">'+(r.note?esc(r.note):'<span style="opacity:.45">＋ nota</span>')+'</span></td>'+
-    '</tr>';
-  });
+    '</tr>'; return h; };
+  // Da seguire in cima (da pagare, doppioni), il resto per anno ▸ mese (raggruppa.js); la ricerca mostra tutto
+  const _q=(document.getElementById('fff-q')||{}).value||'';
+  h+= _rg ? RAGGRUPPA.tabella({ chiave:'fatt-forn', voci:list, colonne:7, cerca:_q, riga:_fffRiga, data:r=>r.data_fattura,
+              somma:r=>parseFloat(r.importo)||0, formato:fmtE, daSeguire:r=>!_fffIsPagata(r)||dupSet.has(String(r.id)) })
+          : list.map(_fffRiga).join('');
   h+='</tbody></table></div>';
   box.innerHTML=h;
 }
@@ -14761,11 +14773,11 @@ setTimeout(()=>{
 <!-- ═══════════ QUADRO FISCALE (import Genya + quadro) ═══════════ -->
 <script src="attrezzeria.js?v=20261101"></script>
 <script src="clienti.js?v=20261107"></script>
-<script src="raggruppa.js?v=20261112"></script>
+<script src="raggruppa.js?v=20261112c"></script>
 <script src="commesse.js?v=20261112"></script>
 <script src="personale.js?v=20261101b"></script>
 <script src="presenze.js?v=20261102"></script>
-<script src="fatture.js?v=20261102"></script>
+<script src="fatture.js?v=20261112"></script>
 <script src="fornitori.js?v=20261107"></script>
 <script src="cruscotto.js?v=20261101"></script>
 <script src="menu.js?v=20261103a"></script>
