@@ -6419,7 +6419,8 @@ function rDettCant(){
   const gmap=_raccogliDettCant(nome,da,al);
   const giorni=Object.keys(gmap).sort();
   let totP=0,totS=0,totC=0,html='',nPend=0;
-  giorni.forEach(d=>{
+  const _rgG={}, _totG={};   // html e totale di ogni giorno, per il raggruppamento per mese
+  giorni.forEach(d=>{ html='';
     const g=gmap[d];
     const tP=g.p.reduce((a,x)=>a+x.tot,0);
     const tS=g.s.reduce((a,x)=>a+parseFloat(x.importo||0),0);
@@ -6459,7 +6460,11 @@ function rDettCant(){
           ${g.scPend.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0"><span style="font-size:12px">🧾 ${x.fornitore||'—'} ${x.categoria?' ['+x.categoria+']':''}</span><div style="display:flex;gap:6px;align-items:center"><span style="color:var(--gold);font-weight:700">${fmt(x.importo)}</span><button class="bs" style="font-size:11px;padding:3px 7px" onclick="contabilizzaScontrino('${x.id}');rDettCant()">✓ Conta</button></div></div>`).join('')}
         </div>`:''}</div>
     </div>`;
+    _rgG[d]=html; _totG[d]={tot:tTot,pend:nScPend};
   });
+  // Giorni per mese (raggruppa.js): in cima i giorni con scontrini da contabilizzare, il resto per mese dal più recente
+  window._dettRg={giorni,_rgG,_totG};
+  html = _dettGiorniHtml();
   const totTot=totP+totS+totC;
   document.getElementById('dett-kpi').innerHTML=`
     <div class="sc"><div class="lb">Giorni</div><div class="vl">${giorni.length}</div></div>
@@ -6469,6 +6474,17 @@ function rDettCant(){
     <div class="sc" style="border-color:var(--teal)"><div class="lb">Totale costi</div><div class="vl rr" style="font-size:18px">${fmt(totTot)}</div></div>
     ${nPend?`<div class="sc" style="border-color:var(--gold)"><div class="lb">🧾 Da contabilizzare</div><div class="vl" style="color:var(--gold);font-size:18px">${nPend}</div></div>`:''}`;
   document.getElementById('dett-body').innerHTML=html||'<div class="ri"><div class="rls">Nessuna attività nel periodo selezionato.</div></div>';
+}
+
+// Elenco dei giorni del dettaglio commessa, diviso per mese (raggruppa.js). Aprire/chiudere un mese
+// ridisegna solo l'elenco (#dett-body), senza ricaricare la scheda.
+function _dettGiorniHtml(){
+  const R=window._dettRg||{giorni:[],_rgG:{},_totG:{}};
+  if(!R.giorni.length) return '';
+  if(typeof RAGGRUPPA==='undefined') return R.giorni.map(d=>R._rgG[d]).join('');
+  RAGGRUPPA.registra('dett-giorni', ()=>{ const el=document.getElementById('dett-body'); if(el) el.innerHTML=_dettGiorniHtml(); });
+  return RAGGRUPPA.tabella({ chiave:'dett-giorni', modo:'blocchi', voci:R.giorni, anno:'tutti', ordina:false,
+    riga:d=>R._rgG[d], data:d=>d, somma:d=>R._totG[d].tot, formato:fmt, titoloSeguire:'Scontrini da contabilizzare', daSeguire:d=>R._totG[d].pend>0 });
 }
 
 async function esportaDettExcel(nomeArg){
@@ -14773,7 +14789,7 @@ setTimeout(()=>{
 <!-- ═══════════ QUADRO FISCALE (import Genya + quadro) ═══════════ -->
 <script src="attrezzeria.js?v=20261101"></script>
 <script src="clienti.js?v=20261107"></script>
-<script src="raggruppa.js?v=20261112d"></script>
+<script src="raggruppa.js?v=20261113"></script>
 <script src="commesse.js?v=20261112"></script>
 <script src="personale.js?v=20261101b"></script>
 <script src="presenze.js?v=20261102"></script>
