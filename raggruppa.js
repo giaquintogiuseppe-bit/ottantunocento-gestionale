@@ -36,7 +36,7 @@ const RAGGRUPPA = (function(){
     const s=document.createElement('style'); s.id='rg-css';
     s.textContent=`
     tr.rg-h td{padding:0!important;border-bottom:1px solid var(--brd);background:var(--card)}
-    div.rg-h{grid-column:1/-1;border:1px solid var(--brd);border-radius:8px;background:var(--card)}
+    div.rg-h{grid-column:1/-1;border:1px solid var(--brd);border-radius:8px;background:var(--card);margin-bottom:8px}
     .rg-h button{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;padding:9px 10px;cursor:pointer;font-size:12.5px}
     .rg-h button:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
     .rg-h .rg-fr{display:inline-block;width:12px;transition:transform .15s;color:var(--text2)}
@@ -49,7 +49,7 @@ const RAGGRUPPA = (function(){
     .rg-mese button{padding-left:26px}
     tr.rg-seg td,div.rg-seg{background:color-mix(in srgb,var(--gold,#c07d16) 10%,var(--card))}
     .rg-seg .rg-t{text-transform:uppercase;font-size:11.5px;letter-spacing:.06em}
-    .rg-anno-sel{border:1px solid var(--brd);background:var(--card);color:var(--text);border-radius:99px;padding:5px 10px;font:inherit;font-size:12.5px;cursor:pointer}
+    .rg-anno-sel{width:auto!important;max-width:100%;margin:0!important;border:1px solid var(--brd);background:var(--card);color:var(--text);border-radius:99px;padding:5px 10px;font:inherit;font-size:12.5px;cursor:pointer}
     `;
     document.head.appendChild(s);
   })();
