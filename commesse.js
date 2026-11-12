@@ -182,7 +182,7 @@ function cm2Calcola(){
 function cm2Render(){
   const root=document.getElementById('cm2-root'); if(!root||!CM2.dati) return;
   const T=CM2.tot, marg=T.ricavo-T.costi;
-  const F=[['attive','Attive',T.conto.attive],['fatturare','Da fatturare',T.conto.fatturare],['perdita','In perdita',T.conto.perdita],
+  const F=[['attive','Attive',T.conto.attive],['tutte','Tutte',Object.keys(CM2.dati).length],['fatturare','Da fatturare',T.conto.fatturare],['perdita','In perdita',T.conto.perdita],
            ['senza','Senza ricavo',T.conto.senzaRicavo],['concluse','Concluse',T.conto.concluse],['archivio','Archivio',T.conto.archivio]];
   root.innerHTML=`
     <div class="cm2-testa">
@@ -200,7 +200,7 @@ function cm2Render(){
       <section class="cm2-pan" aria-label="Elenco commesse">
         <div class="cm2-filtri">
           <input class="cm2-cerca" id="cm2-q" type="search" placeholder="Cerca per nome, codice, cliente o luogo" value="${esc(CM2.q)}" oninput="CM2.q=this.value;cm2Elenco()">
-          <div style="display:flex;gap:6px;flex-wrap:wrap">${F.map(([k,t,n])=>`<button class="cm2-chip ${CM2.filtro===k?'on':''}" onclick="CM2.filtro='${k}';cm2Render()">${t}<span class="n">${n}</span></button>`).join('')}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${typeof RAGGRUPPA!=='undefined'?RAGGRUPPA.selettoreAnno('commesse',Object.values(CM2.dati),_m2DataRif):''}${F.map(([k,t,n])=>`<button class="cm2-chip ${CM2.filtro===k?'on':''}" onclick="CM2.filtro='${k}';cm2Render()">${t}<span class="n">${n}</span></button>`).join('')}</div>
         </div>
         <div class="cm2-tabw"><table class="cm2-t">
           <thead><tr><th>Commessa</th><th class="r">Ricavo<br><span class="cm2-iva">imponibile</span></th><th class="r cm2-opz">Costi<br><span class="cm2-iva">netti</span></th><th class="r">Margine</th><th class="cm2-opz">Fatturato</th></tr></thead>
@@ -243,16 +243,25 @@ function cm2Elenco(){
   v.sort((a,b)=> (ord[a.cat]-ord[b.cat]) || (b.daFatt-a.daFatt) || String(b.c.periodoInizio||'').localeCompare(String(a.c.periodoInizio||'')) || a.c.nome.localeCompare(b.c.nome));
   if(!CM2.scelto || !CM2.dati[CM2.scelto] || !v.some(d=>d.c.id===CM2.scelto)) CM2.scelto = v.length ? v[0].c.id : CM2.scelto;
   const per = c => { const a=_m2data(c.periodoInizio), b=_m2data(c.periodoFine); return a&&b&&a!==b ? `${a} → ${b}` : (a||b||''); };
-  tb.innerHTML = v.length ? v.map(d=>{ const st=_M2_STATO[d.cat]||['','neu','var(--brd)']; return `
+  const riga = d=>{ const st=_M2_STATO[d.cat]||['','neu','var(--brd)']; return `
     <tr class="${d.c.id===CM2.scelto?'sel':''}" data-id="${esc(d.c.id)}" onclick="cm2Apri(this.dataset.id)">
       <td><div class="cm2-nome"><span class="cm2-dot" style="background:${st[2]}" title="${st[0]}"></span>${esc(d.c.nome)} ${_m2Stato(d)}</div>
         <div class="cm2-sub">${d.c.codice?`<span class="cm2-cod">${esc(d.c.codice)}</span> · `:''}${esc(d.cliente||'senza cliente')}${d.c.luogo?' · '+esc(d.c.luogo):''}${per(d.c)?' · '+per(d.c):''}</div></td>
       <td class="r num">${d.ricavo>0?_m2fm(d.ricavo):'<span class="cm2-zero">—</span>'}</td>
       <td class="r num cm2-opz">${d.costi>0?_m2fm(d.costi):'<span class="cm2-zero">—</span>'}</td>
       <td class="r">${_m2Margine(d)}</td>
-      <td class="cm2-opz">${_m2Avanz(d)}${d.daFatt>1?`<div class="cm2-sub">da fatturare <b class="num">${_m2fm(d.daFatt)}</b></div>`:''}</td></tr>`; }).join('')
+      <td class="cm2-opz">${_m2Avanz(d)}${d.daFatt>1?`<div class="cm2-sub">da fatturare <b class="num">${_m2fm(d.daFatt)}</b></div>`:''}</td></tr>`; };
+  // Da seguire in cima (aperte o con qualcosa da fatturare), il resto per anno ▸ mese (raggruppa.js)
+  tb.innerHTML = v.length ? (typeof RAGGRUPPA!=='undefined'
+      ? RAGGRUPPA.tabella({ chiave:'commesse', voci:v, colonne:5, cerca:q, riga, data:_m2DataRif,
+          daSeguire:d=>!['conclusa','persa','archivio'].includes(d.cat) || d.daFatt>1, somma:d=>d.ricavo, formato:_m2fm })
+      : v.map(riga).join(''))
     : `<tr><td colspan="5" class="cm2-vuoto">${q?'Nessuna commessa corrisponde alla ricerca.':'Nessuna commessa in questa vista.'}</td></tr>`;
 }
+
+// Data di riferimento della commessa per il raggruppamento: inizio, fine, ultima giornata
+function _m2DataRif(d){ return d.c.periodoInizio || d.c.periodoFine || d.ultimo || ''; }
+if(typeof RAGGRUPPA!=='undefined') RAGGRUPPA.registra('commesse', ()=>cm2Elenco());
 
 function cm2Apri(id){ CM2.scelto=id; document.querySelectorAll('#cm2-righe tr').forEach(tr=>tr.classList.toggle('sel', tr.dataset.id===id)); cm2Scheda();
   const el=document.getElementById('cm2-scheda'); if(el && window.innerWidth<1150) el.scrollIntoView({behavior:'smooth',block:'start'}); }
