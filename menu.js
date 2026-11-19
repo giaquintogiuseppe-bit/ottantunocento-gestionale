@@ -25,7 +25,7 @@ const MENU_AREE = [
       { pg:'pagamenti', nome:'Chiusura settimana' }, { pg:'riepilogo', nome:'Riepilogo' }, { pg:'danni', nome:'Danni' },
       { pg:'documenti', nome:'Documenti' } ] },
   { id:'mezzi', nome:'Mezzi e attrezzature', icona:'mezzi', schede:[
-      { pg:'flotta', nome:'Flotta e carburante' }, { pg:'dkv', nome:'Importa DKV' },
+      { pg:'flotta', nome:'Flotta e carburante' }, { pg:'dkv', nome:'Importa DKV' }, { pg:'dkvantifrode', nome:'Antifrode DKV' },
       { pg:'attrezzeria', nome:'Attrezzeria' }, { pg:'parco', nome:'Parco risorse', dopo:'renderParco' } ] },
   { id:'fisco', nome:'Fisco e documenti', icona:'fisco', schede:[ { pg:'fisco', nome:'Quadro fiscale' }, { pg:'banca', nome:'Banca' } ] },
   { id:'impostazioni', nome:'Impostazioni', icona:'impostazioni', schede:[

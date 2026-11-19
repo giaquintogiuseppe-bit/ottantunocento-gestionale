@@ -1722,6 +1722,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 
   <!-- MODULO DKV -->
+  <div id="pg-dkvantifrode" class="pg"><div id="dka-root"></div></div>
   <div id="pg-dkv" class="pg">
     <div class="pt">⛽ Importa DKV</div>
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:20px">
@@ -3655,7 +3656,7 @@ function nav(pg){
 function render(p){
   if(p==='cantieri'||p==='clienti-gest'){ caricaRifornimentiCloud().then(()=>{ if(p==='cantieri') rCant(); }); }
   if(p==='clienti-gest'){ refLoad(); }
-  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:()=>rAttrezzeria(),clienti:()=>rClienti(),commesse:()=>rCommesse(),personale:()=>rPersonale(),fornitori:()=>rFornitori(),cruscotto:()=>rCruscottoOggi(),saldi:rSaldi,riepilogo:rRiepilogo,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,'fatture-fornitori':rFattureFornitori,coerenza:rCoerenza,fisco:window.rFisco,banca:()=>window.rBanca&&window.rBanca()}[p]||(() =>{}))();
+  ({dash:rDash,presenze:rPres,'nuova-giornata':rNuovaGiornata,cantieri:rCant,'dettaglio-cant':rDettCant,flotta:rFlotta,attrezzeria:()=>rAttrezzeria(),clienti:()=>rClienti(),commesse:()=>rCommesse(),personale:()=>rPersonale(),fornitori:()=>rFornitori(),cruscotto:()=>rCruscottoOggi(),saldi:rSaldi,riepilogo:rRiepilogo,'scheda-dip':rSchedaDip,anticipi:rAnticip,pagamenti:rPagamenti,grafici:rGrafici,documenti:rDocumenti,sync:rSync,dkv:rDkv,dkvantifrode:()=>rDkvAntifrode(),scontrini:rScontrini,anagrafica:rAnagrafica,danni:rDanni,incassi:rIncassi,'clienti-gest':renderClientiGest,referenti:rReferenti,'report-cliente':()=>{},'posizione-clienti':rPosizioneClienti,'posizione-fornitori':rPosizioneFornitori,'fatture-fornitori':rFattureFornitori,coerenza:rCoerenza,fisco:window.rFisco,banca:()=>window.rBanca&&window.rBanca()}[p]||(() =>{}))();
 }
 
 // ============================================================
@@ -14795,6 +14796,7 @@ setTimeout(()=>{
 <script src="presenze.js?v=20261102"></script>
 <script src="fatture.js?v=20261112"></script>
 <script src="fornitori.js?v=20261107"></script>
+<script src="dkv-antifrode.js?v=20261119"></script>
 <script src="cruscotto.js?v=20261101"></script>
 <script src="menu.js?v=20261103a"></script>
 <script src="fisco.js?v=20261104a"></script>
