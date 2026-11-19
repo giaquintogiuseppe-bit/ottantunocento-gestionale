@@ -44,6 +44,8 @@ const DKA = { filtro:'tutte', targa:'', giorni:0, righe:null, errore:false, cari
 
 const _dkaRifiutata = r => String(r.esito||'').toUpperCase().startsWith('DEC');
 const _dkaSenzaScontrino = r => !r.scontrino_trovato;
+const _dkaFlagSenza = r => _dkaMotivi(r).some(m=>/senza scontrino/i.test(m));   // "senza scontrino" VERO: segnalato dopo 24h di tolleranza
+const _dkaInAttesa = r => !r.scontrino_trovato && !_dkaFlagSenza(r);            // scontrino non ancora registrato (ancora nel periodo di tolleranza)
 const _dkaFm = v => (v==null||v==='') ? '' : (Math.round((+v||0)*100)/100).toLocaleString('it-IT',{style:'currency',currency:'EUR'});
 const _dkaData = s => { if(!s) return ''; const d=new Date(s); return isNaN(d)?String(s):d.toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}); };
 const _dkaEsc = s => (typeof esc==='function') ? esc(s) : String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -78,7 +80,7 @@ function dkaFiltrate(){
   const lim=DKA.giorni? Date.now()-DKA.giorni*864e5 : 0;
   return (DKA.righe||[]).filter(r=>{
     if(DKA.filtro==='sospette' && !r.sospetta) return false;
-    if(DKA.filtro==='senza' && !_dkaSenzaScontrino(r)) return false;
+    if(DKA.filtro==='senza' && !_dkaFlagSenza(r)) return false;
     if(DKA.filtro==='rifiutate' && !_dkaRifiutata(r)) return false;
     if(DKA.targa && r.targa!==DKA.targa) return false;
     if(lim){ const t=new Date(r.ts_transazione||r.ricevuta_il||0).getTime(); if(!(t>=lim)) return false; }
@@ -91,7 +93,7 @@ function dkaImposta(k,v){ DKA[k]=v; dkaRender(); }
 function dkaRender(){
   const root=document.getElementById('dka-root'); if(!root) return;
   const tutte=DKA.righe||[];
-  const n={ tot:tutte.length, sosp:tutte.filter(r=>r.sospetta).length, senza:tutte.filter(_dkaSenzaScontrino).length, rif:tutte.filter(_dkaRifiutata).length };
+  const n={ tot:tutte.length, sosp:tutte.filter(r=>r.sospetta).length, senza:tutte.filter(_dkaFlagSenza).length, rif:tutte.filter(_dkaRifiutata).length };
   const targhe=[...new Set(tutte.map(r=>r.targa).filter(Boolean))].sort();
   const F=[['tutte','Tutte',n.tot],['sospette','Sospette',n.sosp],['senza','Senza scontrino',n.senza],['rifiutate','Rifiutate',n.rif]];
   const righe=dkaFiltrate();
@@ -129,7 +131,7 @@ function dkaRiga(r){
     <td class="r">${r.litri!=null?_dkaEsc((+r.litri).toLocaleString('it-IT',{maximumFractionDigits:2})):''}</td>
     <td class="r">${_dkaEsc(_dkaFm(r.importo))}</td>
     <td>${_dkaEsc(r.stazione||'')}<div class="dka-sub">${_dkaEsc(r.citta||'')}</div></td>
-    <td>${_dkaEsc(r.cantiere||'')}${_dkaSenzaScontrino(r)?'<div class="dka-sub">senza scontrino</div>':''}</td>
+    <td>${r.cantiere?_dkaEsc(r.cantiere):(_dkaFlagSenza(r)?'<span class="dka-mot">senza scontrino</span>':(_dkaInAttesa(r)?'<span class="dka-sub" style="font-style:italic">scontrino in attesa</span>':''))}</td>
     <td><span class="dka-b ${rif?'bad':'ok'}">${_dkaEsc(r.esito||'')}</span>${r.sospetta?'<div class="dka-mot">SOSPETTA'+(mot.length?': '+mot.map(_dkaEsc).join('; '):'')+'</div>':''}</td>
     <td>${_dkaEsc(r.stato||'')}</td>
     <td>${vista?'':`<button class="dka-mini" onclick="dkaSegnaVista('${id.replace(/'/g,'')}',this)">Segna vista</button>`}</td>
