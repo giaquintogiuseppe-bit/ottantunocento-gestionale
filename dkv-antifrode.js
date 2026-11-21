@@ -91,10 +91,9 @@ function _dkaDaImportare(){
   return (DKA.righe||[]).filter(r=>_dkaApp(r) && r.cantiere && !_dkaGiaImportata(r,_dkaDataRoma(r.ts_transazione||r.ricevuta_il)));
 }
 
-async function dkaImportaCosti(){
+async function dkaImportaCosti(silent){
   try{
-    if(typeof DB==='undefined'||!DB||!Array.isArray(DB.carburante)){ _dkaAvviso('Dati non pronti'); return; }
-    // rilegge da Supabase le righe importabili (fallback: righe già in pagina)
+    if(typeof DB==='undefined'||!DB||!Array.isArray(DB.carburante)){ if(!silent)_dkaAvviso('Dati non pronti'); return 0; }
     let righe=null;
     try{
       const r=await fetch(SUPABASE_URL+'/rest/v1/dkv_autorizzazioni?select=*&esito=ilike.APP*&litri=gt.0&cantiere=not.is.null&order=ts_transazione.asc&limit=1000',
@@ -102,7 +101,7 @@ async function dkaImportaCosti(){
       if(!r.ok) throw new Error('HTTP '+r.status);
       const d=await r.json(); if(!Array.isArray(d)) throw new Error('risposta non valida');
       righe=d;
-    }catch(e){ _dkaAvviso('Impossibile leggere da DKV (offline o errore)'); return; }
+    }catch(e){ if(!silent)_dkaAvviso('Impossibile leggere da DKV (offline o errore)'); return 0; }
     let n=0;
     righe.forEach(r=>{
       if(!_dkaApp(r) || !r.cantiere) return;
@@ -119,10 +118,26 @@ async function dkaImportaCosti(){
       n++;
     });
     if(n){ save(); }
-    dkaRender();
-    _dkaAvviso(n? `${n} rifornimenti DKV importati nei cantieri ✓` : 'Nessun nuovo rifornimento da importare');
-  }catch(e){ _dkaAvviso('Errore nell\'import dei costi'); }
+    if(typeof document!=='undefined' && document.getElementById('dka-root')) dkaRender();
+    if(!silent) _dkaAvviso(n? `${n} rifornimenti DKV importati nei cantieri ✓` : 'Nessun nuovo rifornimento da importare');
+    else if(n) _dkaAvviso(`${n} costi carburante DKV aggiornati sui cantieri`);
+    return n;
+  }catch(e){ if(!silent)_dkaAvviso('Errore nell\'import dei costi'); return 0; }
 }
+
+// Import automatico dei costi DKV all'avvio del gestionale: silenzioso e idempotente (dedup su Authorization ID).
+// Aspetta che DB sia caricato, poi importa una volta. Nessun doppione ai riavvii.
+(function dkaAutoImportCosti(){
+  if(typeof window==='undefined') return;
+  var tent=0;
+  var t=setInterval(function(){
+    tent++;
+    if(typeof DB!=='undefined' && DB && Array.isArray(DB.carburante) && typeof SUPABASE_URL!=='undefined' && SUPABASE_URL){
+      clearInterval(t);
+      try{ dkaImportaCosti(true); }catch(e){}
+    } else if(tent>40){ clearInterval(t); }   // si arrende dopo ~40s
+  }, 1000);
+})();
 
 function _dkaCantieriAttivi(){
   const db=(typeof DB!=='undefined'&&DB)||{};
