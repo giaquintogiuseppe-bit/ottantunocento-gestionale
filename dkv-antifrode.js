@@ -1,7 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════════
    ANTIFRODE DKV — controllo delle autorizzazioni carburante ricevute da DKV
    (tabella Supabase dkv_autorizzazioni): transazioni sospette, senza
-   scontrino o rifiutate. Sola lettura + "Segna vista" (stato='vista').
+   scontrino o rifiutate. "Segna vista" (stato='vista'), assegnazione cantiere agli orfani e import dei costi
+   in DB.carburante (che alimenta i costi di commessa).
    Config Supabase solo dalle globali SUPABASE_URL / SUPABASE_KEY.
    Se la rete non risponde la pagina mostra "Dati non disponibili (offline)".
    Script classico, scope globale (prefisso DKA / dka).
@@ -36,6 +37,9 @@ const DKA = { filtro:'tutte', targa:'', giorni:0, righe:null, errore:false, cari
   .dka-b.bad{color:var(--red);border-color:var(--red)}
   .dka-b.ok{color:var(--green)}
   .dka-vuoto{color:var(--text2);font-size:13px;padding:16px}
+  .dka-imp{margin-bottom:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .dka-imp button{font:inherit;font-size:14px;font-weight:600;padding:9px 16px;border-radius:10px;border:1px solid var(--text);background:var(--text);color:var(--card);cursor:pointer}
+  .dka-imp button:disabled{opacity:.4;cursor:default}
   .dka-mini{font-size:11.5px;padding:3px 8px;border-radius:7px;border:1px solid var(--brd);background:var(--card);cursor:pointer;color:var(--text);white-space:nowrap}
   @media (max-width:760px){ .dka-tot{grid-template-columns:repeat(2,minmax(0,1fr))} }
   `;
@@ -55,6 +59,99 @@ function _dkaMotivi(r){
   if(typeof m==='string'){ try{ const j=JSON.parse(m); m=j; }catch(e){ m=m?[m]:[]; } }
   if(!Array.isArray(m)) m=m?[String(m)]:[];
   return m.map(String);
+}
+
+/* ── Import costi / assegnazione cantiere ───────────────────────────── */
+const _dkaApp = r => String(r.esito||'').toUpperCase().startsWith('APP') && +r.litri>0;
+const _dkaOrfana = r => _dkaApp(r) && !r.cantiere;
+const _dkaNumLitri = v => parseFloat(String(v==null?'':v).replace(',','.'));
+const _dkaDataRoma = ts => {
+  const d=new Date(ts); if(isNaN(d)) return '';
+  try{ return new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Rome',year:'numeric',month:'2-digit',day:'2-digit'}).format(d); }
+  catch(e){ return d.toISOString().slice(0,10); }
+};
+const _dkaNorm = s => String(s||'').replace(/\s+/g,'').toUpperCase();
+// Già presente in DB.carburante? (1: stesso authId / nota; 2: stessa data+targa+litri da altra via)
+function _dkaGiaImportata(r, data){
+  const car=(typeof DB!=='undefined'&&DB&&Array.isArray(DB.carburante))?DB.carburante:[];
+  const aid=String(r.authorization_id), targa=_dkaNorm(r.targa), lt=+r.litri;
+  return car.some(c=>{
+    if(!c) return false;
+    if(c.authId && String(c.authId)===aid) return true;
+    if(aid && String(c.note||'').includes('DKV auto '+aid)) return true;
+    if(!targa || c.data!==data) return false;
+    const ct=_dkaNorm(c.targa) || _dkaNorm(String(c.note||'').split('—')[0]);
+    const nt=_dkaNorm(c.note||'');
+    if(!(ct===targa || nt.includes(targa))) return false;
+    const cl=_dkaNumLitri(c.litri);
+    return isFinite(cl) && Math.abs(cl-lt)<0.05;
+  });
+}
+function _dkaDaImportare(){
+  return (DKA.righe||[]).filter(r=>_dkaApp(r) && r.cantiere && !_dkaGiaImportata(r,_dkaDataRoma(r.ts_transazione||r.ricevuta_il)));
+}
+
+async function dkaImportaCosti(){
+  try{
+    if(typeof DB==='undefined'||!DB||!Array.isArray(DB.carburante)){ _dkaAvviso('Dati non pronti'); return; }
+    // rilegge da Supabase le righe importabili (fallback: righe già in pagina)
+    let righe=null;
+    try{
+      const r=await fetch(SUPABASE_URL+'/rest/v1/dkv_autorizzazioni?select=*&esito=ilike.APP*&litri=gt.0&cantiere=not.is.null&order=ts_transazione.asc&limit=1000',
+        {headers:{apikey:SUPABASE_KEY, Authorization:'Bearer '+SUPABASE_KEY}});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const d=await r.json(); if(!Array.isArray(d)) throw new Error('risposta non valida');
+      righe=d;
+    }catch(e){ _dkaAvviso('Impossibile leggere da DKV (offline o errore)'); return; }
+    let n=0;
+    righe.forEach(r=>{
+      if(!_dkaApp(r) || !r.cantiere) return;
+      const data=_dkaDataRoma(r.ts_transazione||r.ricevuta_il);
+      if(!data || _dkaGiaImportata(r,data)) return;
+      const imp=Number(r.importo)||0;
+      DB.carburante.push({
+        id:uid(), data, prodotto:r.prodotto||'', litri:String(r.litri),
+        prezzo: r.litri ? String((imp/r.litri).toFixed(3)) : '—',
+        totale:imp, cantiere:r.cantiere,
+        note:`${r.targa||''} — DKV auto ${r.authorization_id}`,
+        authId:r.authorization_id, targa:r.targa||''
+      });
+      n++;
+    });
+    if(n){ save(); }
+    dkaRender();
+    _dkaAvviso(n? `${n} rifornimenti DKV importati nei cantieri ✓` : 'Nessun nuovo rifornimento da importare');
+  }catch(e){ _dkaAvviso('Errore nell\'import dei costi'); }
+}
+
+function _dkaCantieriAttivi(){
+  const db=(typeof DB!=='undefined'&&DB)||{};
+  const arch=new Set(db._cantieriArchiviati||[]);
+  return (db.cantieri||[]).filter(c=>{
+    if(!c||!c.nome||arch.has(c.id)) return false;
+    const s=(c.stato||c.tipo||'').toLowerCase();
+    return !s.includes('conclus')&&!s.includes('perso')&&!s.includes('rifiut');
+  }).map(c=>c.nome).sort((a,b)=>a.localeCompare(b,'it'));
+}
+
+async function dkaAssegnaCantiere(id,cantiere,sel){
+  if(!cantiere) return;
+  const x=(DKA.righe||[]).find(q=>String(q.authorization_id)===String(id)); if(!x) return;
+  if(sel) sel.disabled=true;
+  try{
+    const motiviArr=_dkaMotivi(x).filter(m=>!/senza scontrino/i.test(m));
+    const sospetta=motiviArr.length>0;
+    const motivi_sospetto=motiviArr.length?motiviArr.join('; '):null;   // colonna TEXT: stringa come scrive l'Apps Script, non array
+    const r=await fetch(SUPABASE_URL+'/rest/v1/dkv_autorizzazioni?authorization_id=eq.'+encodeURIComponent(id),
+      {method:'PATCH', headers:{apikey:SUPABASE_KEY, Authorization:'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json', Prefer:'return=minimal'},
+       body:JSON.stringify({cantiere, scontrino_trovato:true, sospetta, motivi_sospetto})});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    x.cantiere=cantiere; x.scontrino_trovato=true; x.sospetta=sospetta; x.motivi_sospetto=motivi_sospetto;
+    dkaRender(); _dkaAvviso('Cantiere assegnato ✓');
+  }catch(e){
+    if(sel){ sel.disabled=false; sel.value=''; }
+    _dkaAvviso('Impossibile assegnare (offline o errore)');
+  }
 }
 
 async function rDkvAntifrode(){
@@ -82,6 +179,7 @@ function dkaFiltrate(){
     if(DKA.filtro==='sospette' && !r.sospetta) return false;
     if(DKA.filtro==='senza' && !_dkaFlagSenza(r)) return false;
     if(DKA.filtro==='rifiutate' && !_dkaRifiutata(r)) return false;
+    if(DKA.filtro==='assegnare' && !_dkaOrfana(r)) return false;
     if(DKA.targa && r.targa!==DKA.targa) return false;
     if(lim){ const t=new Date(r.ts_transazione||r.ricevuta_il||0).getTime(); if(!(t>=lim)) return false; }
     return true;
@@ -93,13 +191,15 @@ function dkaImposta(k,v){ DKA[k]=v; dkaRender(); }
 function dkaRender(){
   const root=document.getElementById('dka-root'); if(!root) return;
   const tutte=DKA.righe||[];
-  const n={ tot:tutte.length, sosp:tutte.filter(r=>r.sospetta).length, senza:tutte.filter(_dkaFlagSenza).length, rif:tutte.filter(_dkaRifiutata).length };
+  const n={ tot:tutte.length, sosp:tutte.filter(r=>r.sospetta).length, senza:tutte.filter(_dkaFlagSenza).length, rif:tutte.filter(_dkaRifiutata).length, orf:tutte.filter(_dkaOrfana).length };
+  const nImp=DKA.righe?_dkaDaImportare().length:0;
   const targhe=[...new Set(tutte.map(r=>r.targa).filter(Boolean))].sort();
-  const F=[['tutte','Tutte',n.tot],['sospette','Sospette',n.sosp],['senza','Senza scontrino',n.senza],['rifiutate','Rifiutate',n.rif]];
+  const F=[['tutte','Tutte',n.tot],['sospette','Sospette',n.sosp],['senza','Senza scontrino',n.senza],['rifiutate','Rifiutate',n.rif],['assegnare','Da assegnare',n.orf]];
   const righe=dkaFiltrate();
   root.innerHTML=`
     <div class="dka-testa"><h2>Antifrode DKV</h2><p>Autorizzazioni carburante ricevute da DKV, con controllo di scontrino e anomalie.</p></div>
     ${DKA.errore?'<div class="dka-vuoto" style="border:1px solid var(--red);border-radius:10px;margin-bottom:12px;color:var(--red)">Dati non disponibili (offline). <button class="dka-mini" onclick="rDkvAntifrode()">Riprova</button></div>':''}
+    <div class="dka-imp"><button ${nImp?'':'disabled'} onclick="dkaImportaCosti()">⛽ Importa costi sui cantieri (${nImp})</button><span class="dka-sub">Registra nei costi di commessa i rifornimenti già abbinati a un cantiere (importo stimato DKV; non duplica).</span></div>
     <div class="dka-tot">
       <div><small>Transazioni</small><b>${n.tot}</b></div>
       <div class="rosso"><small>Sospette</small><b>${n.sosp}</b></div>
@@ -131,11 +231,16 @@ function dkaRiga(r){
     <td class="r">${r.litri!=null?_dkaEsc((+r.litri).toLocaleString('it-IT',{maximumFractionDigits:2})):''}</td>
     <td class="r">${_dkaEsc(_dkaFm(r.importo))}</td>
     <td>${_dkaEsc(r.stazione||'')}<div class="dka-sub">${_dkaEsc(r.citta||'')}</div></td>
-    <td>${r.cantiere?_dkaEsc(r.cantiere):(_dkaFlagSenza(r)?'<span class="dka-mot">senza scontrino</span>':(_dkaInAttesa(r)?'<span class="dka-sub" style="font-style:italic">scontrino in attesa</span>':''))}</td>
+    <td>${r.cantiere?_dkaEsc(r.cantiere):(_dkaOrfana(r)?dkaSelCantiere(id):(_dkaFlagSenza(r)?'<span class="dka-mot">senza scontrino</span>':(_dkaInAttesa(r)?'<span class="dka-sub" style="font-style:italic">scontrino in attesa</span>':'')))}</td>
     <td><span class="dka-b ${rif?'bad':'ok'}">${_dkaEsc(r.esito||'')}</span>${r.sospetta?'<div class="dka-mot">SOSPETTA'+(mot.length?': '+mot.map(_dkaEsc).join('; '):'')+'</div>':''}</td>
     <td>${_dkaEsc(r.stato||'')}</td>
     <td>${vista?'':`<button class="dka-mini" onclick="dkaSegnaVista('${id.replace(/'/g,'')}',this)">Segna vista</button>`}</td>
   </tr>`;
+}
+
+function dkaSelCantiere(id){
+  const op=_dkaCantieriAttivi();
+  return `<select class="dka-sel" aria-label="Assegna cantiere" onchange="dkaAssegnaCantiere('${id.replace(/'/g,'')}',this.value,this)"><option value="">— scegli —</option>${op.map(n=>`<option value="${_dkaEsc(n)}">${_dkaEsc(n)}</option>`).join('')}</select>`;
 }
 
 async function dkaSegnaVista(id,btn){
